@@ -9,6 +9,7 @@ import {
   Medal,
   Plus,
   Settings,
+  Sparkles,
   Trophy,
   X,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import {
 } from "react-router";
 
 import FluxGemMark from "./FluxGemMark";
+import useAuth from "../../hooks/useAuth";
 
 const PRIMARY_NAV = [
   {
@@ -28,6 +30,15 @@ const PRIMARY_NAV = [
       "hover:border-indigo-200 hover:bg-indigo-50/90 hover:text-indigo-700",
     iconHoverClass:
       "group-hover:bg-indigo-100 group-hover:text-indigo-700",
+  },
+  {
+    label: "Generate",
+    icon: Sparkles,
+    path: "/generate",
+    hoverClass:
+      "hover:border-violet-200 hover:bg-violet-50/90 hover:text-violet-700",
+    iconHoverClass:
+      "group-hover:bg-violet-100 group-hover:text-violet-700",
   },
   {
     label: "AI Tutor",
@@ -41,7 +52,7 @@ const PRIMARY_NAV = [
   {
     label: "Study Library",
     icon: BookOpen,
-    comingSoon: true,
+    path: "/library",
     hoverClass:
       "hover:border-violet-200 hover:bg-violet-50/90 hover:text-violet-700",
     iconHoverClass:
@@ -138,6 +149,7 @@ function DashboardSidebar({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const handleSelect = (item) => {
     if (item.comingSoon) {
@@ -153,6 +165,13 @@ function DashboardSidebar({
   const isActive = (item) => {
     if (!item.path) {
       return false;
+    }
+
+    if (
+      item.path === "/library" &&
+      location.pathname.startsWith("/study/")
+    ) {
+      return true;
     }
 
     return location.pathname === item.path;
@@ -269,7 +288,7 @@ function DashboardSidebar({
                 </p>
 
                 <p className="mt-0.5 text-lg font-extrabold text-slate-900">
-                  0
+                  {Number(user?.fluxGems || 0)}
                 </p>
               </div>
 

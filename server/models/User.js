@@ -54,6 +54,12 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    fluxGems: {
+      type: Number,
+      default: 0,
+      min: [0, "FluxGems balance cannot be negative."],
+    },
+
     role: {
       type: String,
       enum: ["student", "admin"],

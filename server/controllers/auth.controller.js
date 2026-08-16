@@ -235,6 +235,7 @@ export const login = async (req, res, next) => {
           email: user.email,
           role: user.role,
           avatar: user.avatar,
+          fluxGems: Number(user.fluxGems || 0),
           isEmailVerified:
             user.isEmailVerified,
           learningProfileCompleted:
@@ -422,6 +423,7 @@ export const googleAuth = async (
           email: user.email,
           role: user.role,
           avatar: user.avatar,
+          fluxGems: Number(user.fluxGems || 0),
           isEmailVerified:
             user.isEmailVerified,
           learningProfileCompleted:
@@ -606,6 +608,7 @@ export const verifyEmail = async (req, res, next) => {
           email: user.email,
           role: user.role,
           avatar: user.avatar,
+          fluxGems: Number(user.fluxGems || 0),
           isEmailVerified:
             user.isEmailVerified,
           learningProfileCompleted:
@@ -753,6 +756,7 @@ export const getMe = async (req, res) => {
         email: req.user.email,
         role: req.user.role,
         avatar: req.user.avatar,
+        fluxGems: Number(req.user.fluxGems || 0),
         isEmailVerified:
           req.user.isEmailVerified,
         learningProfileCompleted:

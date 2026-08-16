@@ -125,7 +125,7 @@ function DashboardTopbar({
                 </p>
 
                 <p className="text-sm font-extrabold leading-4 text-slate-900">
-                  0
+                  {Number(user?.fluxGems || 0)}
                 </p>
               </div>
 
@@ -157,7 +157,7 @@ function DashboardTopbar({
                         </p>
 
                         <p className="mt-0.5 text-xl font-extrabold text-slate-900">
-                          0
+                          {Number(user?.fluxGems || 0)}
                         </p>
                       </div>
                     </div>

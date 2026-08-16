@@ -10,6 +10,7 @@ import {
 import { useNavigate } from "react-router";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
+import useAuth from "../hooks/useAuth";
 import DashboardLayout from "../layouts/DashboardLayout";
 
 const PACKAGES = [
@@ -32,6 +33,8 @@ const PACKAGES = [
 
 function WalletPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const fluxGems = Number(user?.fluxGems || 0);
 
   return (
     <DashboardLayout>
@@ -73,7 +76,7 @@ function WalletPage() {
               </p>
 
               <p className="mt-1 text-4xl font-extrabold tracking-tight text-slate-900">
-                0
+                {fluxGems}
               </p>
 
               <p className="text-sm text-slate-500">
@@ -90,9 +93,9 @@ function WalletPage() {
               />
 
               <p className="text-sm leading-6 text-slate-600">
-                FluxGems will be used for AI-generated
-                notes, quizzes and paid AI Tutor usage
-                once those systems are connected.
+                FluxGems now power AI-generated notes
+                and quizzes. AI Tutor usage will connect
+                to the same wallet in its later phase.
               </p>
             </div>
           </div>

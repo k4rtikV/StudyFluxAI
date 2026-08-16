@@ -11,12 +11,17 @@ import AchievementsPage from "./pages/AchievementsPage";
 import DashboardPage from "./pages/DashboardPage";
 import EditProfilePage from "./pages/EditProfilePage";
 import FluxGemsInfoPage from "./pages/FluxGemsInfoPage";
+import GeneratePage from "./pages/GeneratePage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import NotesGeneratorPage from "./pages/NotesGeneratorPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import ProfilePage from "./pages/ProfilePage";
+import QuizGeneratorPage from "./pages/QuizGeneratorPage";
 import RegisterPage from "./pages/RegisterPage";
+import StudyLibraryPage from "./pages/StudyLibraryPage";
+import StudySessionPage from "./pages/StudySessionPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import WalletPage from "./pages/WalletPage";
 
@@ -73,6 +78,51 @@ function App() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/generate"
+        element={
+          <ProtectedRoute>
+            <GeneratePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/generate/notes"
+        element={
+          <ProtectedRoute>
+            <NotesGeneratorPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/generate/quiz"
+        element={
+          <ProtectedRoute>
+            <QuizGeneratorPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/library"
+        element={
+          <ProtectedRoute>
+            <StudyLibraryPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/study/:sessionId"
+        element={
+          <ProtectedRoute>
+            <StudySessionPage />
           </ProtectedRoute>
         }
       />

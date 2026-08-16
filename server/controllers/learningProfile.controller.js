@@ -156,6 +156,7 @@ export const saveLearningProfile = async (
           email: req.user.email,
           role: req.user.role,
           avatar: req.user.avatar,
+          fluxGems: Number(req.user.fluxGems || 0),
           isEmailVerified:
             req.user
               .isEmailVerified,

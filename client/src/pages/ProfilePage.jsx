@@ -1,9 +1,10 @@
 import {
+  ArrowUpRight,
   BookOpen,
-  GraduationCap,
-  Mail,
   CreditCard,
+  GraduationCap,
   History,
+  LoaderCircle,
   Pencil,
   ShieldCheck,
   WalletCards,
@@ -14,9 +15,57 @@ import { useNavigate } from "react-router";
 
 import useAuth from "../hooks/useAuth";
 import DashboardLayout from "../layouts/DashboardLayout";
+import { getFluxGemActivity } from "../services/fluxGemService";
 import {
   getLearningProfile,
 } from "../services/learningProfileService";
+
+const ACTIVITY_LABELS = {
+  developer_grant: "Developer test grant",
+  purchase: "FluxGem purchase",
+  reward: "FluxGem reward",
+};
+
+const getGenerationActivityLabel = (activity, refund = false) => {
+  const generationType =
+    activity?.metadata?.generationType ||
+    activity?.studySession?.generationType ||
+    "combined";
+
+  const label =
+    generationType === "notes"
+      ? "AI Notes generation"
+      : generationType === "quiz"
+        ? "AI Quiz generation"
+        : "AI Notes + Quiz generation";
+
+  return refund ? `${label} refund` : label;
+};
+
+const getActivityLabel = (activity) => {
+  if (activity.reason === "ai_generation") {
+    return getGenerationActivityLabel(activity);
+  }
+
+  if (activity.reason === "ai_generation_refund") {
+    return getGenerationActivityLabel(activity, true);
+  }
+
+  return (
+    ACTIVITY_LABELS[activity.reason] ||
+    activity.reason ||
+    "FluxGem activity"
+  );
+};
+
+const formatActivityDate = (value) =>
+  new Intl.DateTimeFormat(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 
 const LEVEL_LABELS = {
   class_7: "Class 7",
@@ -56,6 +105,8 @@ function ProfilePage() {
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [gemActivity, setGemActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -82,6 +133,37 @@ function ProfilePage() {
     };
 
     load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadActivity = async () => {
+      try {
+        const response = await getFluxGemActivity(8);
+
+        if (active) {
+          setGemActivity(response?.data?.transactions || []);
+        }
+      } catch (error) {
+        if (active) {
+          toast.error(
+            error?.response?.data?.message ||
+              "Your FluxGem activity could not be loaded.",
+          );
+        }
+      } finally {
+        if (active) {
+          setActivityLoading(false);
+        }
+      }
+    };
+
+    loadActivity();
 
     return () => {
       active = false;
@@ -305,21 +387,94 @@ function ProfilePage() {
             account history.
           </p>
 
-          <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center">
-            <WalletCards
-              size={22}
-              className="mx-auto text-slate-400"
-            />
+          {activityLoading ? (
+            <div className="mt-5 flex min-h-36 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/70 p-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+                <LoaderCircle size={17} className="animate-spin" />
+                Loading Gem activity...
+              </div>
+            </div>
+          ) : gemActivity.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center">
+              <WalletCards
+                size={22}
+                className="mx-auto text-slate-400"
+              />
 
-            <p className="mt-3 text-sm font-semibold text-slate-600">
-              No FluxGem activity yet.
-            </p>
+              <p className="mt-3 text-sm font-semibold text-slate-600">
+                No FluxGem activity yet.
+              </p>
 
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Rewards, AI usage, purchases and refunds
-              will be recorded here.
-            </p>
-          </div>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Rewards, AI usage, purchases and refunds
+                will be recorded here.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-2.5">
+              {gemActivity.map((activity) => {
+                const amount = Number(activity.amount || 0);
+                const positive = amount > 0;
+
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50/65 p-4 sm:flex-row sm:items-center"
+                  >
+                    <div
+                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+                        positive
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-violet-50 text-violet-600"
+                      }`}
+                    >
+                      <WalletCards size={18} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-extrabold text-slate-800">
+                        {ACTIVITY_LABELS[activity.reason] ||
+                          ACTIVITY_LABELS[activity.type] ||
+                          activity.reason ||
+                          "FluxGem activity"}
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {formatActivityDate(activity.createdAt)}
+                        {Number.isFinite(Number(activity.balanceAfter))
+                          ? ` · Balance ${Number(activity.balanceAfter)}`
+                          : ""}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      {activity.studySession?.id && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/study/${activity.studySession.id}`)
+                          }
+                          className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 transition hover:text-indigo-800"
+                        >
+                          Session
+                          <ArrowUpRight size={13} />
+                        </button>
+                      )}
+
+                      <span
+                        className={`text-sm font-extrabold ${
+                          positive ? "text-emerald-600" : "text-rose-600"
+                        }`}
+                      >
+                        {positive ? "+" : ""}
+                        {amount}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </article>
 
         <article className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">

@@ -16,11 +16,14 @@ import {
   Trophy,
   Zap,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import useAuth from "../hooks/useAuth";
 import DashboardLayout from "../layouts/DashboardLayout";
+import { getProgressOverview } from "../services/progressService";
 
 const QUICK_ACTIONS = [
   {
@@ -32,6 +35,7 @@ const QUICK_ACTIONS = [
       "bg-brand-50 text-brand-600",
     border:
       "border-indigo-200/90 hover:border-indigo-300",
+    path: "/generate/notes",
   },
   {
     title: "Quiz Generator",
@@ -42,6 +46,7 @@ const QUICK_ACTIONS = [
       "bg-violet-50 text-violet-600",
     border:
       "border-violet-200/90 hover:border-violet-300",
+    path: "/generate/quiz",
   },
   {
     title: "AI Tutor",
@@ -112,9 +117,59 @@ function MetricCard({
 }
 
 function DashboardPage() {
+  const navigate = useNavigate();
+
   const {
     user,
   } = useAuth();
+
+  const [progress, setProgress] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProgress = async () => {
+      try {
+        const response = await getProgressOverview();
+
+        if (active) {
+          setProgress(response?.data || null);
+        }
+      } catch {
+        // Keep the dashboard usable if progression data is temporarily unavailable.
+      }
+    };
+
+    loadProgress();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const stats = progress?.stats || {};
+  const achievements = progress?.achievements || {};
+  const achievementXp = Number(stats.achievementXp || 0);
+  const currentLevel = Math.floor(achievementXp / 500) + 1;
+  const recentSessions = progress?.recentSessions || [];
+
+  const milestones = useMemo(
+    () => [
+      {
+        title: "Generate your first learning session",
+        progress: achievements.first_step,
+      },
+      {
+        title: "Build a 3-day learning streak",
+        progress: achievements.three_day_spark,
+      },
+      {
+        title: "Complete your first generated quiz",
+        progress: achievements.quiz_starter,
+      },
+    ],
+    [achievements],
+  );
 
   const firstName =
     user?.fullName?.split(" ")[0] ||
@@ -149,9 +204,7 @@ function DashboardPage() {
         <button
           type="button"
           onClick={() =>
-            showComingSoon(
-              "AI learning generation",
-            )
+            navigate("/generate")
           }
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-brand-600 sm:w-auto"
         >
@@ -165,21 +218,21 @@ function DashboardPage() {
           icon={Gauge}
           iconClass="bg-brand-50 text-brand-600"
           label="Current level"
-          value="Level 1"
-          helper="Your progression system starts here."
+          value={`Level ${currentLevel}`}
+          helper="Level currently reflects achievement XP."
         />
 
         <MetricCard
           icon={Zap}
           iconClass="bg-amber-50 text-amber-600"
           label="XP"
-          value="0 XP"
-          helper="Earn XP through learning activity and challenges."
+          value={`${achievementXp} XP`}
+          helper="Earn XP by unlocking learning achievements."
         />
 
         <MetricCard
           label="FluxGems"
-          value="0"
+          value={String(Number(user?.fluxGems || 0))}
           helper="Emerald-led rewards with cyan and violet accents."
         >
           <FluxGemMark size={42} />
@@ -189,7 +242,7 @@ function DashboardPage() {
           icon={Flame}
           iconClass="bg-emerald-50 text-emerald-600"
           label="Learning streak"
-          value="0 days"
+          value={`${Number(stats.currentStreak || 0)} days`}
           helper="Complete learning activity on consecutive days."
         />
       </section>
@@ -260,9 +313,7 @@ function DashboardPage() {
               <button
                 type="button"
                 onClick={() =>
-                  showComingSoon(
-                    "AI Notes",
-                  )
+                  navigate("/generate")
                 }
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-500 px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-200/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-200/80"
               >
@@ -273,9 +324,7 @@ function DashboardPage() {
               <button
                 type="button"
                 onClick={() =>
-                  showComingSoon(
-                    "Study Library",
-                  )
+                  navigate("/library")
                 }
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200/90 bg-white/72 px-5 py-3 text-sm font-extrabold text-slate-700 shadow-sm backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-white hover:text-indigo-700"
               >
@@ -350,12 +399,15 @@ function DashboardPage() {
               icon: Icon,
               accent,
               border,
+              path,
             }) => (
               <button
                 key={title}
                 type="button"
                 onClick={() =>
-                  showComingSoon(title)
+                  path
+                    ? navigate(path)
+                    : showComingSoon(title)
                 }
                 className={`group rounded-2xl border bg-white/68 p-5 text-left shadow-[0_10px_28px_rgba(15,23,42,0.055)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white/86 hover:shadow-[0_18px_38px_rgba(15,23,42,0.10)] ${border}`}
               >
@@ -374,7 +426,7 @@ function DashboardPage() {
                 </p>
 
                 <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-slate-400 transition group-hover:text-brand-600">
-                  Coming soon
+                  {path ? "Open generator" : "Coming soon"}
                   <ArrowRight size={14} />
                 </div>
               </button>
@@ -401,20 +453,65 @@ function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-6 flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-white/80 bg-white/40 px-5 text-center backdrop-blur-md">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-slate-400 shadow-sm">
-              <BookOpenCheck size={22} />
+          {recentSessions.length === 0 ? (
+            <div className="mt-6 flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-white/80 bg-white/40 px-5 text-center backdrop-blur-md">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-slate-400 shadow-sm">
+                <BookOpenCheck size={22} />
+              </div>
+
+              <h3 className="mt-4 font-extrabold text-slate-800">
+                Nothing here yet
+              </h3>
+
+              <p className="mt-1.5 max-w-sm text-sm leading-6 text-slate-500">
+                Your generated notes, completed quizzes
+                and tutor sessions will appear here.
+              </p>
             </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {recentSessions.map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  onClick={() => navigate(`/study/${session.id}`)}
+                  className="group/session flex w-full items-center gap-3 rounded-2xl border border-white/80 bg-white/52 p-4 text-left backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/78"
+                >
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+                    <BookOpenCheck size={18} />
+                  </div>
 
-            <h3 className="mt-4 font-extrabold text-slate-800">
-              Nothing here yet
-            </h3>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-extrabold text-slate-800">
+                      {session.title}
+                    </p>
 
-            <p className="mt-1.5 max-w-sm text-sm leading-6 text-slate-500">
-              Your generated notes, completed quizzes
-              and tutor sessions will appear here.
-            </p>
-          </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {session.generationType === "notes"
+                        ? "AI Notes · saved to library"
+                        : session.quizAttempts > 0
+                          ? `Quiz ${session.latestQuizScore}/${session.latestQuizTotal}`
+                          : `${session.quizSize} question quiz waiting`}
+                    </p>
+                  </div>
+
+                  <ArrowRight
+                    size={16}
+                    className="shrink-0 text-slate-300 transition group-hover/session:text-indigo-500"
+                  />
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => navigate("/library")}
+                className="inline-flex items-center gap-1.5 text-sm font-extrabold text-indigo-600 hover:text-indigo-800"
+              >
+                View full library
+                <ArrowRight size={15} />
+              </button>
+            </div>
+          )}
         </article>
 
         <article className="rounded-3xl border border-violet-200/90 bg-white/68 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-violet-300 hover:bg-white/84 hover:shadow-[0_18px_40px_rgba(139,92,246,0.10)]">
@@ -435,27 +532,15 @@ function DashboardPage() {
           </div>
 
           <div className="mt-6 space-y-4">
-            {[
-              {
-                title:
-                  "Complete your first learning session",
-                detail: "0 / 1",
-              },
-              {
-                title:
-                  "Build a 3-day learning streak",
-                detail: "0 / 3",
-              },
-              {
-                title:
-                  "Complete a Daily Challenge",
-                detail: "0 / 1",
-              },
-            ].map(
-              ({
-                title,
-                detail,
-              }) => (
+            {milestones.map(({ title, progress: itemProgress }) => {
+              const current = Number(itemProgress?.current || 0);
+              const target = Math.max(
+                Number(itemProgress?.target || 1),
+                1,
+              );
+              const percent = Math.min((current / target) * 100, 100);
+
+              return (
                 <div
                   key={title}
                   className="rounded-2xl border border-white/70 bg-white/44 p-4 backdrop-blur-md transition-all duration-200 hover:border-white hover:bg-white/64"
@@ -466,16 +551,19 @@ function DashboardPage() {
                     </p>
 
                     <span className="shrink-0 text-xs font-bold text-slate-400">
-                      {detail}
+                      {current} / {target}
                     </span>
                   </div>
 
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70">
-                    <div className="h-full w-0 rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-violet-500" />
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-violet-500 transition-all"
+                      style={{ width: `${percent}%` }}
+                    />
                   </div>
                 </div>
-              ),
-            )}
+              );
+            })}
           </div>
         </article>
       </section>

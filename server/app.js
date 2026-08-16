@@ -9,7 +9,10 @@ import errorHandler from "./middleware/errorHandler.js";
 import notFound from "./middleware/notFound.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import fluxGemRoutes from "./routes/fluxGemRoutes.js";
 import learningProfileRoutes from "./routes/learningProfileRoutes.js";
+import progressRoutes from "./routes/progressRoutes.js";
+import studySessionRoutes from "./routes/studySessionRoutes.js";
 
 const app = express();
 
@@ -44,7 +47,13 @@ app.use("/api/health", healthRoutes);
 
 app.use("/api/auth", authRoutes);
 
+app.use("/api/fluxgems", fluxGemRoutes);
+
 app.use("/api/learning-profile", learningProfileRoutes);
+
+app.use("/api/progress", progressRoutes);
+
+app.use("/api/study-sessions", studySessionRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
