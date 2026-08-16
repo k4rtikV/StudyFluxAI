@@ -4,6 +4,8 @@ import {
   Check,
   CheckCircle2,
   Clock3,
+  Download,
+  ExternalLink,
   FileText,
   LoaderCircle,
   RotateCcw,
@@ -28,6 +30,12 @@ import {
   getStudySession,
   submitStudyQuiz,
 } from "../services/studySessionService";
+import {
+  downloadStudyNotesPdf,
+  exportQuizToGoogleForms,
+  getGoogleFormsExport,
+  redirectToGoogleFormsConnection,
+} from "../services/studyExportService";
 
 const getErrorMessage = (error) =>
   error?.response?.data?.message ||
@@ -391,6 +399,12 @@ function StudySessionPage() {
   const [activeTab, setActiveTab] = useState(
     tabParam === "quiz" ? "quiz" : "notes",
   );
+  const [isDownloadingPdf, setIsDownloadingPdf] =
+    useState(false);
+  const [isExportingForms, setIsExportingForms] =
+    useState(false);
+  const [googleFormsExport, setGoogleFormsExport] =
+    useState(null);
 
   useEffect(() => {
     let active = true;
@@ -436,6 +450,172 @@ function StudySessionPage() {
       : generationType === "quiz"
         ? "Generated AI Quiz"
         : "Generated learning session";
+
+  useEffect(() => {
+    if (!studySession?.id || !hasQuiz) {
+      setGoogleFormsExport(null);
+      return;
+    }
+
+    let active = true;
+
+    const loadGoogleFormsExport = async () => {
+      try {
+        const response =
+          await getGoogleFormsExport(
+            studySession.id,
+          );
+
+        if (active) {
+          setGoogleFormsExport(
+            response?.data?.studyExport ||
+              null,
+          );
+        }
+      } catch {
+        if (active) {
+          setGoogleFormsExport(null);
+        }
+      }
+    };
+
+    loadGoogleFormsExport();
+
+    return () => {
+      active = false;
+    };
+  }, [studySession?.id, hasQuiz]);
+
+  useEffect(() => {
+    const googleFormsStatus =
+      searchParams.get("googleForms");
+
+    if (!googleFormsStatus) {
+      return;
+    }
+
+    if (googleFormsStatus === "exported") {
+      toast.success(
+        "Quiz exported to Google Forms.",
+      );
+    } else if (
+      googleFormsStatus === "cancelled"
+    ) {
+      toast(
+        "Google Forms connection was cancelled.",
+      );
+    } else if (
+      googleFormsStatus === "error"
+    ) {
+      toast.error(
+        "Google Forms could not finish the export. Please try again.",
+      );
+    }
+
+    const nextParams =
+      new URLSearchParams(searchParams);
+    nextParams.delete("googleForms");
+
+    navigate(
+      {
+        pathname: `/study/${sessionId}`,
+        search: nextParams.toString()
+          ? `?${nextParams.toString()}`
+          : "",
+      },
+      {
+        replace: true,
+      },
+    );
+  }, [
+    navigate,
+    searchParams,
+    sessionId,
+  ]);
+
+  const handleNotesPdfDownload = async () => {
+    if (
+      !studySession?.id ||
+      !hasNotes ||
+      isDownloadingPdf
+    ) {
+      return;
+    }
+
+    try {
+      setIsDownloadingPdf(true);
+      const result =
+        await downloadStudyNotesPdf(
+          studySession.id,
+        );
+
+      toast.success(
+        `${result.filename} saved.`,
+      );
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          "The notes PDF could not be created.",
+      );
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleGoogleFormsExport = async () => {
+    if (
+      !studySession?.id ||
+      !hasQuiz ||
+      isExportingForms
+    ) {
+      return;
+    }
+
+    try {
+      setIsExportingForms(true);
+
+      const response =
+        await exportQuizToGoogleForms(
+          studySession.id,
+        );
+
+      const studyExport =
+        response?.data?.studyExport ||
+        null;
+
+      setGoogleFormsExport(studyExport);
+
+      toast.success(
+        response?.message ||
+          "Quiz exported to Google Forms.",
+      );
+    } catch (error) {
+      const code =
+        error?.response?.data?.code;
+
+      if (
+        code ===
+          "GOOGLE_FORMS_NOT_CONNECTED" ||
+        code ===
+          "GOOGLE_FORMS_RECONNECT_REQUIRED"
+      ) {
+        toast(
+          "Connect Google Forms to continue.",
+        );
+        redirectToGoogleFormsConnection(
+          studySession.id,
+        );
+        return;
+      }
+
+      toast.error(
+        error?.response?.data?.message ||
+          "Google Forms could not export this quiz.",
+      );
+    } finally {
+      setIsExportingForms(false);
+    }
+  };
 
   useEffect(() => {
     if (!studySession || !output) {
@@ -577,6 +757,98 @@ function StudySessionPage() {
           </div>
         )}
       </section>
+
+      {(hasNotes || hasQuiz) && (
+        <section className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/65 p-3 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-400">
+              Export
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-600">
+              Keep your saved StudyFluxAI content usable outside the app.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {hasNotes && (
+              <button
+                type="button"
+                disabled={isDownloadingPdf}
+                onClick={handleNotesPdfDownload}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/75 px-4 py-2.5 text-sm font-extrabold text-indigo-700 transition hover:-translate-y-0.5 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDownloadingPdf ? (
+                  <LoaderCircle
+                    size={16}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Download size={16} />
+                )}
+                {isDownloadingPdf
+                  ? "Creating PDF..."
+                  : "Save notes as PDF"}
+              </button>
+            )}
+
+            {hasQuiz &&
+              (googleFormsExport ? (
+                <>
+                  {googleFormsExport.responderUrl && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          googleFormsExport.responderUrl,
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/75 px-4 py-2.5 text-sm font-extrabold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-50"
+                    >
+                      <ExternalLink size={16} />
+                      Open Google quiz
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.open(
+                        googleFormsExport.editUrl,
+                        "_blank",
+                        "noopener,noreferrer",
+                      )
+                    }
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50/75 px-4 py-2.5 text-sm font-extrabold text-violet-700 transition hover:-translate-y-0.5 hover:bg-violet-50"
+                  >
+                    <BookOpenCheck size={16} />
+                    Edit in Google Forms
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isExportingForms}
+                  onClick={handleGoogleFormsExport}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-emerald-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isExportingForms ? (
+                    <LoaderCircle
+                      size={16}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <BookOpenCheck size={16} />
+                  )}
+                  {isExportingForms
+                    ? "Exporting..."
+                    : "Export quiz to Google Forms"}
+                </button>
+              ))}
+          </div>
+        </section>
+      )}
 
       {hasNotes && hasQuiz && (
         <div className="mt-6 flex w-full max-w-md rounded-2xl border border-slate-200 bg-slate-100/80 p-1">

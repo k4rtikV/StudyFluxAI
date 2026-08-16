@@ -13,6 +13,8 @@ import fluxGemRoutes from "./routes/fluxGemRoutes.js";
 import learningProfileRoutes from "./routes/learningProfileRoutes.js";
 import progressRoutes from "./routes/progressRoutes.js";
 import studySessionRoutes from "./routes/studySessionRoutes.js";
+import studyExportRoutes from "./routes/studyExportRoutes.js";
+import googleFormsIntegrationRoutes from "./routes/googleFormsIntegrationRoutes.js";
 
 const app = express();
 
@@ -54,6 +56,13 @@ app.use("/api/learning-profile", learningProfileRoutes);
 app.use("/api/progress", progressRoutes);
 
 app.use("/api/study-sessions", studySessionRoutes);
+
+app.use("/api/study-exports", studyExportRoutes);
+
+app.use(
+  "/api/integrations/google-forms",
+  googleFormsIntegrationRoutes,
+);
 
 app.use(notFound);
 app.use(errorHandler);
