@@ -16,6 +16,7 @@ const TRANSACTION_REASONS = new Set([
   "developer_grant",
   "purchase",
   "reward",
+  "daily_challenge_reward",
 ]);
 
 const serializeTransaction = (transaction) => ({

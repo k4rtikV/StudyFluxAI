@@ -9,6 +9,7 @@ import {
   Medal,
   Plus,
   Settings,
+  ShieldCheck,
   Sparkles,
   Trophy,
   X,
@@ -58,7 +59,7 @@ const PRIMARY_NAV = [
   {
     label: "Daily Challenges",
     icon: Trophy,
-    comingSoon: true,
+    path: "/daily-challenges",
     hoverClass:
       "hover:border-emerald-100/42 hover:bg-emerald-200/17 hover:text-white hover:shadow-[0_14px_32px_rgba(16,185,129,0.20)]",
     iconHoverClass:
@@ -171,7 +172,7 @@ function DashboardSidebar({ open, onClose }) {
   };
 
   const goDashboard = () => {
-    navigate("/dashboard");
+    navigate(user?.role === "admin" ? "/admin" : "/dashboard");
     onClose?.();
   };
 
@@ -232,6 +233,25 @@ function DashboardSidebar({ open, onClose }) {
               />
             ))}
           </nav>
+
+          {user?.role === "admin" && (
+            <>
+              <div className="my-3 h-px bg-white/15" />
+              <NavButton
+                item={{
+                  label: "Admin Portal",
+                  icon: ShieldCheck,
+                  path: "/admin",
+                  hoverClass:
+                    "hover:border-violet-200/38 hover:bg-violet-300/16 hover:text-white hover:shadow-[0_14px_32px_rgba(139,92,246,0.18)]",
+                  iconHoverClass:
+                    "group-hover:bg-violet-300/18 group-hover:text-violet-100",
+                }}
+                active={location.pathname.startsWith("/admin")}
+                onSelect={handleSelect}
+              />
+            </>
+          )}
 
           <div className="my-3 h-px bg-white/15" />
 

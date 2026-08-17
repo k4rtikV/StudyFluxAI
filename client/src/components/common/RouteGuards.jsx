@@ -27,9 +27,11 @@ function AuthLoadingScreen() {
 }
 
 const getAuthenticatedDestination = (user) =>
-  user?.learningProfileCompleted === true
-    ? "/dashboard"
-    : "/onboarding";
+  user?.role === "admin"
+    ? "/admin"
+    : user?.learningProfileCompleted === true
+      ? "/dashboard"
+      : "/onboarding";
 
 export function PublicHomeRoute({ children }) {
   const {
@@ -92,6 +94,10 @@ export function OnboardingRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (user?.role === "admin") {
+    return <Navigate to="/admin" replace />;
+  }
+
   if (user?.learningProfileCompleted === true) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -114,8 +120,30 @@ export function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (user?.role === "admin") {
+    return <Navigate to="/admin" replace />;
+  }
+
   if (user?.learningProfileCompleted !== true) {
     return <Navigate to="/onboarding" replace />;
+  }
+
+  return children;
+}
+
+export function AdminRoute({ children }) {
+  const { user, isAuthenticated, isAuthLoading } = useAuth();
+
+  if (isAuthLoading) {
+    return <AuthLoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.role !== "admin") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;

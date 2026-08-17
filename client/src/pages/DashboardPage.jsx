@@ -151,8 +151,8 @@ function DashboardPage() {
 
   const stats = progress?.stats || {};
   const achievements = progress?.achievements || {};
-  const achievementXp = Number(stats.achievementXp || 0);
-  const currentLevel = Math.floor(achievementXp / 500) + 1;
+  const totalXp = Number(stats.totalXp ?? stats.achievementXp ?? 0);
+  const currentLevel = Math.floor(totalXp / 500) + 1;
   const recentSessions = progress?.recentSessions || [];
   const recentTutorConversations =
     progress?.recentTutorConversations || [];
@@ -250,15 +250,15 @@ function DashboardPage() {
           iconClass="bg-brand-50 text-brand-600"
           label="Current level"
           value={`Level ${currentLevel}`}
-          helper="Level currently reflects achievement XP."
+          helper="Level reflects achievement XP plus rewarded community activity."
         />
 
         <MetricCard
           icon={Zap}
           iconClass="bg-amber-50 text-amber-600"
           label="XP"
-          value={`${achievementXp} XP`}
-          helper="Earn XP by unlocking learning achievements."
+          value={`${totalXp} XP`}
+          helper="Earn XP through achievements and correct Daily Challenge answers."
         />
 
         <MetricCard
@@ -381,29 +381,23 @@ function DashboardPage() {
           </div>
 
           <p className="relative mt-6 text-sm font-bold text-emerald-700">
-            Challenge system incoming
+            Daily learning reward
           </p>
 
           <h3 className="relative mt-2 text-2xl font-extrabold tracking-tight text-slate-900">
-            A fresh quiz every day.
+            Take today's challenge.
           </h3>
 
           <p className="relative mt-3 leading-7 text-slate-600">
-            Vote on the topic, take the winning
-            Gemini-generated quiz and earn XP plus
-            FluxGems.
+            Answer the admin-posted challenge, earn XP and FluxGems when correct, and join live community polls.
           </p>
 
           <button
             type="button"
-            onClick={() =>
-              showComingSoon(
-                "Daily Challenges",
-              )
-            }
+            onClick={() => navigate("/daily-challenges")}
             className="relative mt-6 inline-flex items-center gap-2 text-sm font-bold text-emerald-700 transition hover:text-emerald-900"
           >
-            Preview challenge flow
+            Open Daily Challenges
             <ArrowRight size={16} />
           </button>
         </article>

@@ -28,6 +28,24 @@ import {
   verifyOtpHash,
 } from "../utils/otp.js";
 
+const getReservedAdminEmail = () =>
+  normalizeEmail(process.env.ADMIN_SEED_EMAIL);
+
+const isReservedAdminEmail = (email) => {
+  const reservedEmail = getReservedAdminEmail();
+  return Boolean(reservedEmail) && normalizeEmail(email) === reservedEmail;
+};
+
+const getAuthNextStep = (user) => {
+  if (user?.role === "admin") {
+    return "admin_portal";
+  }
+
+  return user?.learningProfileCompleted === true
+    ? "dashboard"
+    : "learning_profile";
+};
+
 export const register = async (req, res, next) => {
   try {
     const {
@@ -54,6 +72,15 @@ export const register = async (req, res, next) => {
 
     const normalizedEmail = normalizeEmail(email);
     const normalizedName = fullName.trim();
+
+    if (isReservedAdminEmail(normalizedEmail)) {
+      return res.status(403).json({
+        success: false,
+        code: "EMAIL_RESERVED",
+        message:
+          "This email address is reserved for StudyFluxAI administration.",
+      });
+    }
 
     const existingUser = await User.findOne({
       email: normalizedEmail,
@@ -243,9 +270,7 @@ export const login = async (req, res, next) => {
           authProviders:
             user.authProviders,
         },
-        nextStep: user.learningProfileCompleted === true
-          ? "dashboard"
-          : "learning_profile",
+        nextStep: getAuthNextStep(user),
       },
     });
   } catch (error) {
@@ -302,11 +327,29 @@ export const googleAuth = async (
       googleIsAuthoritativeForEmail,
     } = googleProfile;
 
+    if (isReservedAdminEmail(email)) {
+      return res.status(403).json({
+        success: false,
+        code: "ADMIN_PASSWORD_REQUIRED",
+        message:
+          "Admin accounts must sign in with their StudyFluxAI admin password.",
+      });
+    }
+
     let user = await User.findOne({
       googleId,
     });
 
     if (user) {
+      if (user.role === "admin") {
+        return res.status(403).json({
+          success: false,
+          code: "ADMIN_PASSWORD_REQUIRED",
+          message:
+            "Admin accounts must sign in with their StudyFluxAI admin password.",
+        });
+      }
+
       if (!user.isActive) {
         return res.status(403).json({
           success: false,
@@ -338,6 +381,15 @@ export const googleAuth = async (
       }).select("+googleId");
 
       if (user) {
+        if (user.role === "admin") {
+          return res.status(403).json({
+            success: false,
+            code: "ADMIN_PASSWORD_REQUIRED",
+            message:
+              "Admin accounts must sign in with their StudyFluxAI admin password.",
+          });
+        }
+
         if (!user.isActive) {
           return res.status(403).json({
             success: false,
@@ -432,9 +484,7 @@ export const googleAuth = async (
             user.authProviders,
         },
 
-        nextStep: user.learningProfileCompleted === true
-          ? "dashboard"
-          : "learning_profile",
+        nextStep: getAuthNextStep(user),
       },
     });
   } catch (error) {
@@ -617,9 +667,7 @@ export const verifyEmail = async (req, res, next) => {
             user.authProviders,
         },
 
-        nextStep: user.learningProfileCompleted === true
-          ? "dashboard"
-          : "learning_profile",
+        nextStep: getAuthNextStep(user),
       },
     });
   } catch (error) {

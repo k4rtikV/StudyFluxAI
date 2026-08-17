@@ -47,6 +47,7 @@ const fluxGemTransactionSchema = new mongoose.Schema(
         "developer_grant",
         "purchase",
         "reward",
+        "daily_challenge_reward",
       ],
       required: true,
       index: true,

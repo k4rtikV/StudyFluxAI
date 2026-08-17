@@ -2,6 +2,8 @@ import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import StudySession from "../models/StudySession.js";
 import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
+import DailyChallengeAttempt from "../models/DailyChallengeAttempt.js";
+import XPTransaction from "../models/XPTransaction.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -115,6 +117,17 @@ export const getProgressOverview = async (userId) => {
     .sort({ completedAt: 1 })
     .lean();
 
+  const challengeAttempts = await DailyChallengeAttempt.find({
+    user: userId,
+  })
+    .select("isCorrect answeredAt xpEarned fluxGemsEarned")
+    .sort({ answeredAt: 1 })
+    .lean();
+
+  const challengeWins = challengeAttempts.filter(
+    (attempt) => attempt.isCorrect,
+  ).length;
+
   const bestQuizPercentage = sessions.reduce(
     (best, session) =>
       Math.max(
@@ -131,6 +144,7 @@ export const getProgressOverview = async (userId) => {
     ...tutorActivityMessages.map(
       (message) => message.completedAt,
     ),
+    ...challengeAttempts.map((attempt) => attempt.answeredAt),
   ];
 
   const { currentStreak, bestStreak } = calculateStreaks(activityDates);
@@ -178,7 +192,7 @@ export const getProgressOverview = async (userId) => {
     }),
     challenge_winner: achievement({
       key: "challenge_winner",
-      current: 0,
+      current: challengeWins,
       target: 1,
     }),
   };
@@ -191,6 +205,14 @@ export const getProgressOverview = async (userId) => {
     (total, item) => total + item.xpReward,
     0,
   );
+
+  const activityXpTotals = await XPTransaction.aggregate([
+    { $match: { user: userId } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+
+  const activityXp = Number(activityXpTotals[0]?.total || 0);
+  const totalXp = achievementXp + activityXp;
 
   const rewardTotals = await FluxGemTransaction.aggregate([
     {
@@ -243,6 +265,10 @@ export const getProgressOverview = async (userId) => {
       bestQuizPercentage,
       unlockedCount: unlockedAchievements.length,
       achievementXp,
+      activityXp,
+      totalXp,
+      completedDailyChallenges: challengeAttempts.length,
+      challengeWins,
       gemRewardsEarned,
     },
     achievements,

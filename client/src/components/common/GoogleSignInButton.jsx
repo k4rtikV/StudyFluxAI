@@ -57,11 +57,30 @@ function GoogleSignInButton({
 
         toast.success(response.message);
 
-        navigate("/", {
+        const destination =
+          response.data.user.role === "admin"
+            ? "/admin"
+            : response.data.user.learningProfileCompleted === true
+              ? "/dashboard"
+              : "/onboarding";
+
+        navigate(destination, {
           replace: true,
         });
       } catch (error) {
         const response = error.response?.data;
+
+        if (
+          response?.code ===
+          "ADMIN_PASSWORD_REQUIRED"
+        ) {
+          toast.error(
+            response.message ||
+              "Admin accounts must sign in with their StudyFluxAI admin password.",
+          );
+
+          return;
+        }
 
         if (
           response?.code ===

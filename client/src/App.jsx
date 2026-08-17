@@ -1,15 +1,18 @@
 import { Route, Routes } from "react-router";
 
 import {
+  AdminRoute,
   OnboardingRoute,
   ProtectedRoute,
   PublicHomeRoute,
   PublicOnlyRoute,
 } from "./components/common/RouteGuards";
 
+import AdminLayout from "./layouts/AdminLayout";
 import AchievementsPage from "./pages/AchievementsPage";
 import AITutorPage from "./pages/AITutorPage";
 import DashboardPage from "./pages/DashboardPage";
+import DailyChallengesPage from "./pages/DailyChallengesPage";
 import EditProfilePage from "./pages/EditProfilePage";
 import FluxGemsInfoPage from "./pages/FluxGemsInfoPage";
 import GeneratePage from "./pages/GeneratePage";
@@ -25,6 +28,14 @@ import StudyLibraryPage from "./pages/StudyLibraryPage";
 import StudySessionPage from "./pages/StudySessionPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import WalletPage from "./pages/WalletPage";
+import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
+import AdminSoonPage from "./pages/admin/AdminSoonPage";
+import AdminUserDetailsPage from "./pages/admin/AdminUserDetailsPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminChallengeEditorPage from "./pages/admin/challenges/AdminChallengeEditorPage";
+import AdminChallengesPage from "./pages/admin/challenges/AdminChallengesPage";
+import AdminPollEditorPage from "./pages/admin/polls/AdminPollEditorPage";
+import AdminPollsPage from "./pages/admin/polls/AdminPollsPage";
 
 function App() {
   return (
@@ -73,6 +84,28 @@ function App() {
           </OnboardingRoute>
         }
       />
+
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminLayout />
+          </AdminRoute>
+        }
+      >
+        <Route index element={<AdminOverviewPage />} />
+        <Route path="challenges" element={<AdminChallengesPage />} />
+        <Route path="challenges/new" element={<AdminChallengeEditorPage />} />
+        <Route path="challenges/:challengeId/edit" element={<AdminChallengeEditorPage />} />
+        <Route path="polls" element={<AdminPollsPage />} />
+        <Route path="polls/new" element={<AdminPollEditorPage />} />
+        <Route path="polls/:pollId/edit" element={<AdminPollEditorPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="users/:userId" element={<AdminUserDetailsPage />} />
+        <Route path="leaderboard" element={<AdminSoonPage feature="leaderboard" />} />
+        <Route path="announcements" element={<AdminSoonPage feature="announcements" />} />
+        <Route path="settings" element={<AdminSoonPage feature="settings" />} />
+      </Route>
 
       <Route
         path="/dashboard"
@@ -138,6 +171,15 @@ function App() {
       />
 
       <Route
+        path="/daily-challenges"
+        element={
+          <ProtectedRoute>
+            <DailyChallengesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/wallet"
         element={
           <ProtectedRoute>
@@ -182,10 +224,7 @@ function App() {
         }
       />
 
-      <Route
-        path="*"
-        element={<NotFoundPage />}
-      />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

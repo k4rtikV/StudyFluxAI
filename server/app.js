@@ -17,6 +17,8 @@ import studySessionRoutes from "./routes/studySessionRoutes.js";
 import studyExportRoutes from "./routes/studyExportRoutes.js";
 import googleFormsIntegrationRoutes from "./routes/googleFormsIntegrationRoutes.js";
 import tutorRoutes from "./routes/tutorRoutes.js";
+import communityRoutes from "./routes/communityRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import { handleRazorpayWebhook } from "./controllers/fluxGemPurchase.controller.js";
 
 const app = express();
@@ -67,6 +69,9 @@ app.use("/api/learning-profile", learningProfileRoutes);
 app.use("/api/progress", progressRoutes);
 
 app.use("/api/tutor", tutorRoutes);
+
+app.use("/api/community", communityRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use("/api/study-sessions", studySessionRoutes);
 

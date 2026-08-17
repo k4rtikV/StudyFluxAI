@@ -14,6 +14,7 @@ import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 
 import useAuth from "../hooks/useAuth";
+import UserAvatar from "../components/common/UserAvatar";
 import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getFluxGemActivity,
@@ -27,6 +28,7 @@ const ACTIVITY_LABELS = {
   developer_grant: "Developer test grant",
   purchase: "FluxGem purchase",
   reward: "FluxGem reward",
+  daily_challenge_reward: "Daily challenge reward",
   ai_tutor: "AI Tutor question",
   ai_tutor_refund: "AI Tutor question refund",
 };
@@ -393,20 +395,11 @@ function ProfilePage() {
       <section className="mt-6 grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
         <article className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
           <div className="flex flex-col items-center text-center">
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="h-24 w-24 rounded-3xl border border-slate-200 object-cover shadow-sm"
-              />
-            ) : (
-              <div className="grid h-24 w-24 place-items-center rounded-3xl bg-brand-100 text-3xl font-extrabold text-brand-700">
-                {user?.fullName
-                  ?.charAt(0)
-                  ?.toUpperCase() || "S"}
-              </div>
-            )}
+            <UserAvatar
+              user={user}
+              className="h-24 w-24 rounded-3xl border border-slate-200 shadow-sm"
+              initialsClassName="text-3xl"
+            />
 
             <h2 className="mt-5 text-2xl font-extrabold text-slate-900">
               {user?.fullName || "Student"}

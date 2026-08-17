@@ -75,7 +75,14 @@ function LoginPage() {
 
       toast.success(response.message);
 
-      navigate("/", {
+      const destination =
+        response.data.user.role === "admin"
+          ? "/admin"
+          : response.data.user.learningProfileCompleted === true
+            ? "/dashboard"
+            : "/onboarding";
+
+      navigate(destination, {
         replace: true,
       });
     } catch (error) {

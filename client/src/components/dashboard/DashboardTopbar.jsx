@@ -21,6 +21,7 @@ import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 
 import FluxGemMark from "./FluxGemMark";
+import UserAvatar from "../common/UserAvatar";
 import useAuth from "../../hooks/useAuth";
 import { logoutUser } from "../../services/authService";
 
@@ -368,18 +369,11 @@ function DashboardTopbar({ onOpenSidebar }) {
               }}
               className="flex min-h-[52px] max-w-[240px] items-center gap-2 rounded-2xl border border-white/84 bg-white/92 p-1.5 pr-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
             >
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="h-9 w-9 shrink-0 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-100 text-sm font-extrabold text-brand-700">
-                  {user?.fullName?.charAt(0)?.toUpperCase() || "S"}
-                </div>
-              )}
+              <UserAvatar
+                user={user}
+                className="h-9 w-9 rounded-lg"
+                initialsClassName="text-sm"
+              />
 
               <div className="hidden min-w-0 flex-1 text-left xl:block">
                 <p className="truncate text-sm font-bold text-slate-800">
