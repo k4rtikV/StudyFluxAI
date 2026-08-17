@@ -178,7 +178,7 @@ function FluxGemsInfoPage() {
 
               <button
                 type="button"
-                onClick={() => navigate("/profile")}
+                onClick={() => navigate("/profile?section=gem-activity")}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white/80 px-5 py-3 text-sm font-bold text-emerald-800 transition hover:bg-white"
               >
                 <History size={17} />

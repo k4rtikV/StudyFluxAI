@@ -24,3 +24,25 @@ export const getFluxGemPurchases = async ({ limit = 20, page = 1 } = {}) =>
     page,
     type: "purchase",
   });
+
+export const createFluxGemPurchaseOrder = async (packageId) => {
+  const response = await api.post("/fluxgems/purchases/order", {
+    packageId,
+  });
+
+  return response.data;
+};
+
+export const verifyFluxGemPurchase = async (paymentResponse) => {
+  const response = await api.post(
+    "/fluxgems/purchases/verify",
+    paymentResponse,
+  );
+
+  return response.data;
+};
+
+export const getFluxGemPurchaseStatus = async (purchaseId) => {
+  const response = await api.get(`/fluxgems/purchases/${purchaseId}`);
+  return response.data;
+};

@@ -9,9 +9,9 @@ import {
   ShieldCheck,
   WalletCards,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import useAuth from "../hooks/useAuth";
 import DashboardLayout from "../layouts/DashboardLayout";
@@ -154,6 +154,8 @@ function InfoRow({
 
 function ProfilePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const sectionScrollKeyRef = useRef(null);
   const { user } = useAuth();
 
   const [profile, setProfile] = useState(null);
@@ -169,6 +171,51 @@ function ProfilePage() {
   const [purchasePage, setPurchasePage] = useState(1);
   const [purchaseHasMore, setPurchaseHasMore] = useState(false);
   const [purchaseLoadingMore, setPurchaseLoadingMore] = useState(false);
+
+  useEffect(() => {
+    const requestedSection = new URLSearchParams(location.search).get(
+      "section",
+    );
+
+    const targetId =
+      requestedSection === "gem-activity"
+        ? "gem-activity"
+        : requestedSection === "razorpay-history"
+          ? "razorpay-history"
+          : null;
+
+    if (!targetId) {
+      sectionScrollKeyRef.current = null;
+      return undefined;
+    }
+
+    const targetIsLoading =
+      targetId === "gem-activity" ? activityLoading : purchaseLoading;
+    const scrollKey = `${location.pathname}${location.search}`;
+
+    if (targetIsLoading || sectionScrollKeyRef.current === scrollKey) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(targetId);
+
+      if (target) {
+        target.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+        sectionScrollKeyRef.current = scrollKey;
+      }
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    activityLoading,
+    location.pathname,
+    location.search,
+    purchaseLoading,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -506,7 +553,7 @@ function ProfilePage() {
       </section>
 
       <section className="mt-5 grid gap-5 xl:grid-cols-2">
-        <article className="flex min-h-[620px] flex-col rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm xl:h-[700px] xl:min-h-0">
+        <article id="gem-activity" className="flex min-h-[620px] scroll-mt-24 flex-col rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm xl:h-[700px] xl:min-h-0">
           <div className="shrink-0">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-50 text-violet-600">
@@ -644,7 +691,7 @@ function ProfilePage() {
           )}
         </article>
 
-        <article className="flex min-h-[620px] flex-col rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm xl:h-[700px] xl:min-h-0">
+        <article id="razorpay-history" className="flex min-h-[620px] scroll-mt-24 flex-col rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm xl:h-[700px] xl:min-h-0">
           <div className="shrink-0">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
