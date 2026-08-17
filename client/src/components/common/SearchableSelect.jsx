@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { OTHER_VALUE } from "../../data/learningCatalog";
+import FloatingSelectMenu from "./FloatingSelectMenu";
 
 function SearchableSelect({
   options,
@@ -22,6 +23,7 @@ function SearchableSelect({
   hasError = false,
 }) {
   const rootRef = useRef(null);
+  const menuRef = useRef(null);
 
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -35,10 +37,12 @@ function SearchableSelect({
 
   useEffect(() => {
     const handlePointerDown = (event) => {
-      if (
-        rootRef.current &&
-        !rootRef.current.contains(event.target)
-      ) {
+      const clickedAnchor =
+        rootRef.current?.contains(event.target);
+      const clickedMenu =
+        menuRef.current?.contains(event.target);
+
+      if (!clickedAnchor && !clickedMenu) {
         setIsOpen(false);
         setQuery(selectedLabel);
       }
@@ -164,58 +168,61 @@ function SearchableSelect({
       </div>
 
       {isOpen && !disabled && (
-        <div
-          role="listbox"
-          className="absolute z-30 mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl"
+        <FloatingSelectMenu
+          anchorRef={rootRef}
+          panelRef={menuRef}
+          maxHeight={256}
         >
-          {filteredOptions.length === 0 &&
-            !allowOther && (
-              <p className="px-3 py-3 text-sm text-slate-500">
-                No matching options.
-              </p>
-            )}
+          <div role="listbox">
+            {filteredOptions.length === 0 &&
+              !allowOther && (
+                <p className="px-3 py-3 text-sm text-slate-500">
+                  No matching options.
+                </p>
+              )}
 
-          {filteredOptions.map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="option"
-              aria-selected={value === option}
-              onClick={() => choose(option)}
-              className={`block w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                value === option
-                  ? "bg-brand-50 font-semibold text-brand-700"
-                  : "text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-
-          {allowOther && (
-            <>
-              <div className="my-1.5 h-px bg-slate-100" />
-
+            {filteredOptions.map((option) => (
               <button
+                key={option}
                 type="button"
                 role="option"
-                aria-selected={
-                  value === OTHER_VALUE
-                }
-                onClick={() =>
-                  choose(OTHER_VALUE)
-                }
+                aria-selected={value === option}
+                onClick={() => choose(option)}
                 className={`block w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                  value === OTHER_VALUE
+                  value === option
                     ? "bg-brand-50 font-semibold text-brand-700"
                     : "text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                Other / Not listed
+                {option}
               </button>
-            </>
-          )}
-        </div>
+            ))}
+
+            {allowOther && (
+              <>
+                <div className="my-1.5 h-px bg-slate-100" />
+
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={
+                    value === OTHER_VALUE
+                  }
+                  onClick={() =>
+                    choose(OTHER_VALUE)
+                  }
+                  className={`block w-full rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                    value === OTHER_VALUE
+                      ? "bg-brand-50 font-semibold text-brand-700"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Other / Not listed
+                </button>
+              </>
+            )}
+          </div>
+        </FloatingSelectMenu>
       )}
     </div>
   );

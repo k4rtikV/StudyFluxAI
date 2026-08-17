@@ -222,7 +222,7 @@ function DashboardSidebar({ open, onClose }) {
           </button>
         </div>
 
-        <div className="relative flex-1 overflow-hidden px-4 py-3">
+        <div className="sf-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
           <nav className="space-y-1.5">
             {PRIMARY_NAV.map((item) => (
               <NavButton
