@@ -42,6 +42,8 @@ const fluxGemTransactionSchema = new mongoose.Schema(
       enum: [
         "ai_generation",
         "ai_generation_refund",
+        "ai_tutor",
+        "ai_tutor_refund",
         "developer_grant",
         "purchase",
         "reward",
@@ -53,6 +55,21 @@ const fluxGemTransactionSchema = new mongoose.Schema(
     studySession: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "StudySession",
+      default: null,
+      index: true,
+    },
+
+
+    tutorConversation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TutorConversation",
+      default: null,
+      index: true,
+    },
+
+    tutorMessage: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TutorMessage",
       default: null,
       index: true,
     },

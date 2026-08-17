@@ -1,15 +1,10 @@
-import {
-  useState,
-} from "react";
+import { useState } from "react";
 
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardTopbar from "../components/dashboard/DashboardTopbar";
 
-function DashboardLayout({
-  children,
-}) {
-  const [sidebarOpen, setSidebarOpen] =
-    useState(false);
+function DashboardLayout({ children }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#f7f8fc]">
@@ -22,22 +17,14 @@ function DashboardLayout({
 
       <DashboardSidebar
         open={sidebarOpen}
-        onClose={() =>
-          setSidebarOpen(false)
-        }
+        onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="relative lg:pl-[286px]">
-        <DashboardTopbar
-          onOpenSidebar={() =>
-            setSidebarOpen(true)
-          }
-        />
+      <DashboardTopbar onOpenSidebar={() => setSidebarOpen(true)} />
 
-        <main className="px-4 py-6 sm:px-6 sm:py-7 xl:px-8 xl:py-8">
-          <div className="mx-auto max-w-[1500px]">
-            {children}
-          </div>
+      <div className="relative lg:pl-[286px]">
+        <main className="px-4 pb-6 pt-[106px] sm:px-6 sm:pb-7 xl:px-8 xl:pb-8">
+          <div className="mx-auto max-w-[1500px]">{children}</div>
         </main>
       </div>
     </div>

@@ -4,8 +4,8 @@ import {
   BrainCircuit,
   ChevronRight,
   CircleHelp,
-  LayoutDashboard,
   Info,
+  LayoutDashboard,
   Medal,
   Plus,
   Settings,
@@ -13,10 +13,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import {
-  useLocation,
-  useNavigate,
-} from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import FluxGemMark from "./FluxGemMark";
 import useAuth from "../../hooks/useAuth";
@@ -27,107 +24,105 @@ const PRIMARY_NAV = [
     icon: LayoutDashboard,
     path: "/dashboard",
     hoverClass:
-      "hover:border-indigo-200 hover:bg-indigo-50/90 hover:text-indigo-700",
+      "hover:border-cyan-100/38 hover:bg-cyan-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(34,211,238,0.16)]",
     iconHoverClass:
-      "group-hover:bg-indigo-100 group-hover:text-indigo-700",
+      "group-hover:bg-cyan-300/18 group-hover:text-cyan-100",
   },
   {
     label: "Generate",
     icon: Sparkles,
     path: "/generate",
     hoverClass:
-      "hover:border-violet-200 hover:bg-violet-50/90 hover:text-violet-700",
+      "hover:border-violet-200/38 hover:bg-violet-300/16 hover:text-white hover:shadow-[0_14px_32px_rgba(139,92,246,0.18)]",
     iconHoverClass:
-      "group-hover:bg-violet-100 group-hover:text-violet-700",
+      "group-hover:bg-violet-300/18 group-hover:text-violet-100",
   },
   {
     label: "AI Tutor",
     icon: BrainCircuit,
-    comingSoon: true,
+    path: "/ai-tutor",
     hoverClass:
-      "hover:border-cyan-200 hover:bg-cyan-50/90 hover:text-cyan-700",
+      "hover:border-emerald-100/42 hover:bg-emerald-200/17 hover:text-white hover:shadow-[0_14px_32px_rgba(16,185,129,0.20)]",
     iconHoverClass:
-      "group-hover:bg-cyan-100 group-hover:text-cyan-700",
+      "group-hover:bg-emerald-300/18 group-hover:text-emerald-100",
   },
   {
     label: "Study Library",
     icon: BookOpen,
     path: "/library",
     hoverClass:
-      "hover:border-violet-200 hover:bg-violet-50/90 hover:text-violet-700",
+      "hover:border-sky-100/40 hover:bg-sky-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(56,189,248,0.17)]",
     iconHoverClass:
-      "group-hover:bg-violet-100 group-hover:text-violet-700",
+      "group-hover:bg-sky-300/18 group-hover:text-sky-100",
   },
   {
     label: "Daily Challenges",
     icon: Trophy,
     comingSoon: true,
     hoverClass:
-      "hover:border-emerald-200 hover:bg-emerald-50/90 hover:text-emerald-700",
+      "hover:border-emerald-100/42 hover:bg-emerald-200/17 hover:text-white hover:shadow-[0_14px_32px_rgba(16,185,129,0.20)]",
     iconHoverClass:
-      "group-hover:bg-emerald-100 group-hover:text-emerald-700",
+      "group-hover:bg-emerald-300/18 group-hover:text-emerald-100",
   },
   {
     label: "Leaderboard",
     icon: Medal,
     comingSoon: true,
     hoverClass:
-      "hover:border-amber-200 hover:bg-amber-50/90 hover:text-amber-700",
+      "hover:border-amber-100/40 hover:bg-amber-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(245,158,11,0.18)]",
     iconHoverClass:
-      "group-hover:bg-amber-100 group-hover:text-amber-700",
+      "group-hover:bg-amber-300/18 group-hover:text-amber-100",
   },
   {
     label: "Progress",
     icon: BarChart3,
     comingSoon: true,
     hoverClass:
-      "hover:border-sky-200 hover:bg-sky-50/90 hover:text-sky-700",
+      "hover:border-cyan-100/38 hover:bg-cyan-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(34,211,238,0.16)]",
     iconHoverClass:
-      "group-hover:bg-sky-100 group-hover:text-sky-700",
+      "group-hover:bg-cyan-300/18 group-hover:text-cyan-100",
   },
 ];
 
-function NavButton({
-  item,
-  active,
-  onSelect,
-}) {
+function NavButton({ item, active, onSelect }) {
   const Icon = item.icon;
 
   const defaultHover =
     item.hoverClass ||
-    "hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900";
+    "hover:border-white/24 hover:bg-white/14 hover:text-white";
 
   const defaultIconHover =
     item.iconHoverClass ||
-    "group-hover:bg-slate-100 group-hover:text-slate-700";
+    "group-hover:bg-white/20 group-hover:text-white";
 
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className={`group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-all duration-200 ${
+      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition-all duration-200 ${
         active
-          ? "border-indigo-200 bg-indigo-50/95 text-indigo-700 shadow-sm"
-          : `border-transparent text-slate-600 ${defaultHover}`
+          ? "border-white/44 bg-[linear-gradient(100deg,rgba(255,255,255,0.24),rgba(236,253,245,0.15))] text-white shadow-[0_18px_38px_rgba(5,80,62,0.24)] ring-1 ring-emerald-100/28"
+          : `border-white/10 bg-emerald-950/12 text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${defaultHover}`
       }`}
     >
+      {active && (
+        <span className="pointer-events-none absolute inset-y-2 left-1 w-1.5 rounded-full bg-gradient-to-b from-white via-cyan-100 to-violet-200 shadow-[0_0_14px_rgba(165,243,252,0.75)]" />
+      )}
+
       <span
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-200 ${
           active
-            ? "bg-white text-indigo-600 shadow-sm"
-            : `bg-slate-50 text-slate-500 ${defaultIconHover}`
+            ? "bg-white/24 text-white shadow-[0_10px_22px_rgba(0,0,0,0.14)] ring-1 ring-white/24"
+            : `bg-white/13 text-emerald-50/92 ring-1 ring-white/7 ${defaultIconHover}`
         }`}
       >
         <Icon size={18} />
       </span>
 
-      <span className="min-w-0 flex-1 truncate">
-        {item.label}
-      </span>
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
 
       {item.comingSoon ? (
-        <span className="rounded-full border border-slate-200/80 bg-white/70 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 transition-colors group-hover:border-current/15 group-hover:text-current">
+        <span className="rounded-full border border-white/18 bg-emerald-950/15 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-50/82 shadow-sm transition-colors group-hover:border-white/28 group-hover:bg-white/12 group-hover:text-white">
           Soon
         </span>
       ) : (
@@ -135,18 +130,16 @@ function NavButton({
           size={15}
           className={
             active
-              ? "text-indigo-400"
-              : "text-slate-300 transition-colors group-hover:text-current"
+              ? "text-white"
+              : "text-emerald-50/60 transition-colors group-hover:text-white"
           }
         />
       )}
     </button>
   );
 }
-function DashboardSidebar({
-  open,
-  onClose,
-}) {
+
+function DashboardSidebar({ open, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -189,47 +182,47 @@ function DashboardSidebar({
           type="button"
           aria-label="Close navigation"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-[1px] lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px] lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[286px] flex-col border-r border-white/70 bg-white/88 shadow-[8px_0_30px_rgba(15,23,42,0.04)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
-          open
-            ? "translate-x-0"
-            : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex w-[286px] flex-col border-r border-transparent bg-[linear-gradient(180deg,rgb(93,166,157)_0%,rgba(86,171,151,0.96)_38%,rgba(62,143,119,0.95)_100%)] shadow-[6px_0_24px_rgba(4,44,35,0.08)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-[76px] items-center justify-between border-b border-slate-100 px-5">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_20%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_center_right,rgba(16,185,129,0.16),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.06),transparent_28%)]" />
+
+        <div className="relative flex h-[76px] items-center justify-between border-b border-white/8 px-5">
           <button
             type="button"
             onClick={goDashboard}
-            className="rounded-xl transition hover:opacity-90"
+            className="rounded-xl px-1.5 py-1 transition hover:scale-[1.015] hover:opacity-95"
             aria-label="Go to dashboard"
           >
             <img
               src="/studyfluxai-logo.png"
               alt="StudyFluxAI"
               className="w-[185px]"
+              style={{
+                filter:
+                  "drop-shadow(1px 0 0 rgba(255,255,255,0.96)) drop-shadow(-1px 0 0 rgba(255,255,255,0.96)) drop-shadow(0 1px 0 rgba(255,255,255,0.96)) drop-shadow(0 -1px 0 rgba(255,255,255,0.96)) drop-shadow(1px 1px 0 rgba(255,255,255,0.82)) drop-shadow(-1px 1px 0 rgba(255,255,255,0.82)) drop-shadow(1px -1px 0 rgba(255,255,255,0.82)) drop-shadow(-1px -1px 0 rgba(255,255,255,0.82)) drop-shadow(0 4px 12px rgba(4,44,35,0.18))",
+              }}
             />
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-xl text-emerald-100/75 transition hover:bg-white/8 hover:text-white lg:hidden"
             aria-label="Close sidebar"
           >
             <X size={19} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-5">
-          <p className="px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-            Learn
-          </p>
-
-          <nav className="mt-3 space-y-1.5">
+        <div className="relative flex-1 overflow-hidden px-4 py-3">
+          <nav className="space-y-1.5">
             {PRIMARY_NAV.map((item) => (
               <NavButton
                 key={item.label}
@@ -240,22 +233,18 @@ function DashboardSidebar({
             ))}
           </nav>
 
-          <div className="my-5 h-px bg-slate-100" />
+          <div className="my-3 h-px bg-white/15" />
 
-          <p className="px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-            Workspace
-          </p>
-
-          <div className="mt-3 space-y-1.5">
+          <div className="space-y-1.5">
             <NavButton
               item={{
                 label: "Settings",
                 icon: Settings,
                 comingSoon: true,
                 hoverClass:
-                  "hover:border-slate-300 hover:bg-slate-100/90 hover:text-slate-800",
+                  "hover:border-white/24 hover:bg-white/14 hover:text-white hover:shadow-[0_12px_30px_rgba(15,23,42,0.14)]",
                 iconHoverClass:
-                  "group-hover:bg-slate-200 group-hover:text-slate-700",
+                  "group-hover:bg-white/20 group-hover:text-white",
               }}
               active={false}
               onSelect={handleSelect}
@@ -267,9 +256,9 @@ function DashboardSidebar({
                 icon: CircleHelp,
                 comingSoon: true,
                 hoverClass:
-                  "hover:border-yellow-200 hover:bg-yellow-50/95 hover:text-yellow-800",
+                  "hover:border-yellow-300/28 hover:bg-yellow-300/12 hover:text-white hover:shadow-[0_12px_30px_rgba(250,204,21,0.14)]",
                 iconHoverClass:
-                  "group-hover:bg-yellow-100 group-hover:text-yellow-700",
+                  "group-hover:bg-yellow-300/18 group-hover:text-yellow-100",
               }}
               active={false}
               onSelect={handleSelect}
@@ -277,17 +266,19 @@ function DashboardSidebar({
           </div>
         </div>
 
-        <div className="border-t border-slate-100 p-4">
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-cyan-50/70 to-violet-50 p-4 pb-10">
-            <div className="flex items-center gap-3">
+        <div className="relative border-t border-white/8 p-3.5">
+          <div className="relative overflow-hidden rounded-3xl border border-white/18 bg-emerald-950/18 p-3.5 pb-9 shadow-[0_20px_44px_rgba(4,64,50,0.18)] backdrop-blur-xl">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.18),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(103,232,249,0.12),transparent_34%)]" />
+
+            <div className="relative flex items-center gap-3">
               <FluxGemMark size={40} />
 
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-600">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-50/90">
                   FluxGems
                 </p>
 
-                <p className="mt-0.5 text-lg font-extrabold text-slate-900">
+                <p className="mt-0.5 text-lg font-extrabold text-white">
                   {Number(user?.fluxGems || 0)}
                 </p>
               </div>
@@ -298,7 +289,7 @@ function DashboardSidebar({
                   navigate("/wallet");
                   onClose?.();
                 }}
-                className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-emerald-200 bg-white/90 px-2.5 py-2 text-xs font-extrabold text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-emerald-800"
+                className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/22 bg-white/16 px-2.5 py-2 text-xs font-extrabold text-emerald-50 shadow-sm transition hover:border-white/34 hover:bg-white/22 hover:text-white"
                 aria-label="Buy FluxGems"
               >
                 <Plus size={14} />
@@ -306,9 +297,9 @@ function DashboardSidebar({
               </button>
             </div>
 
-            <p className="mt-3 pr-7 text-xs leading-5 text-slate-600">
-              Earn gems from challenges, learning
-              streaks and future achievements.
+            <p className="relative mt-3 pr-7 text-xs leading-5 text-emerald-50/82">
+              Earn gems from challenges, learning streaks and future
+              achievements.
             </p>
 
             <button
@@ -319,7 +310,7 @@ function DashboardSidebar({
               }}
               title="Learn about FluxGems"
               aria-label="Learn about FluxGems"
-              className="absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-full border border-emerald-200 bg-white/90 text-emerald-700 shadow-sm transition hover:border-emerald-300 hover:bg-white hover:text-emerald-800"
+              className="absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-full border border-white/18 bg-white/15 text-emerald-50 shadow-sm transition hover:border-white/30 hover:bg-white/22 hover:text-white"
             >
               <Info size={14} />
             </button>

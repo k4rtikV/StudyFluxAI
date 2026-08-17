@@ -15,7 +15,10 @@ import { useNavigate } from "react-router";
 
 import useAuth from "../hooks/useAuth";
 import DashboardLayout from "../layouts/DashboardLayout";
-import { getFluxGemActivity } from "../services/fluxGemService";
+import {
+  getFluxGemActivity,
+  getFluxGemPurchases,
+} from "../services/fluxGemService";
 import {
   getLearningProfile,
 } from "../services/learningProfileService";
@@ -24,6 +27,8 @@ const ACTIVITY_LABELS = {
   developer_grant: "Developer test grant",
   purchase: "FluxGem purchase",
   reward: "FluxGem reward",
+  ai_tutor: "AI Tutor question",
+  ai_tutor_refund: "AI Tutor question refund",
 };
 
 const getGenerationActivityLabel = (activity, refund = false) => {
@@ -67,6 +72,54 @@ const formatActivityDate = (value) =>
     minute: "2-digit",
   }).format(new Date(value));
 
+
+const HISTORY_PAGE_SIZE = 20;
+
+const formatCurrency = (metadata = {}) => {
+  const paise = Number(
+    metadata.amountInPaise ??
+      metadata.amountPaise ??
+      metadata.razorpayAmount ??
+      metadata.amount_paise,
+  );
+
+  if (Number.isFinite(paise) && paise > 0) {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: paise % 100 === 0 ? 0 : 2,
+    }).format(paise / 100);
+  }
+
+  const rupees = Number(
+    metadata.amountInRupees ??
+      metadata.amountRupees ??
+      metadata.rupees,
+  );
+
+  if (Number.isFinite(rupees) && rupees > 0) {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(rupees);
+  }
+
+  return null;
+};
+
+const getPaymentReference = (metadata = {}) =>
+  metadata.razorpayPaymentId ||
+  metadata.paymentId ||
+  metadata.payment_id ||
+  null;
+
+const getOrderReference = (metadata = {}) =>
+  metadata.razorpayOrderId ||
+  metadata.orderId ||
+  metadata.order_id ||
+  null;
+
 const LEVEL_LABELS = {
   class_7: "Class 7",
   class_8: "Class 8",
@@ -107,6 +160,15 @@ function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [gemActivity, setGemActivity] = useState([]);
   const [activityLoading, setActivityLoading] = useState(true);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityHasMore, setActivityHasMore] = useState(false);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
+
+  const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [purchaseLoading, setPurchaseLoading] = useState(true);
+  const [purchasePage, setPurchasePage] = useState(1);
+  const [purchaseHasMore, setPurchaseHasMore] = useState(false);
+  const [purchaseLoadingMore, setPurchaseLoadingMore] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -142,33 +204,113 @@ function ProfilePage() {
   useEffect(() => {
     let active = true;
 
-    const loadActivity = async () => {
+    const loadHistory = async () => {
       try {
-        const response = await getFluxGemActivity(8);
+        const [activityResponse, purchaseResponse] = await Promise.all([
+          getFluxGemActivity({
+            limit: HISTORY_PAGE_SIZE,
+            page: 1,
+          }),
+          getFluxGemPurchases({
+            limit: HISTORY_PAGE_SIZE,
+            page: 1,
+          }),
+        ]);
 
-        if (active) {
-          setGemActivity(response?.data?.transactions || []);
+        if (!active) {
+          return;
         }
+
+        setGemActivity(activityResponse?.data?.transactions || []);
+        setActivityPage(1);
+        setActivityHasMore(
+          Boolean(activityResponse?.data?.pagination?.hasMore),
+        );
+
+        setPurchaseHistory(purchaseResponse?.data?.transactions || []);
+        setPurchasePage(1);
+        setPurchaseHasMore(
+          Boolean(purchaseResponse?.data?.pagination?.hasMore),
+        );
       } catch (error) {
         if (active) {
           toast.error(
             error?.response?.data?.message ||
-              "Your FluxGem activity could not be loaded.",
+              "Your FluxGem history could not be loaded.",
           );
         }
       } finally {
         if (active) {
           setActivityLoading(false);
+          setPurchaseLoading(false);
         }
       }
     };
 
-    loadActivity();
+    loadHistory();
 
     return () => {
       active = false;
     };
   }, []);
+
+  const loadOlderActivity = async () => {
+    if (!activityHasMore || activityLoadingMore) {
+      return;
+    }
+
+    try {
+      setActivityLoadingMore(true);
+      const nextPage = activityPage + 1;
+      const response = await getFluxGemActivity({
+        limit: HISTORY_PAGE_SIZE,
+        page: nextPage,
+      });
+
+      setGemActivity((current) => [
+        ...current,
+        ...(response?.data?.transactions || []),
+      ]);
+      setActivityPage(nextPage);
+      setActivityHasMore(Boolean(response?.data?.pagination?.hasMore));
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Older FluxGem activity could not be loaded.",
+      );
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  };
+
+  const loadOlderPurchases = async () => {
+    if (!purchaseHasMore || purchaseLoadingMore) {
+      return;
+    }
+
+    try {
+      setPurchaseLoadingMore(true);
+      const nextPage = purchasePage + 1;
+      const response = await getFluxGemPurchases({
+        limit: HISTORY_PAGE_SIZE,
+        page: nextPage,
+      });
+
+      setPurchaseHistory((current) => [
+        ...current,
+        ...(response?.data?.transactions || []),
+      ]);
+      setPurchasePage(nextPage);
+      setPurchaseHasMore(Boolean(response?.data?.pagination?.hasMore));
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Older Razorpay purchases could not be loaded.",
+      );
+    } finally {
+      setPurchaseLoadingMore(false);
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -364,158 +506,279 @@ function ProfilePage() {
       </section>
 
       <section className="mt-5 grid gap-5 xl:grid-cols-2">
-        <article className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-50 text-violet-600">
-              <History size={20} />
+        <article className="flex min-h-[620px] flex-col rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm xl:h-[700px] xl:min-h-0">
+          <div className="shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-50 text-violet-600">
+                <History size={20} />
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-violet-600">
+                  FluxGems
+                </p>
+
+                <h2 className="text-xl font-extrabold text-slate-900">
+                  Gem activity
+                </h2>
+              </div>
             </div>
 
-            <div>
-              <p className="text-sm font-bold text-violet-600">
-                FluxGems
-              </p>
-
-              <h2 className="text-xl font-extrabold text-slate-900">
-                Gem activity
-              </h2>
-            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Every FluxGem earned, spent, purchased or refunded will appear
+              here as part of your account history.
+            </p>
           </div>
 
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            Every FluxGem earned, spent, purchased or
-            refunded will appear here as part of your
-            account history.
-          </p>
-
           {activityLoading ? (
-            <div className="mt-5 flex min-h-36 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/70 p-6">
+            <div className="mt-5 flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/70 p-6">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
                 <LoaderCircle size={17} className="animate-spin" />
                 Loading Gem activity...
               </div>
             </div>
           ) : gemActivity.length === 0 ? (
-            <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center">
-              <WalletCards
-                size={22}
-                className="mx-auto text-slate-400"
-              />
+            <div className="mt-5 flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center">
+              <WalletCards size={22} className="text-slate-400" />
 
               <p className="mt-3 text-sm font-semibold text-slate-600">
                 No FluxGem activity yet.
               </p>
 
               <p className="mt-1 text-xs leading-5 text-slate-500">
-                Rewards, AI usage, purchases and refunds
-                will be recorded here.
+                Rewards, AI usage, purchases and refunds will be recorded here.
               </p>
             </div>
           ) : (
-            <div className="mt-5 space-y-2.5">
-              {gemActivity.map((activity) => {
-                const amount = Number(activity.amount || 0);
-                const positive = amount > 0;
+            <div className="sf-scrollbar mt-5 min-h-0 flex-1 overflow-y-auto pr-2">
+              <div className="space-y-2.5">
+                {gemActivity.map((activity) => {
+                  const amount = Number(activity.amount || 0);
+                  const positive = amount > 0;
 
-                return (
-                  <div
-                    key={activity.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50/65 p-4 sm:flex-row sm:items-center"
-                  >
+                  return (
                     <div
-                      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
-                        positive
-                          ? "bg-emerald-50 text-emerald-600"
-                          : "bg-violet-50 text-violet-600"
-                      }`}
+                      key={activity.id}
+                      className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50/65 p-4 sm:flex-row sm:items-center"
                     >
-                      <WalletCards size={18} />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-extrabold text-slate-800">
-                        {ACTIVITY_LABELS[activity.reason] ||
-                          ACTIVITY_LABELS[activity.type] ||
-                          activity.reason ||
-                          "FluxGem activity"}
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
-                        {formatActivityDate(activity.createdAt)}
-                        {Number.isFinite(Number(activity.balanceAfter))
-                          ? ` · Balance ${Number(activity.balanceAfter)}`
-                          : ""}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      {activity.studySession?.id && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/study/${activity.studySession.id}`)
-                          }
-                          className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 transition hover:text-indigo-800"
-                        >
-                          Session
-                          <ArrowUpRight size={13} />
-                        </button>
-                      )}
-
-                      <span
-                        className={`text-sm font-extrabold ${
-                          positive ? "text-emerald-600" : "text-rose-600"
+                      <div
+                        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+                          positive
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-violet-50 text-violet-600"
                         }`}
                       >
-                        {positive ? "+" : ""}
-                        {amount}
-                      </span>
+                        <WalletCards size={18} />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-extrabold text-slate-800">
+                          {getActivityLabel(activity)}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          {formatActivityDate(activity.createdAt)}
+                          {Number.isFinite(Number(activity.balanceAfter))
+                            ? ` · Balance ${Number(activity.balanceAfter)}`
+                            : ""}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 sm:justify-end">
+                        {activity.studySession?.id && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/study/${activity.studySession.id}`)
+                            }
+                            className="inline-flex items-center gap-1 text-xs font-extrabold text-indigo-600 transition hover:text-indigo-800"
+                          >
+                            Session
+                            <ArrowUpRight size={13} />
+                          </button>
+                        )}
+
+                        {activity.tutorConversation?.id && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/ai-tutor?conversation=${activity.tutorConversation.id}`,
+                              )
+                            }
+                            className="inline-flex items-center gap-1 text-xs font-extrabold text-cyan-700 transition hover:text-cyan-900"
+                          >
+                            Tutor
+                            <ArrowUpRight size={13} />
+                          </button>
+                        )}
+
+                        <span
+                          className={`text-sm font-extrabold ${
+                            positive ? "text-emerald-600" : "text-rose-600"
+                          }`}
+                        >
+                          {positive ? "+" : ""}
+                          {amount}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+
+                {activityHasMore && (
+                  <button
+                    type="button"
+                    onClick={loadOlderActivity}
+                    disabled={activityLoadingMore}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-violet-100 bg-violet-50/55 px-4 py-3 text-sm font-extrabold text-violet-700 transition hover:border-violet-200 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {activityLoadingMore && (
+                      <LoaderCircle size={15} className="animate-spin" />
+                    )}
+                    {activityLoadingMore ? "Loading older activity..." : "Load older activity"}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </article>
 
-        <article className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
-              <CreditCard size={20} />
+        <article className="flex min-h-[620px] flex-col rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm xl:h-[700px] xl:min-h-0">
+          <div className="shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <CreditCard size={20} />
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-emerald-600">
+                  Payments
+                </p>
+
+                <h2 className="text-xl font-extrabold text-slate-900">
+                  Razorpay transaction history
+                </h2>
+              </div>
             </div>
 
-            <div>
-              <p className="text-sm font-bold text-emerald-600">
-                Payments
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Verified FluxGem purchases made through Razorpay are listed
+              separately from normal Gem usage and rewards.
+            </p>
+          </div>
+
+          {purchaseLoading ? (
+            <div className="mt-5 flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50/70 p-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
+                <LoaderCircle size={17} className="animate-spin" />
+                Loading purchase history...
+              </div>
+            </div>
+          ) : purchaseHistory.length === 0 ? (
+            <div className="mt-5 flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center">
+              <CreditCard size={22} className="text-slate-400" />
+
+              <p className="mt-3 text-sm font-semibold text-slate-600">
+                No Razorpay purchases yet.
               </p>
 
-              <h2 className="text-xl font-extrabold text-slate-900">
-                Razorpay transaction history
-              </h2>
+              <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
+                Payment ID, order ID, amount, FluxGems credited, status and
+                purchase date will appear here once verified purchases exist.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="sf-scrollbar mt-5 min-h-0 flex-1 overflow-y-auto pr-2">
+              <div className="space-y-2.5">
+                {purchaseHistory.map((purchase) => {
+                  const metadata = purchase.metadata || {};
+                  const paymentId = getPaymentReference(metadata);
+                  const orderId = getOrderReference(metadata);
+                  const currency = formatCurrency(metadata);
+                  const status = metadata.status || "Verified";
 
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            Verified FluxGem purchases made through
-            Razorpay will be listed separately from
-            normal Gem usage and rewards.
-          </p>
+                  return (
+                    <div
+                      key={purchase.id}
+                      className="rounded-2xl border border-emerald-100/80 bg-gradient-to-r from-emerald-50/55 via-white to-cyan-50/45 p-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100/70 text-emerald-700">
+                            <CreditCard size={18} />
+                          </div>
 
-          <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center">
-            <CreditCard
-              size={22}
-              className="mx-auto text-slate-400"
-            />
+                          <div className="min-w-0">
+                            <p className="text-sm font-extrabold text-slate-800">
+                              FluxGem purchase
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              {formatActivityDate(purchase.createdAt)}
+                            </p>
+                          </div>
+                        </div>
 
-            <p className="mt-3 text-sm font-semibold text-slate-600">
-              No Razorpay purchases yet.
-            </p>
+                        <div className="text-left sm:text-right">
+                          <p className="text-sm font-extrabold text-emerald-700">
+                            +{Number(purchase.amount || 0)} FluxGems
+                          </p>
+                          {currency && (
+                            <p className="mt-1 text-xs font-bold text-slate-500">
+                              {currency}
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Payment ID, order ID, amount, FluxGems
-              credited, status and purchase date will
-              appear here after payments are enabled.
-            </p>
-          </div>
+                      <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                        <div className="rounded-xl border border-white/80 bg-white/70 px-3 py-2.5">
+                          <p className="font-bold uppercase tracking-[0.1em] text-slate-400">
+                            Payment ID
+                          </p>
+                          <p className="mt-1 truncate font-semibold text-slate-700" title={paymentId || "Not recorded"}>
+                            {paymentId || "Not recorded"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-white/80 bg-white/70 px-3 py-2.5">
+                          <p className="font-bold uppercase tracking-[0.1em] text-slate-400">
+                            Order ID
+                          </p>
+                          <p className="mt-1 truncate font-semibold text-slate-700" title={orderId || "Not recorded"}>
+                            {orderId || "Not recorded"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3 text-xs">
+                        <span className="rounded-full bg-emerald-100/80 px-2.5 py-1 font-extrabold text-emerald-700">
+                          {status}
+                        </span>
+                        <span className="font-semibold text-slate-500">
+                          Balance {Number(purchase.balanceAfter || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {purchaseHasMore && (
+                  <button
+                    type="button"
+                    onClick={loadOlderPurchases}
+                    disabled={purchaseLoadingMore}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm font-extrabold text-emerald-700 transition hover:border-emerald-200 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {purchaseLoadingMore && (
+                      <LoaderCircle size={15} className="animate-spin" />
+                    )}
+                    {purchaseLoadingMore ? "Loading older purchases..." : "Load older purchases"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </article>
       </section>
     </DashboardLayout>

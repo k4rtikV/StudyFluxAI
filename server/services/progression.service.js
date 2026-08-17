@@ -1,5 +1,7 @@
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import StudySession from "../models/StudySession.js";
+import TutorConversation from "../models/TutorConversation.js";
+import TutorMessage from "../models/TutorMessage.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -97,6 +99,22 @@ export const getProgressOverview = async (userId) => {
     (session) => Number(session.quizProgress?.attempts || 0) > 0,
   ).length;
 
+  const completedTutorQuestions = await TutorMessage.countDocuments({
+    user: userId,
+    role: "user",
+    status: "completed",
+  });
+
+  const tutorActivityMessages = await TutorMessage.find({
+    user: userId,
+    role: "user",
+    status: "completed",
+    completedAt: { $ne: null },
+  })
+    .select("completedAt")
+    .sort({ completedAt: 1 })
+    .lean();
+
   const bestQuizPercentage = sessions.reduce(
     (best, session) =>
       Math.max(
@@ -106,9 +124,14 @@ export const getProgressOverview = async (userId) => {
     0,
   );
 
-  const activityDates = sessions.map(
-    (session) => session.completedAt || session.createdAt,
-  );
+  const activityDates = [
+    ...sessions.map(
+      (session) => session.completedAt || session.createdAt,
+    ),
+    ...tutorActivityMessages.map(
+      (message) => message.completedAt,
+    ),
+  ];
 
   const { currentStreak, bestStreak } = calculateStreaks(activityDates);
 
@@ -198,10 +221,23 @@ export const getProgressOverview = async (userId) => {
     .limit(3)
     .lean();
 
+  const recentTutorConversations = await TutorConversation.find({
+    user: userId,
+    archivedAt: null,
+    successfulQuestionCount: { $gt: 0 },
+  })
+    .select(
+      "title contextTitle successfulQuestionCount lastMessageAt createdAt",
+    )
+    .sort({ lastMessageAt: -1, updatedAt: -1 })
+    .limit(3)
+    .lean();
+
   return {
     stats: {
       completedSessions,
       completedQuizzes,
+      completedTutorQuestions,
       currentStreak,
       bestStreak,
       bestQuizPercentage,
@@ -228,5 +264,17 @@ export const getProgressOverview = async (userId) => {
       createdAt: session.createdAt,
       completedAt: session.completedAt,
     })),
+    recentTutorConversations: recentTutorConversations.map(
+      (conversation) => ({
+        id: conversation._id,
+        title: conversation.title || "Tutor conversation",
+        contextTitle: conversation.contextTitle || "",
+        successfulQuestionCount: Number(
+          conversation.successfulQuestionCount || 0,
+        ),
+        lastMessageAt: conversation.lastMessageAt,
+        createdAt: conversation.createdAt,
+      }),
+    ),
   };
 };

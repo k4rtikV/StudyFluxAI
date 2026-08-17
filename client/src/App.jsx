@@ -8,6 +8,7 @@ import {
 } from "./components/common/RouteGuards";
 
 import AchievementsPage from "./pages/AchievementsPage";
+import AITutorPage from "./pages/AITutorPage";
 import DashboardPage from "./pages/DashboardPage";
 import EditProfilePage from "./pages/EditProfilePage";
 import FluxGemsInfoPage from "./pages/FluxGemsInfoPage";
@@ -105,6 +106,15 @@ function App() {
         element={
           <ProtectedRoute>
             <QuizGeneratorPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/ai-tutor"
+        element={
+          <ProtectedRoute>
+            <AITutorPage />
           </ProtectedRoute>
         }
       />

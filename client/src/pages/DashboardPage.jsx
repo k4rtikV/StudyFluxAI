@@ -57,6 +57,8 @@ const QUICK_ACTIONS = [
       "bg-cyan-50 text-cyan-600",
     border:
       "border-cyan-200/90 hover:border-cyan-300",
+    path: "/ai-tutor",
+    actionLabel: "Open AI Tutor",
   },
   {
     title: "Study Planner",
@@ -152,6 +154,35 @@ function DashboardPage() {
   const achievementXp = Number(stats.achievementXp || 0);
   const currentLevel = Math.floor(achievementXp / 500) + 1;
   const recentSessions = progress?.recentSessions || [];
+  const recentTutorConversations =
+    progress?.recentTutorConversations || [];
+
+  const recentActivity = useMemo(
+    () =>
+      [
+        ...recentSessions.map((session) => ({
+          ...session,
+          activityType: "study",
+          activityAt:
+            session.completedAt ||
+            session.createdAt,
+        })),
+        ...recentTutorConversations.map((conversation) => ({
+          ...conversation,
+          activityType: "tutor",
+          activityAt:
+            conversation.lastMessageAt ||
+            conversation.createdAt,
+        })),
+      ]
+        .sort(
+          (a, b) =>
+            new Date(b.activityAt || 0) -
+            new Date(a.activityAt || 0),
+        )
+        .slice(0, 4),
+    [recentSessions, recentTutorConversations],
+  );
 
   const milestones = useMemo(
     () => [
@@ -400,6 +431,7 @@ function DashboardPage() {
               accent,
               border,
               path,
+              actionLabel,
             }) => (
               <button
                 key={title}
@@ -426,7 +458,9 @@ function DashboardPage() {
                 </p>
 
                 <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-slate-400 transition group-hover:text-brand-600">
-                  {path ? "Open generator" : "Coming soon"}
+                  {path
+                    ? actionLabel || "Open generator"
+                    : "Coming soon"}
                   <ArrowRight size={14} />
                 </div>
               </button>
@@ -453,7 +487,7 @@ function DashboardPage() {
             </div>
           </div>
 
-          {recentSessions.length === 0 ? (
+          {recentActivity.length === 0 ? (
             <div className="mt-6 flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-white/80 bg-white/40 px-5 text-center backdrop-blur-md">
               <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-slate-400 shadow-sm">
                 <BookOpenCheck size={22} />
@@ -470,28 +504,50 @@ function DashboardPage() {
             </div>
           ) : (
             <div className="mt-5 space-y-3">
-              {recentSessions.map((session) => (
+              {recentActivity.map((item) => (
                 <button
-                  key={session.id}
+                  key={`${item.activityType}-${item.id}`}
                   type="button"
-                  onClick={() => navigate(`/study/${session.id}`)}
+                  onClick={() =>
+                    navigate(
+                      item.activityType === "tutor"
+                        ? `/ai-tutor?conversation=${item.id}`
+                        : `/study/${item.id}`,
+                    )
+                  }
                   className="group/session flex w-full items-center gap-3 rounded-2xl border border-white/80 bg-white/52 p-4 text-left backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/78"
                 >
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
-                    <BookOpenCheck size={18} />
+                  <div
+                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+                      item.activityType === "tutor"
+                        ? "bg-cyan-50 text-cyan-600"
+                        : "bg-indigo-50 text-indigo-600"
+                    }`}
+                  >
+                    {item.activityType === "tutor" ? (
+                      <BrainCircuit size={18} />
+                    ) : (
+                      <BookOpenCheck size={18} />
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-extrabold text-slate-800">
-                      {session.title}
+                      {item.title}
                     </p>
 
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {session.generationType === "notes"
-                        ? "AI Notes · saved to library"
-                        : session.quizAttempts > 0
-                          ? `Quiz ${session.latestQuizScore}/${session.latestQuizTotal}`
-                          : `${session.quizSize} question quiz waiting`}
+                      {item.activityType === "tutor"
+                        ? `AI Tutor · ${item.successfulQuestionCount} question${
+                            item.successfulQuestionCount === 1 ? "" : "s"
+                          }`
+                        : item.generationType === "notes"
+                          ? "AI Notes · saved to library"
+                          : item.quizAttempts > 0
+                            ? `Quiz ${item.latestQuizScore}/${item.latestQuizTotal}`
+                            : item.generationType === "combined"
+                              ? "Notes + quiz · saved to library"
+                              : `${item.quizSize} question quiz waiting`}
                     </p>
                   </div>
 
