@@ -4,8 +4,12 @@ import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
 import DailyChallengeAttempt from "../models/DailyChallengeAttempt.js";
 import XPTransaction from "../models/XPTransaction.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import User from "../models/User.js";
+import {
+  getLocalTodayDayNumber,
+  normalizeTimeZone,
+  toLocalDayNumber,
+} from "../utils/timezone.js";
 
 const ACHIEVEMENT_XP = {
   first_step: 50,
@@ -19,22 +23,14 @@ const ACHIEVEMENT_XP = {
   challenge_winner: 100,
 };
 
-const toUtcDayNumber = (dateValue) => {
-  const date = new Date(dateValue);
-
-  return Math.floor(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-    ) / DAY_MS,
-  );
-};
-
-const calculateStreaks = (dateValues) => {
-  const uniqueDays = [...new Set(dateValues.map(toUtcDayNumber))].sort(
-    (a, b) => a - b,
-  );
+const calculateStreaks = (dateValues, timeZone) => {
+  const uniqueDays = [
+    ...new Set(
+      dateValues
+        .map((value) => toLocalDayNumber(value, timeZone))
+        .filter((value) => Number.isFinite(value)),
+    ),
+  ].sort((a, b) => a - b);
 
   if (uniqueDays.length === 0) {
     return { currentStreak: 0, bestStreak: 0 };
@@ -53,14 +49,7 @@ const calculateStreaks = (dateValues) => {
   }
 
   const latestDay = uniqueDays.at(-1);
-  const now = new Date();
-  const today = Math.floor(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-    ) / DAY_MS,
-  );
+  const today = getLocalTodayDayNumber(timeZone);
 
   let currentStreak = 0;
 
@@ -88,6 +77,12 @@ const achievement = ({ key, current, target }) => ({
 });
 
 export const getProgressOverview = async (userId) => {
+  const user = await User.findById(userId)
+    .select("timezone")
+    .lean();
+
+  const timeZone = normalizeTimeZone(user?.timezone);
+
   const sessions = await StudySession.find({
     user: userId,
     status: "completed",
@@ -147,7 +142,10 @@ export const getProgressOverview = async (userId) => {
     ...challengeAttempts.map((attempt) => attempt.answeredAt),
   ];
 
-  const { currentStreak, bestStreak } = calculateStreaks(activityDates);
+  const { currentStreak, bestStreak } = calculateStreaks(
+    activityDates,
+    timeZone,
+  );
 
   const achievements = {
     first_step: achievement({
@@ -270,6 +268,7 @@ export const getProgressOverview = async (userId) => {
       completedDailyChallenges: challengeAttempts.length,
       challengeWins,
       gemRewardsEarned,
+      streakTimeZone: timeZone,
     },
     achievements,
     recentSessions: recentSessions.map((session) => ({

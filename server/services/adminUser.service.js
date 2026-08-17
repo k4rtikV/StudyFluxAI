@@ -22,6 +22,8 @@ const serializeUser = (user) => ({
   fullName: user.fullName,
   email: user.email,
   avatar: user.avatar || "",
+  timezone: user.timezone || "UTC",
+  timezoneUpdatedAt: user.timezoneUpdatedAt || null,
   authProviders: Array.isArray(user.authProviders) ? user.authProviders : [],
   isEmailVerified: Boolean(user.isEmailVerified),
   learningProfileCompleted: Boolean(user.learningProfileCompleted),
@@ -56,7 +58,7 @@ export const getAdminUserOverview = async () => {
       .sort({ createdAt: -1 })
       .limit(5)
       .select(
-        "fullName email avatar authProviders isEmailVerified learningProfileCompleted fluxGems isActive lastLoginAt createdAt updatedAt",
+        "fullName email avatar timezone timezoneUpdatedAt authProviders isEmailVerified learningProfileCompleted fluxGems isActive lastLoginAt createdAt updatedAt",
       )
       .lean(),
   ]);
@@ -112,7 +114,7 @@ export const listAdminUsers = async ({
       .skip((normalizedPage - 1) * normalizedLimit)
       .limit(normalizedLimit)
       .select(
-        "fullName email avatar authProviders isEmailVerified learningProfileCompleted fluxGems isActive lastLoginAt createdAt updatedAt",
+        "fullName email avatar timezone timezoneUpdatedAt authProviders isEmailVerified learningProfileCompleted fluxGems isActive lastLoginAt createdAt updatedAt",
       )
       .lean(),
   ]);

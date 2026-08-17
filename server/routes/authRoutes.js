@@ -7,6 +7,7 @@ import {
   logout,
   register,
   resendVerificationCode,
+  syncTimezone,
   verifyEmail,
 } from "../controllers/auth.controller.js";
 
@@ -28,6 +29,8 @@ router.post(
 );
 
 router.get("/me", protect, getMe);
+
+router.patch("/timezone", protect, syncTimezone);
 
 router.post("/logout", protect, logout);
 

@@ -329,9 +329,10 @@ function AchievementsPage() {
                 </h2>
 
                 <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
-                  Generated sessions update learning milestones and streaks.
-                  Submitted quizzes update quiz and performance achievements.
-                  Daily Challenge progress stays locked until that feature is built.
+                  Generated sessions, completed Tutor questions and Daily Challenge attempts
+                  contribute to learning streaks. Streak days are calculated in your saved
+                  timezone ({stats.streakTimeZone || "UTC"}) so activity around midnight
+                  follows your local calendar instead of UTC.
                 </p>
               </div>
             </div>

@@ -199,6 +199,8 @@ function AdminUserDetailsPage() {
             <DetailRow label="Email verification" value={user.isEmailVerified ? "Verified" : "Not verified"} />
             <DetailRow label="Learner profile" value={user.learningProfileCompleted ? "Completed" : "Pending"} />
             <DetailRow label="Current FluxGems" value={user.fluxGems.toLocaleString()} />
+            <DetailRow label="Streak timezone" value={user.timezone || "UTC"} />
+            <DetailRow label="Timezone saved" value={formatDateTime(user.timezoneUpdatedAt)} />
             <DetailRow label="Last login" value={formatDateTime(user.lastLoginAt)} />
             <DetailRow label="Last account update" value={formatDateTime(user.updatedAt)} />
           </div>

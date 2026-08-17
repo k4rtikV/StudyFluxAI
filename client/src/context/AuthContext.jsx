@@ -4,7 +4,10 @@ import {
   useState,
 } from "react";
 
-import { getCurrentUser } from "../services/authService";
+import {
+  getCurrentUser,
+  syncUserTimezone,
+} from "../services/authService";
 
 export const AuthContext = createContext(null);
 
@@ -17,8 +20,21 @@ export function AuthProvider({ children }) {
     const loadUser = async () => {
       try {
         const response = await getCurrentUser();
+        let currentUser = response.data.user;
 
-        setUser(response.data.user);
+        if (
+          currentUser?.role === "student" &&
+          currentUser.timezoneConfigured !== true
+        ) {
+          try {
+            const timezoneResponse = await syncUserTimezone();
+            currentUser = timezoneResponse.data.user;
+          } catch {
+            // Timezone sync should never block an otherwise valid session.
+          }
+        }
+
+        setUser(currentUser);
       } catch {
         setUser(null);
       } finally {

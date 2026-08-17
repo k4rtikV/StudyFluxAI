@@ -27,6 +27,44 @@ import {
   OTP_RESEND_COOLDOWN_SECONDS,
   verifyOtpHash,
 } from "../utils/otp.js";
+import {
+  isValidTimeZone,
+  normalizeTimeZone,
+} from "../utils/timezone.js";
+
+const applyReportedTimeZone = (user, reportedTimeZone) => {
+  const candidate = String(reportedTimeZone || "").trim();
+
+  if (!candidate || !isValidTimeZone(candidate)) {
+    return false;
+  }
+
+  // Authentication captures the learner's home/preferred timezone once.
+  // Future timezone changes should be explicit so historical streak days are
+  // not silently reinterpreted simply because the learner is travelling.
+  if (isValidTimeZone(user.timezone)) {
+    return false;
+  }
+
+  user.timezone = candidate;
+  user.timezoneUpdatedAt = new Date();
+  return true;
+};
+
+const serializeAuthUser = (user) => ({
+  id: user._id,
+  fullName: user.fullName,
+  email: user.email,
+  role: user.role,
+  avatar: user.avatar,
+  timezone: normalizeTimeZone(user.timezone),
+  timezoneConfigured: isValidTimeZone(user.timezone),
+  timezoneUpdatedAt: user.timezoneUpdatedAt || null,
+  fluxGems: Number(user.fluxGems || 0),
+  isEmailVerified: user.isEmailVerified,
+  learningProfileCompleted: Boolean(user.learningProfileCompleted),
+  authProviders: user.authProviders,
+});
 
 const getReservedAdminEmail = () =>
   normalizeEmail(process.env.ADMIN_SEED_EMAIL);
@@ -245,6 +283,7 @@ export const login = async (req, res, next) => {
       });
     }
 
+    applyReportedTimeZone(user, req.body.timezone);
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -256,20 +295,7 @@ export const login = async (req, res, next) => {
       success: true,
       message: "Signed in successfully.",
       data: {
-        user: {
-          id: user._id,
-          fullName: user.fullName,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          fluxGems: Number(user.fluxGems || 0),
-          isEmailVerified:
-            user.isEmailVerified,
-          learningProfileCompleted:
-            Boolean(user.learningProfileCompleted),
-          authProviders:
-            user.authProviders,
-        },
+        user: serializeAuthUser(user),
         nextStep: getAuthNextStep(user),
       },
     });
@@ -368,6 +394,7 @@ export const googleAuth = async (
       }
 
       user.isEmailVerified = true;
+      applyReportedTimeZone(user, req.body.timezone);
       user.lastLoginAt = new Date();
 
       if (!user.avatar && avatar) {
@@ -438,6 +465,7 @@ export const googleAuth = async (
         }
 
         user.isEmailVerified = true;
+        applyReportedTimeZone(user, req.body.timezone);
         user.lastLoginAt = new Date();
 
         if (!user.avatar && avatar) {
@@ -446,6 +474,9 @@ export const googleAuth = async (
 
         await user.save();
       } else {
+        const reportedTimeZone = String(req.body.timezone || "").trim();
+        const hasReportedTimeZone = isValidTimeZone(reportedTimeZone);
+
         user = await User.create({
           fullName,
           email,
@@ -454,6 +485,8 @@ export const googleAuth = async (
           isEmailVerified: true,
           learningProfileCompleted: false,
           avatar,
+          timezone: hasReportedTimeZone ? reportedTimeZone : "",
+          timezoneUpdatedAt: hasReportedTimeZone ? new Date() : null,
           lastLoginAt: new Date(),
         });
       }
@@ -469,20 +502,7 @@ export const googleAuth = async (
       message:
         "Signed in with Google successfully.",
       data: {
-        user: {
-          id: user._id,
-          fullName: user.fullName,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          fluxGems: Number(user.fluxGems || 0),
-          isEmailVerified:
-            user.isEmailVerified,
-          learningProfileCompleted:
-            Boolean(user.learningProfileCompleted),
-          authProviders:
-            user.authProviders,
-        },
+        user: serializeAuthUser(user),
 
         nextStep: getAuthNextStep(user),
       },
@@ -640,6 +660,7 @@ export const verifyEmail = async (req, res, next) => {
     });
 
     user.isEmailVerified = true;
+    applyReportedTimeZone(user, req.body.timezone);
     user.lastLoginAt = now;
 
     await user.save();
@@ -652,20 +673,7 @@ export const verifyEmail = async (req, res, next) => {
       success: true,
       message: "Email verified successfully.",
       data: {
-        user: {
-          id: user._id,
-          fullName: user.fullName,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          fluxGems: Number(user.fluxGems || 0),
-          isEmailVerified:
-            user.isEmailVerified,
-          learningProfileCompleted:
-            Boolean(user.learningProfileCompleted),
-          authProviders:
-            user.authProviders,
-        },
+        user: serializeAuthUser(user),
 
         nextStep: getAuthNextStep(user),
       },
@@ -798,22 +806,38 @@ export const getMe = async (req, res) => {
   return res.status(200).json({
     success: true,
     data: {
-      user: {
-        id: req.user._id,
-        fullName: req.user.fullName,
-        email: req.user.email,
-        role: req.user.role,
-        avatar: req.user.avatar,
-        fluxGems: Number(req.user.fluxGems || 0),
-        isEmailVerified:
-          req.user.isEmailVerified,
-        learningProfileCompleted:
-          Boolean(req.user.learningProfileCompleted),
-        authProviders:
-          req.user.authProviders,
-      },
+      user: serializeAuthUser(req.user),
     },
   });
+};
+
+export const syncTimezone = async (req, res, next) => {
+  try {
+    const candidate = String(req.body.timezone || "").trim();
+
+    if (!isValidTimeZone(candidate)) {
+      return res.status(400).json({
+        success: false,
+        code: "INVALID_TIMEZONE",
+        message: "A valid IANA timezone is required.",
+      });
+    }
+
+    if (req.user.timezone !== candidate) {
+      req.user.timezone = candidate;
+      req.user.timezoneUpdatedAt = new Date();
+      await req.user.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user: serializeAuthUser(req.user),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const logout = async (req, res) => {

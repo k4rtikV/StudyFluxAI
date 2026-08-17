@@ -2,7 +2,6 @@ import {
   BarChart3,
   BookOpen,
   BrainCircuit,
-  ChevronRight,
   CircleHelp,
   Info,
   LayoutDashboard,
@@ -14,6 +13,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import FluxGemMark from "./FluxGemMark";
@@ -24,119 +24,114 @@ const PRIMARY_NAV = [
     label: "Dashboard",
     icon: LayoutDashboard,
     path: "/dashboard",
-    hoverClass:
-      "hover:border-cyan-100/38 hover:bg-cyan-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(34,211,238,0.16)]",
-    iconHoverClass:
-      "group-hover:bg-cyan-300/18 group-hover:text-cyan-100",
   },
   {
     label: "Generate",
     icon: Sparkles,
     path: "/generate",
-    hoverClass:
-      "hover:border-violet-200/38 hover:bg-violet-300/16 hover:text-white hover:shadow-[0_14px_32px_rgba(139,92,246,0.18)]",
-    iconHoverClass:
-      "group-hover:bg-violet-300/18 group-hover:text-violet-100",
   },
   {
     label: "AI Tutor",
     icon: BrainCircuit,
     path: "/ai-tutor",
-    hoverClass:
-      "hover:border-emerald-100/42 hover:bg-emerald-200/17 hover:text-white hover:shadow-[0_14px_32px_rgba(16,185,129,0.20)]",
-    iconHoverClass:
-      "group-hover:bg-emerald-300/18 group-hover:text-emerald-100",
   },
   {
     label: "Study Library",
     icon: BookOpen,
     path: "/library",
-    hoverClass:
-      "hover:border-sky-100/40 hover:bg-sky-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(56,189,248,0.17)]",
-    iconHoverClass:
-      "group-hover:bg-sky-300/18 group-hover:text-sky-100",
   },
   {
     label: "Daily Challenges",
     icon: Trophy,
     path: "/daily-challenges",
-    hoverClass:
-      "hover:border-emerald-100/42 hover:bg-emerald-200/17 hover:text-white hover:shadow-[0_14px_32px_rgba(16,185,129,0.20)]",
-    iconHoverClass:
-      "group-hover:bg-emerald-300/18 group-hover:text-emerald-100",
   },
   {
     label: "Leaderboard",
     icon: Medal,
     comingSoon: true,
-    hoverClass:
-      "hover:border-amber-100/40 hover:bg-amber-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(245,158,11,0.18)]",
-    iconHoverClass:
-      "group-hover:bg-amber-300/18 group-hover:text-amber-100",
   },
   {
     label: "Progress",
     icon: BarChart3,
     comingSoon: true,
-    hoverClass:
-      "hover:border-cyan-100/38 hover:bg-cyan-200/16 hover:text-white hover:shadow-[0_14px_32px_rgba(34,211,238,0.16)]",
-    iconHoverClass:
-      "group-hover:bg-cyan-300/18 group-hover:text-cyan-100",
   },
 ];
 
 function NavButton({ item, active, onSelect }) {
   const Icon = item.icon;
+  const [hovered, setHovered] = useState(false);
+  const emphasized = active || hovered;
 
-  const defaultHover =
-    item.hoverClass ||
-    "hover:border-white/24 hover:bg-white/14 hover:text-white";
-
-  const defaultIconHover =
-    item.iconHoverClass ||
-    "group-hover:bg-white/20 group-hover:text-white";
+  const gradientStroke = emphasized
+    ? "url(#studyflux-sidebar-nav-gradient)"
+    : "currentColor";
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(item)}
-      className={`group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl border px-3 py-2 text-left text-sm font-semibold transition-all duration-200 ${
-        active
-          ? "border-white/44 bg-[linear-gradient(100deg,rgba(255,255,255,0.24),rgba(236,253,245,0.15))] text-white shadow-[0_18px_38px_rgba(5,80,62,0.24)] ring-1 ring-emerald-100/28"
-          : `border-white/10 bg-emerald-950/12 text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${defaultHover}`
-      }`}
+    <div
+      className="relative w-full lg:w-[270px]"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {active && (
-        <span className="pointer-events-none absolute inset-y-2 left-1 w-1.5 rounded-full bg-gradient-to-b from-white via-cyan-100 to-violet-200 shadow-[0_0_14px_rgba(165,243,252,0.75)]" />
-      )}
-
-      <span
-        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-200 ${
-          active
-            ? "bg-white/24 text-white shadow-[0_10px_22px_rgba(0,0,0,0.14)] ring-1 ring-white/24"
-            : `bg-white/13 text-emerald-50/92 ring-1 ring-white/7 ${defaultIconHover}`
+      <button
+        type="button"
+        onClick={() => onSelect(item)}
+        onFocus={() => setHovered(true)}
+        onBlur={() => setHovered(false)}
+        className={`group relative z-10 flex w-full items-center gap-3 border px-3 py-2 text-left text-sm font-semibold transition-[background-color,border-color,color,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.992] lg:origin-left ${
+          emphasized
+            ? "rounded-2xl border-white/65 bg-[linear-gradient(100deg,rgba(255,255,255,0.99)_0%,rgba(255,255,255,0.985)_100%)] text-slate-800 lg:rounded-r-none lg:border-r-0"
+            : "rounded-2xl border-white/10 bg-emerald-950/12 text-white/88 hover:border-white/22 hover:bg-white/10"
         }`}
       >
-        <Icon size={18} />
-      </span>
+        {emphasized && (
+          <span className="pointer-events-none absolute inset-y-2 left-1 w-1.5 rounded-full bg-[linear-gradient(180deg,#7c3aed_0%,#22d3ee_52%,#10b981_100%)]" />
+        )}
 
-      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-
-      {item.comingSoon ? (
-        <span className="rounded-full border border-white/18 bg-emerald-950/15 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-50/82 shadow-sm transition-colors group-hover:border-white/28 group-hover:bg-white/12 group-hover:text-white">
-          Soon
+        <span
+          className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-[background-color,border-color,color,transform] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            emphasized
+              ? "bg-[linear-gradient(135deg,rgba(124,58,237,0.13),rgba(34,211,238,0.13),rgba(16,185,129,0.14))] ring-1 ring-violet-200/70"
+              : "bg-white/13 text-emerald-50/92 ring-1 ring-white/7 group-hover:bg-white/16"
+          }`}
+        >
+          <Icon
+            size={18}
+            stroke={gradientStroke}
+            strokeWidth={emphasized ? 2.35 : 2}
+            className="transition-[stroke,transform] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+          />
         </span>
-      ) : (
-        <ChevronRight
-          size={15}
-          className={
-            active
-              ? "text-white"
-              : "text-emerald-50/60 transition-colors group-hover:text-white"
-          }
-        />
-      )}
-    </button>
+
+        <span
+          className={`min-w-0 flex-1 truncate transition-[color,opacity,transform] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            emphasized
+              ? "bg-[linear-gradient(90deg,#6d28d9_0%,#2563eb_34%,#06b6d4_62%,#059669_100%)] bg-clip-text font-extrabold text-transparent"
+              : "text-inherit"
+          }`}
+        >
+          {item.label}
+        </span>
+
+        {item.comingSoon ? (
+          <span
+            className={`rounded-full border px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide transition-[background-color,border-color,color,transform] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              emphasized
+                ? "border-violet-200/80 bg-violet-50 text-violet-600"
+                : "border-white/18 bg-emerald-950/15 text-emerald-50/82"
+            }`}
+          >
+            Soon
+          </span>
+        ) : null}
+      </button>
+
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-y-0 left-full hidden w-12 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.97)_55%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:block ${
+          emphasized ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
+        }`}
+      />
+    </div>
   );
 }
 
@@ -144,6 +139,13 @@ function DashboardSidebar({ open, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+
+  const [fluxGemHovered, setFluxGemHovered] = useState(false);
+
+  const fluxGemSectionActive =
+    location.pathname === "/wallet" || location.pathname === "/fluxgems";
+
+  const fluxGemEmphasized = fluxGemSectionActive || fluxGemHovered;
 
   const handleSelect = (item) => {
     if (item.comingSoon) {
@@ -178,6 +180,27 @@ function DashboardSidebar({ open, onClose }) {
 
   return (
     <>
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute h-0 w-0"
+        focusable="false"
+      >
+        <defs>
+          <linearGradient
+            id="studyflux-sidebar-nav-gradient"
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="100%"
+          >
+            <stop offset="0%" stopColor="#7c3aed" />
+            <stop offset="36%" stopColor="#2563eb" />
+            <stop offset="66%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#10b981" />
+          </linearGradient>
+        </defs>
+      </svg>
+
       {open && (
         <button
           type="button"
@@ -222,7 +245,7 @@ function DashboardSidebar({ open, onClose }) {
           </button>
         </div>
 
-        <div className="sf-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
+        <div className="sf-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 lg:w-[calc(100%+64px)] lg:pr-20">
           <nav className="space-y-1.5">
             {PRIMARY_NAV.map((item) => (
               <NavButton
@@ -237,15 +260,12 @@ function DashboardSidebar({ open, onClose }) {
           {user?.role === "admin" && (
             <>
               <div className="my-3 h-px bg-white/15" />
+
               <NavButton
                 item={{
                   label: "Admin Portal",
                   icon: ShieldCheck,
                   path: "/admin",
-                  hoverClass:
-                    "hover:border-violet-200/38 hover:bg-violet-300/16 hover:text-white hover:shadow-[0_14px_32px_rgba(139,92,246,0.18)]",
-                  iconHoverClass:
-                    "group-hover:bg-violet-300/18 group-hover:text-violet-100",
                 }}
                 active={location.pathname.startsWith("/admin")}
                 onSelect={handleSelect}
@@ -261,10 +281,6 @@ function DashboardSidebar({ open, onClose }) {
                 label: "Settings",
                 icon: Settings,
                 comingSoon: true,
-                hoverClass:
-                  "hover:border-white/24 hover:bg-white/14 hover:text-white hover:shadow-[0_12px_30px_rgba(15,23,42,0.14)]",
-                iconHoverClass:
-                  "group-hover:bg-white/20 group-hover:text-white",
               }}
               active={false}
               onSelect={handleSelect}
@@ -275,10 +291,6 @@ function DashboardSidebar({ open, onClose }) {
                 label: "Help & Support",
                 icon: CircleHelp,
                 comingSoon: true,
-                hoverClass:
-                  "hover:border-yellow-300/28 hover:bg-yellow-300/12 hover:text-white hover:shadow-[0_12px_30px_rgba(250,204,21,0.14)]",
-                iconHoverClass:
-                  "group-hover:bg-yellow-300/18 group-hover:text-yellow-100",
               }}
               active={false}
               onSelect={handleSelect}
@@ -287,53 +299,121 @@ function DashboardSidebar({ open, onClose }) {
         </div>
 
         <div className="relative border-t border-white/8 p-3.5">
-          <div className="relative overflow-hidden rounded-3xl border border-white/18 bg-emerald-950/18 p-3.5 pb-9 shadow-[0_20px_44px_rgba(4,64,50,0.18)] backdrop-blur-xl">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.18),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(103,232,249,0.12),transparent_34%)]" />
+          <div
+            className="relative"
+            onMouseEnter={() => setFluxGemHovered(true)}
+            onMouseLeave={() => setFluxGemHovered(false)}
+            onFocusCapture={() => setFluxGemHovered(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setFluxGemHovered(false);
+              }
+            }}
+          >
+            {/* Default emerald FluxGem surface */}
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 rounded-3xl border border-white/18 bg-emerald-950/18 shadow-[0_20px_44px_rgba(4,64,50,0.18)] transition-[opacity,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                fluxGemEmphasized
+                  ? "scale-[0.995] opacity-0"
+                  : "scale-100 opacity-100"
+              }`}
+            >
+              <span className="absolute inset-0 rounded-3xl bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.18),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(103,232,249,0.12),transparent_34%)]" />
+            </span>
 
-            <div className="relative flex items-center gap-3">
-              <FluxGemMark size={40} />
+            {/* Unified active surface + workspace spill */}
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-y-0 left-0 w-full origin-left rounded-3xl bg-white transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:w-[calc(100%+64px)] lg:bg-[linear-gradient(90deg,rgba(255,255,255,0.998)_0%,rgba(255,255,255,0.998)_80%,rgba(250,251,253,0.965)_88%,rgba(247,248,252,0)_100%)] ${
+                fluxGemEmphasized
+                  ? "translate-x-0 scale-x-100 opacity-100"
+                  : "-translate-x-1 scale-x-[0.94] opacity-0"
+              }`}
+            />
 
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-50/90">
-                  FluxGems
-                </p>
+            <div className="relative z-10 overflow-hidden rounded-3xl p-3.5 pb-9">
+              <div
+                className={`pointer-events-none absolute inset-0 rounded-3xl transition-opacity duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  fluxGemEmphasized
+                    ? "bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.10),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(124,58,237,0.08),transparent_34%)] opacity-100"
+                    : "opacity-0"
+                }`}
+              />
 
-                <p className="mt-0.5 text-lg font-extrabold text-white">
-                  {Number(user?.fluxGems || 0)}
-                </p>
+              {fluxGemEmphasized && (
+                <span className="pointer-events-none absolute inset-y-3 left-1 w-1.5 rounded-full bg-[linear-gradient(180deg,#7c3aed_0%,#22d3ee_52%,#10b981_100%)]" />
+              )}
+
+              <div className="relative flex items-center gap-3">
+                <FluxGemMark size={40} />
+
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={`text-[13px] font-bold uppercase tracking-[0.105em] transition-colors duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                      fluxGemEmphasized
+                        ? "bg-[linear-gradient(90deg,#6d28d9_0%,#2563eb_34%,#06b6d4_62%,#059669_100%)] bg-clip-text text-transparent"
+                        : "text-emerald-50/90"
+                    }`}
+                  >
+                    FluxGems
+                  </p>
+
+                  <p
+                    className={`mt-0.5 text-[19px] font-extrabold leading-5 transition-colors duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                      fluxGemEmphasized ? "text-slate-900" : "text-white"
+                    }`}
+                  >
+                    {Number(user?.fluxGems || 0)}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate("/wallet");
+                    onClose?.();
+                  }}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-xl border px-2.5 py-2 text-xs font-extrabold transition-[background-color,border-color,color,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] ${
+                    fluxGemEmphasized
+                      ? "border-violet-200/80 bg-violet-50/80 text-violet-700 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+                      : "border-white/22 bg-white/16 text-emerald-50 shadow-sm hover:border-white/34 hover:bg-white/22 hover:text-white"
+                  }`}
+                  aria-label="Buy FluxGems"
+                >
+                  <Plus size={14} />
+                  Buy
+                </button>
               </div>
+
+              <p
+                className={`relative mt-2.5 pr-7 text-[13px] leading-[18px] transition-colors duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  fluxGemEmphasized
+                    ? "text-slate-600"
+                    : "text-emerald-50/82"
+                }`}
+              >
+                Earn gems from challenges, learning streaks and future
+                achievements.
+              </p>
 
               <button
                 type="button"
                 onClick={() => {
-                  navigate("/wallet");
+                  navigate("/fluxgems");
                   onClose?.();
                 }}
-                className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/22 bg-white/16 px-2.5 py-2 text-xs font-extrabold text-emerald-50 shadow-sm transition hover:border-white/34 hover:bg-white/22 hover:text-white"
-                aria-label="Buy FluxGems"
+                title="Learn about FluxGems"
+                aria-label="Learn about FluxGems"
+                className={`absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-full border transition-[background-color,border-color,color,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.94] ${
+                  fluxGemEmphasized
+                    ? "border-emerald-200/90 bg-emerald-50 text-emerald-700 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+                    : "border-white/18 bg-white/15 text-emerald-50 shadow-sm hover:border-white/30 hover:bg-white/22 hover:text-white"
+                }`}
               >
-                <Plus size={14} />
-                Buy
+                <Info size={14} />
               </button>
             </div>
-
-            <p className="relative mt-3 pr-7 text-xs leading-5 text-emerald-50/82">
-              Earn gems from challenges, learning streaks and future
-              achievements.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => {
-                navigate("/fluxgems");
-                onClose?.();
-              }}
-              title="Learn about FluxGems"
-              aria-label="Learn about FluxGems"
-              className="absolute bottom-3 right-3 grid h-7 w-7 place-items-center rounded-full border border-white/18 bg-white/15 text-emerald-50 shadow-sm transition hover:border-white/30 hover:bg-white/22 hover:text-white"
-            >
-              <Info size={14} />
-            </button>
           </div>
         </div>
       </aside>

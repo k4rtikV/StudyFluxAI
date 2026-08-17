@@ -71,6 +71,18 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    timezone: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [100, "Timezone identifier is too long."],
+    },
+
+    timezoneUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
