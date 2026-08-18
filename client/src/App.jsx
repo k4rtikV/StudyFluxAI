@@ -17,6 +17,7 @@ import EditProfilePage from "./pages/EditProfilePage";
 import FluxGemsInfoPage from "./pages/FluxGemsInfoPage";
 import GeneratePage from "./pages/GeneratePage";
 import LandingPage from "./pages/LandingPage";
+import LeaderboardPage from "./pages/LeaderboardPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import NotesGeneratorPage from "./pages/NotesGeneratorPage";
@@ -29,6 +30,7 @@ import StudySessionPage from "./pages/StudySessionPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import WalletPage from "./pages/WalletPage";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
+import AdminLeaderboardPage from "./pages/admin/AdminLeaderboardPage";
 import AdminSoonPage from "./pages/admin/AdminSoonPage";
 import AdminUserDetailsPage from "./pages/admin/AdminUserDetailsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
@@ -102,7 +104,7 @@ function App() {
         <Route path="polls/:pollId/edit" element={<AdminPollEditorPage />} />
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="users/:userId" element={<AdminUserDetailsPage />} />
-        <Route path="leaderboard" element={<AdminSoonPage feature="leaderboard" />} />
+        <Route path="leaderboard" element={<AdminLeaderboardPage />} />
         <Route path="announcements" element={<AdminSoonPage feature="announcements" />} />
         <Route path="settings" element={<AdminSoonPage feature="settings" />} />
       </Route>
@@ -175,6 +177,15 @@ function App() {
         element={
           <ProtectedRoute>
             <DailyChallengesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/leaderboard"
+        element={
+          <ProtectedRoute>
+            <LeaderboardPage />
           </ProtectedRoute>
         }
       />

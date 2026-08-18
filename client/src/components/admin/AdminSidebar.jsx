@@ -22,10 +22,10 @@ const primaryItems = [
   { label: "Daily Challenges", path: "/admin/challenges", icon: Trophy },
   { label: "Community Polls", path: "/admin/polls", icon: MessageSquare },
   { label: "User Management", path: "/admin/users", icon: Users },
+  { label: "Leaderboard", path: "/admin/leaderboard", icon: BarChart3 },
 ];
 
 const futureItems = [
-  { label: "Leaderboard", path: "/admin/leaderboard", icon: BarChart3 },
   { label: "Announcements", path: "/admin/announcements", icon: Megaphone },
   { label: "Admin Settings", path: "/admin/settings", icon: Settings },
 ];

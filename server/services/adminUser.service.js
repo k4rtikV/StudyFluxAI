@@ -7,6 +7,8 @@ import PollVote from "../models/PollVote.js";
 import StudySession from "../models/StudySession.js";
 import User from "../models/User.js";
 import XPTransaction from "../models/XPTransaction.js";
+import { emitLeaderboardChanged } from "../realtime/socket.js";
+import { queueLeaderboardRefresh, removeUserFromLeaderboard } from "./leaderboard.service.js";
 
 const httpError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -158,7 +160,7 @@ export const getAdminUserDetails = async (userId) => {
     DailyChallengeAttempt.countDocuments({ user: user._id, isCorrect: true }),
     PollVote.countDocuments({ user: user._id }),
     XPTransaction.aggregate([
-      { $match: { user: user._id } },
+      { $match: { user: user._id, reason: "daily_challenge" } },
       { $group: { _id: null, xp: { $sum: "$amount" } } },
     ]),
     FluxGemPurchase.aggregate([
@@ -223,6 +225,13 @@ export const updateAdminUserStatus = async ({ userId, isActive }) => {
 
   user.isActive = isActive;
   await user.save();
+
+  if (isActive) {
+    queueLeaderboardRefresh(user._id);
+  } else {
+    await removeUserFromLeaderboard(user._id);
+    emitLeaderboardChanged({ reason: "user-deactivated" });
+  }
 
   return serializeUser(user.toObject());
 };

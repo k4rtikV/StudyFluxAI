@@ -9,6 +9,7 @@ import PollVote from "../models/PollVote.js";
 import User from "../models/User.js";
 import XPTransaction from "../models/XPTransaction.js";
 import { emitPollResults } from "../realtime/socket.js";
+import { queueLeaderboardRefresh } from "./leaderboard.service.js";
 
 const POLL_CACHE_TTL_SECONDS = 45;
 
@@ -232,6 +233,7 @@ export const submitDailyChallenge = async ({ userId, challengeId, selectedOption
               amount: xpEarned,
               reason: "daily_challenge",
               dailyChallenge: challenge._id,
+              earnedAt: now,
               metadata: {
                 category: challenge.category,
                 difficulty: challenge.difficulty,
@@ -260,6 +262,7 @@ export const submitDailyChallenge = async ({ userId, challengeId, selectedOption
     await mongoSession.endSession();
   }
 
+  queueLeaderboardRefresh(userId);
   return responseData;
 };
 

@@ -68,12 +68,64 @@ const calculateStreaks = (dateValues, timeZone) => {
   return { currentStreak, bestStreak };
 };
 
-const achievement = ({ key, current, target }) => ({
+const getActivityThresholdEarnedAt = (dateValues, timeZone, target) => {
+  const byDay = new Map();
+  for (const value of dateValues) {
+    const date = new Date(value);
+    const day = toLocalDayNumber(date, timeZone);
+    if (!Number.isFinite(day) || Number.isNaN(date.getTime())) continue;
+    const existing = byDay.get(day);
+    if (!existing || date < existing) byDay.set(day, date);
+  }
+
+  const days = [...byDay.keys()].sort((a, b) => a - b);
+  let running = 0;
+  let previous = null;
+  for (const day of days) {
+    running = previous !== null && day === previous + 1 ? running + 1 : 1;
+    if (running >= target) return byDay.get(day) || null;
+    previous = day;
+  }
+  return null;
+};
+
+const getFirstQuizAttemptEarnedAt = (sessions) => {
+  const dates = sessions
+    .filter((session) => Number(session.quizProgress?.attempts || 0) > 0)
+    .map((session) =>
+      session.quizProgress?.firstCompletedAt ||
+      session.quizProgress?.lastCompletedAt ||
+      session.completedAt ||
+      session.createdAt,
+    )
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => a - b);
+  return dates[0] || null;
+};
+
+const getQuizAchievementEarnedAt = (sessions, threshold) => {
+  const dates = sessions
+    .filter((session) => Number(session.quizProgress?.bestPercentage || 0) >= threshold)
+    .map((session) =>
+      session.quizProgress?.lastCompletedAt ||
+      session.quizProgress?.firstCompletedAt ||
+      session.completedAt ||
+      session.createdAt,
+    )
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => a - b);
+  return dates[0] || null;
+};
+
+const achievement = ({ key, current, target, earnedAt = null }) => ({
   key,
   current: Math.min(Math.max(Number(current) || 0, 0), target),
   target,
   unlocked: Number(current) >= target,
   xpReward: ACHIEVEMENT_XP[key] || 0,
+  earnedAt: Number(current) >= target && earnedAt ? earnedAt : null,
 });
 
 export const getProgressOverview = async (userId) => {
@@ -147,52 +199,21 @@ export const getProgressOverview = async (userId) => {
     timeZone,
   );
 
+  const firstSessionEarnedAt = sessions[0]?.completedAt || sessions[0]?.createdAt || null;
+  const firstQuizEarnedAt = getFirstQuizAttemptEarnedAt(sessions);
+  const focusedLearnerEarnedAt = sessions[9]?.completedAt || sessions[9]?.createdAt || null;
+  const firstChallengeWin = challengeAttempts.find((attempt) => attempt.isCorrect);
+
   const achievements = {
-    first_step: achievement({
-      key: "first_step",
-      current: completedSessions,
-      target: 1,
-    }),
-    quiz_starter: achievement({
-      key: "quiz_starter",
-      current: completedQuizzes,
-      target: 1,
-    }),
-    focused_learner: achievement({
-      key: "focused_learner",
-      current: completedSessions,
-      target: 10,
-    }),
-    three_day_spark: achievement({
-      key: "three_day_spark",
-      current: bestStreak,
-      target: 3,
-    }),
-    one_week_streak: achievement({
-      key: "one_week_streak",
-      current: bestStreak,
-      target: 7,
-    }),
-    consistency_champion: achievement({
-      key: "consistency_champion",
-      current: bestStreak,
-      target: 30,
-    }),
-    sharp_mind: achievement({
-      key: "sharp_mind",
-      current: bestQuizPercentage >= 80 ? 1 : 0,
-      target: 1,
-    }),
-    near_perfect: achievement({
-      key: "near_perfect",
-      current: bestQuizPercentage >= 90 ? 1 : 0,
-      target: 1,
-    }),
-    challenge_winner: achievement({
-      key: "challenge_winner",
-      current: challengeWins,
-      target: 1,
-    }),
+    first_step: achievement({ key: "first_step", current: completedSessions, target: 1, earnedAt: firstSessionEarnedAt }),
+    quiz_starter: achievement({ key: "quiz_starter", current: completedQuizzes, target: 1, earnedAt: firstQuizEarnedAt }),
+    focused_learner: achievement({ key: "focused_learner", current: completedSessions, target: 10, earnedAt: focusedLearnerEarnedAt }),
+    three_day_spark: achievement({ key: "three_day_spark", current: bestStreak, target: 3, earnedAt: getActivityThresholdEarnedAt(activityDates, timeZone, 3) }),
+    one_week_streak: achievement({ key: "one_week_streak", current: bestStreak, target: 7, earnedAt: getActivityThresholdEarnedAt(activityDates, timeZone, 7) }),
+    consistency_champion: achievement({ key: "consistency_champion", current: bestStreak, target: 30, earnedAt: getActivityThresholdEarnedAt(activityDates, timeZone, 30) }),
+    sharp_mind: achievement({ key: "sharp_mind", current: bestQuizPercentage >= 80 ? 1 : 0, target: 1, earnedAt: getQuizAchievementEarnedAt(sessions, 80) }),
+    near_perfect: achievement({ key: "near_perfect", current: bestQuizPercentage >= 90 ? 1 : 0, target: 1, earnedAt: getQuizAchievementEarnedAt(sessions, 90) }),
+    challenge_winner: achievement({ key: "challenge_winner", current: challengeWins, target: 1, earnedAt: firstChallengeWin?.answeredAt || null }),
   };
 
   const achievementValues = Object.values(achievements);
@@ -205,7 +226,7 @@ export const getProgressOverview = async (userId) => {
   );
 
   const activityXpTotals = await XPTransaction.aggregate([
-    { $match: { user: userId } },
+    { $match: { user: userId, reason: "daily_challenge" } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
 

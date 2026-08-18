@@ -50,7 +50,7 @@ const PRIMARY_NAV = [
   {
     label: "Leaderboard",
     icon: Medal,
-    comingSoon: true,
+    path: "/leaderboard",
   },
   {
     label: "Progress",

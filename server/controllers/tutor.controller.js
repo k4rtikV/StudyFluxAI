@@ -6,6 +6,7 @@ import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
 
 import { generateTutorReply } from "../services/tutorGemini.service.js";
+import { queueLeaderboardRefresh } from "../services/leaderboard.service.js";
 import {
   completeTutorQuestion,
   failTutorQuestion,
@@ -477,6 +478,8 @@ export const sendTutorMessage = async (req, res, next) => {
     });
 
     const usage = await getTutorUsageStatus(req.user._id);
+
+    queueLeaderboardRefresh(req.user._id);
 
     return res.status(201).json({
       success: true,

@@ -8,6 +8,7 @@ import {
   refundFailedStudyGeneration,
 } from "../services/fluxGem.service.js";
 import { generateLearningSession } from "../services/gemini.service.js";
+import { queueLeaderboardRefresh } from "../services/leaderboard.service.js";
 import { validateStudyGenerationInput } from "../utils/studySessionValidation.js";
 
 const COSTS = {
@@ -270,6 +271,8 @@ export const generateStudySession = async (req, res, next) => {
       );
     }
 
+    queueLeaderboardRefresh(req.user._id);
+
     return res.status(201).json({
       success: true,
       message: generation.fallbackUsed
@@ -501,6 +504,8 @@ export const submitStudyQuiz = async (req, res, next) => {
     };
 
     await studySession.save();
+
+    queueLeaderboardRefresh(req.user._id);
 
     return res.status(200).json({
       success: true,

@@ -22,6 +22,9 @@ export const initializeSocketServer = (httpServer) => {
         socket.leave(`poll:${pollId}`);
       }
     });
+
+    socket.on("leaderboard:join", () => socket.join("leaderboard"));
+    socket.on("leaderboard:leave", () => socket.leave("leaderboard"));
   });
 
   return io;
@@ -29,9 +32,16 @@ export const initializeSocketServer = (httpServer) => {
 
 export const emitPollResults = (pollId, results) => {
   if (!io) return;
-
   io.to(`poll:${pollId}`).emit("community:poll-results", {
     pollId: String(pollId),
     results,
+  });
+};
+
+export const emitLeaderboardChanged = (payload = {}) => {
+  if (!io) return;
+  io.to("leaderboard").emit("leaderboard:changed", {
+    updatedAt: new Date().toISOString(),
+    ...payload,
   });
 };

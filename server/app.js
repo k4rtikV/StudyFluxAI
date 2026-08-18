@@ -13,6 +13,7 @@ import fluxGemRoutes from "./routes/fluxGemRoutes.js";
 import fluxGemPurchaseRoutes from "./routes/fluxGemPurchaseRoutes.js";
 import learningProfileRoutes from "./routes/learningProfileRoutes.js";
 import progressRoutes from "./routes/progressRoutes.js";
+import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 import studySessionRoutes from "./routes/studySessionRoutes.js";
 import studyExportRoutes from "./routes/studyExportRoutes.js";
 import googleFormsIntegrationRoutes from "./routes/googleFormsIntegrationRoutes.js";
@@ -67,6 +68,7 @@ app.use("/api/fluxgems/purchases", fluxGemPurchaseRoutes);
 app.use("/api/learning-profile", learningProfileRoutes);
 
 app.use("/api/progress", progressRoutes);
+app.use("/api/leaderboard", leaderboardRoutes);
 
 app.use("/api/tutor", tutorRoutes);
 

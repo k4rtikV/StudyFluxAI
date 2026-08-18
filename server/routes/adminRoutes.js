@@ -17,6 +17,10 @@ import {
   getUsers,
   updateUserStatus,
 } from "../controllers/adminUser.controller.js";
+import {
+  getAdminLeaderboard,
+  rebuildAdminLeaderboard,
+} from "../controllers/adminLeaderboard.controller.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { protect } from "../middleware/auth.js";
 
@@ -35,6 +39,9 @@ router.get("/community/polls", getPolls);
 router.post("/community/polls", createPoll);
 router.patch("/community/polls/:pollId", updatePoll);
 router.delete("/community/polls/:pollId", deletePoll);
+
+router.get("/leaderboard", getAdminLeaderboard);
+router.post("/leaderboard/rebuild", rebuildAdminLeaderboard);
 
 router.get("/users/overview", getUserOverview);
 router.get("/users", getUsers);
