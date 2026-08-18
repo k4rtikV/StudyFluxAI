@@ -3,12 +3,14 @@ import {
   Award,
   Bell,
   ChevronDown,
+  Flame,
   LogOut,
   Menu,
   Search,
   Sparkles,
   UserRound,
   Wallet,
+  Zap,
   BookOpen,
   BrainCircuit,
   LayoutDashboard,
@@ -24,6 +26,7 @@ import FluxGemMark from "./FluxGemMark";
 import UserAvatar from "../common/UserAvatar";
 import useAuth from "../../hooks/useAuth";
 import { logoutUser } from "../../services/authService";
+import { getProgressOverview } from "../../services/progressService";
 
 const SEARCH_ITEMS = [
   {
@@ -101,6 +104,8 @@ function DashboardTopbar({ onOpenSidebar }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [progressOverview, setProgressOverview] = useState(null);
+  const [progressLoading, setProgressLoading] = useState(false);
 
   const profileRef = useRef(null);
   const gemMenuRef = useRef(null);
@@ -163,6 +168,39 @@ function DashboardTopbar({ onOpenSidebar }) {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, []);
 
+  useEffect(() => {
+    if (!profileOpen) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const loadProgress = async () => {
+      try {
+        setProgressLoading(true);
+        const response = await getProgressOverview();
+
+        if (active) {
+          setProgressOverview(response?.data || null);
+        }
+      } catch {
+        if (active) {
+          setProgressOverview(null);
+        }
+      } finally {
+        if (active) {
+          setProgressLoading(false);
+        }
+      }
+    };
+
+    loadProgress();
+
+    return () => {
+      active = false;
+    };
+  }, [profileOpen]);
+
   const handleSearchSubmit = (event) => {
     event.preventDefault();
 
@@ -188,6 +226,14 @@ function DashboardTopbar({ onOpenSidebar }) {
       setIsLoggingOut(false);
     }
   };
+
+  const progressStats = progressOverview?.stats || {};
+  const achievementCount = Object.keys(
+    progressOverview?.achievements || {},
+  ).length;
+  const totalXp = Number(progressStats.totalXp || 0);
+  const currentStreak = Number(progressStats.currentStreak || 0);
+  const unlockedAchievements = Number(progressStats.unlockedCount || 0);
 
   return (
     <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/14 bg-[linear-gradient(90deg,rgb(93,166,157)_0%,rgb(93,166,157)_10%,rgb(89,174,164)_20%,rgb(75,177,185)_36%,rgb(61,153,207)_54%,rgb(63,116,207)_72%,rgb(82,88,197)_87%,rgb(104,70,187)_100%)] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:left-[286px]">
@@ -381,7 +427,7 @@ function DashboardTopbar({ onOpenSidebar }) {
                 </p>
 
                 <p className="truncate text-[11px] font-semibold text-slate-400">
-                  Level 1 Learner
+                  Progress & profile
                 </p>
               </div>
 
@@ -389,7 +435,7 @@ function DashboardTopbar({ onOpenSidebar }) {
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 top-[calc(100%+10px)] z-40 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+              <div className="absolute right-0 top-[calc(100%+10px)] z-40 w-[min(22rem,calc(100vw-2rem))] rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                 <div className="px-3 py-2.5">
                   <p className="truncate text-sm font-bold text-slate-900">
                     {user?.fullName}
@@ -397,6 +443,75 @@ function DashboardTopbar({ onOpenSidebar }) {
 
                   <p className="mt-0.5 truncate text-xs text-slate-500">
                     {user?.email}
+                  </p>
+                </div>
+
+                <div className="mx-1 mb-2 rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-cyan-50/60 to-emerald-50 p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.13em] text-violet-600">
+                        Learning progress
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Your saved XP, streak and achievement activity.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => goTo("/achievements")}
+                      className="shrink-0 rounded-xl border border-white/90 bg-white/80 px-2.5 py-1.5 text-[11px] font-extrabold text-violet-700 shadow-sm transition hover:bg-white"
+                    >
+                      Details
+                    </button>
+                  </div>
+
+                  {progressLoading ? (
+                    <div className="mt-3 rounded-xl border border-white/80 bg-white/55 px-3 py-3 text-xs font-semibold text-slate-500">
+                      Loading progress...
+                    </div>
+                  ) : (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="rounded-xl border border-white/90 bg-white/72 px-2.5 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-amber-600">
+                          <Zap size={13} />
+                          <span className="text-[10px] font-extrabold uppercase tracking-[0.1em]">
+                            XP
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-extrabold text-slate-900">
+                          {totalXp}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-white/90 bg-white/72 px-2.5 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-emerald-600">
+                          <Flame size={13} />
+                          <span className="text-[10px] font-extrabold uppercase tracking-[0.1em]">
+                            Streak
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-extrabold text-slate-900">
+                          {currentStreak}d
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-white/90 bg-white/72 px-2.5 py-2.5 shadow-sm">
+                        <div className="flex items-center gap-1.5 text-violet-600">
+                          <Award size={13} />
+                          <span className="text-[10px] font-extrabold uppercase tracking-[0.1em]">
+                            Awards
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-extrabold text-slate-900">
+                          {unlockedAchievements}/{achievementCount || 0}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="mt-2.5 text-[11px] leading-4 text-slate-500">
+                    Levels and level-up progress are coming soon.
                   </p>
                 </div>
 

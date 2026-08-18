@@ -5,10 +5,8 @@ import {
   CalendarDays,
   CheckCircle2,
   Flame,
-  Gauge,
   GraduationCap,
   Lightbulb,
-  LockKeyhole,
   NotebookPen,
   Play,
   Sparkles,
@@ -81,13 +79,11 @@ function MetricCard({
   children,
 }) {
   const cardClass =
-    label === "Current level"
-      ? "border-indigo-200/90 hover:border-indigo-300"
-      : label === "XP"
-        ? "border-amber-200/90 hover:border-amber-300"
-        : label === "FluxGems"
-          ? "border-cyan-200/90 hover:border-cyan-300"
-          : "border-emerald-200/90 hover:border-emerald-300";
+    label === "XP"
+      ? "border-amber-200/90 hover:border-amber-300"
+      : label === "FluxGems"
+        ? "border-cyan-200/90 hover:border-cyan-300"
+        : "border-emerald-200/90 hover:border-emerald-300";
 
   return (
     <div className={`rounded-2xl border bg-white/70 p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white/86 hover:shadow-[0_18px_38px_rgba(15,23,42,0.10)] ${cardClass}`}>
@@ -150,9 +146,7 @@ function DashboardPage() {
   }, []);
 
   const stats = progress?.stats || {};
-  const achievements = progress?.achievements || {};
   const totalXp = Number(stats.totalXp ?? stats.achievementXp ?? 0);
-  const currentLevel = Math.floor(totalXp / 500) + 1;
   const recentSessions = progress?.recentSessions || [];
   const recentTutorConversations =
     progress?.recentTutorConversations || [];
@@ -182,24 +176,6 @@ function DashboardPage() {
         )
         .slice(0, 4),
     [recentSessions, recentTutorConversations],
-  );
-
-  const milestones = useMemo(
-    () => [
-      {
-        title: "Generate your first learning session",
-        progress: achievements.first_step,
-      },
-      {
-        title: "Build a 3-day learning streak",
-        progress: achievements.three_day_spark,
-      },
-      {
-        title: "Complete your first generated quiz",
-        progress: achievements.quiz_starter,
-      },
-    ],
-    [achievements],
   );
 
   const firstName =
@@ -244,15 +220,7 @@ function DashboardPage() {
         </button>
       </section>
 
-      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          icon={Gauge}
-          iconClass="bg-brand-50 text-brand-600"
-          label="Current level"
-          value={`Level ${currentLevel}`}
-          helper="Level reflects achievement XP plus rewarded community activity."
-        />
-
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           icon={Zap}
           iconClass="bg-amber-50 text-amber-600"
@@ -336,7 +304,7 @@ function DashboardPage() {
               </span>
 
               <span className="rounded-full border border-indigo-200/80 bg-white/70 px-3 py-1.5 text-indigo-700 backdrop-blur">
-                Progress
+                Study Library
               </span>
             </div>
 
@@ -463,7 +431,7 @@ function DashboardPage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-5 xl:grid-cols-[1fr_0.72fr]">
+      <section className="mt-6">
         <article className="rounded-3xl border border-sky-200/90 bg-white/68 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-sky-300 hover:bg-white/84 hover:shadow-[0_18px_40px_rgba(14,165,233,0.10)]">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -562,59 +530,6 @@ function DashboardPage() {
               </button>
             </div>
           )}
-        </article>
-
-        <article className="rounded-3xl border border-violet-200/90 bg-white/68 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-violet-300 hover:bg-white/84 hover:shadow-[0_18px_40px_rgba(139,92,246,0.10)]">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600">
-              <LockKeyhole size={19} />
-            </div>
-
-            <div>
-              <p className="text-sm font-bold text-violet-600">
-                Progression
-              </p>
-
-              <h2 className="text-xl font-extrabold text-slate-900">
-                Next milestones
-              </h2>
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            {milestones.map(({ title, progress: itemProgress }) => {
-              const current = Number(itemProgress?.current || 0);
-              const target = Math.max(
-                Number(itemProgress?.target || 1),
-                1,
-              );
-              const percent = Math.min((current / target) * 100, 100);
-
-              return (
-                <div
-                  key={title}
-                  className="rounded-2xl border border-white/70 bg-white/44 p-4 backdrop-blur-md transition-all duration-200 hover:border-white hover:bg-white/64"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-bold text-slate-700">
-                      {title}
-                    </p>
-
-                    <span className="shrink-0 text-xs font-bold text-slate-400">
-                      {current} / {target}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/70">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-violet-500 transition-all"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </article>
       </section>
     </DashboardLayout>

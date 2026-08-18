@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   BookOpen,
   BrainCircuit,
   CircleHelp,
@@ -7,6 +6,7 @@ import {
   LayoutDashboard,
   Lightbulb,
   Medal,
+  MessagesSquare,
   NotebookPen,
   Plus,
   Settings,
@@ -33,14 +33,19 @@ const PRIMARY_NAV = [
     path: "/generate",
   },
   {
+    label: "Study Library",
+    icon: BookOpen,
+    path: "/library",
+  },
+  {
     label: "AI Tutor",
     icon: BrainCircuit,
     path: "/ai-tutor",
   },
   {
-    label: "Study Library",
-    icon: BookOpen,
-    path: "/library",
+    label: "Smart Interview",
+    icon: MessagesSquare,
+    comingSoon: true,
   },
   {
     label: "Daily Challenges",
@@ -51,11 +56,6 @@ const PRIMARY_NAV = [
     label: "Leaderboard",
     icon: Medal,
     path: "/leaderboard",
-  },
-  {
-    label: "Progress",
-    icon: BarChart3,
-    comingSoon: true,
   },
 ];
 
@@ -161,23 +161,38 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
   const subItems = [
     {
       label: "AI Notes",
+      caption: "Study notes",
       icon: NotebookPen,
       path: "/generate/notes",
       active: notesActive,
     },
     {
       label: "AI Quiz",
+      caption: "Practice quiz",
       icon: Lightbulb,
       path: "/generate/quiz",
       active: quizActive,
     },
   ];
 
+  const optionBaseClass =
+    "group/option flex min-w-0 items-center gap-2 rounded-xl border bg-white/78 text-left transition-[background-color,border-color,color,transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.975]";
+
+  const optionStateClass = (isActive) =>
+    isActive
+      ? "border-violet-200/90 bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(34,211,238,0.10),rgba(16,185,129,0.10))] text-violet-700 shadow-[0_7px_18px_rgba(79,70,229,0.08)]"
+      : "border-slate-200/80 text-slate-700 hover:border-violet-200/80 hover:bg-[linear-gradient(135deg,rgba(124,58,237,0.07),rgba(34,211,238,0.06),rgba(16,185,129,0.06))] hover:text-violet-700 hover:shadow-[0_7px_18px_rgba(79,70,229,0.06)]";
+
+  const optionIconClass = (isActive) =>
+    isActive
+      ? "bg-[linear-gradient(135deg,rgba(124,58,237,0.14),rgba(34,211,238,0.14),rgba(16,185,129,0.14))] text-violet-700 ring-violet-200/80"
+      : "bg-slate-50 text-slate-500 ring-slate-200/80 group-hover/option:bg-[linear-gradient(135deg,rgba(124,58,237,0.10),rgba(34,211,238,0.10),rgba(16,185,129,0.10))] group-hover/option:text-violet-700 group-hover/option:ring-violet-200/70";
+
   return (
     <div
       className={`relative grid w-full overflow-visible transition-[grid-template-rows] duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:w-[270px] ${
         expanded
-          ? "grid-rows-[54px_48px_58px]"
+          ? "grid-rows-[54px_54px_58px]"
           : "grid-rows-[54px_0px_0px]"
       }`}
       onMouseEnter={() => setHovered(true)}
@@ -240,7 +255,7 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
 
       <div className="relative z-10 min-h-0 overflow-hidden">
         <div
-          className={`grid h-12 grid-cols-2 gap-2 px-2 pb-2 transition-[opacity,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          className={`grid h-[54px] grid-cols-2 gap-2 px-2 pb-2 transition-[opacity,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
             expanded
               ? "translate-y-0 opacity-100 delay-75"
               : "-translate-y-1 opacity-0"
@@ -254,15 +269,31 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
                 key={subItem.path}
                 type="button"
                 onClick={() => onSelect({ path: subItem.path })}
-                className={`flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-2 text-[11px] font-extrabold transition-[background-color,border-color,color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97] ${
-                  subItem.active
-                    ? "border-violet-200/90 bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(34,211,238,0.10),rgba(16,185,129,0.10))] text-violet-700"
-                    : "border-slate-200/80 bg-white/70 text-slate-600 hover:border-cyan-200 hover:bg-cyan-50/75 hover:text-cyan-700"
-                }`}
+                className={`${optionBaseClass} h-[46px] px-2.5 ${optionStateClass(
+                  subItem.active,
+                )}`}
                 aria-current={subItem.active ? "page" : undefined}
               >
-                <SubIcon size={14} strokeWidth={2.2} />
-                <span className="truncate">{subItem.label}</span>
+                <span
+                  className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ring-1 transition-[background-color,color,box-shadow] duration-300 ${optionIconClass(
+                    subItem.active,
+                  )}`}
+                >
+                  <SubIcon size={13.5} strokeWidth={2.2} />
+                </span>
+
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-extrabold leading-4">
+                    {subItem.label}
+                  </span>
+                  <span
+                    className={`block truncate text-[9px] font-semibold leading-3 ${
+                      subItem.active ? "text-violet-500" : "text-slate-400"
+                    }`}
+                  >
+                    {subItem.caption}
+                  </span>
+                </span>
               </button>
             );
           })}
@@ -273,11 +304,9 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
         <button
           type="button"
           onClick={() => onSelect({ path: "/generate" })}
-          className={`flex h-[50px] w-full items-center gap-2.5 rounded-xl border px-3 text-left transition-[background-color,border-color,color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.985] ${
-            studySessionActive
-              ? "border-violet-200/90 bg-[linear-gradient(135deg,rgba(124,58,237,0.12),rgba(34,211,238,0.10),rgba(16,185,129,0.10))] text-violet-700"
-              : "border-slate-200/80 bg-white/72 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50/75 hover:text-emerald-700"
-          } ${
+          className={`${optionBaseClass} h-[50px] w-full px-2.5 ${optionStateClass(
+            studySessionActive,
+          )} ${
             expanded
               ? "translate-y-0 opacity-100 delay-100"
               : "-translate-y-1 opacity-0"
@@ -285,21 +314,19 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
           aria-current={studySessionActive ? "page" : undefined}
         >
           <span
-            className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
-              studySessionActive
-                ? "bg-violet-100/90 text-violet-700"
-                : "bg-emerald-50 text-emerald-700"
-            }`}
+            className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ring-1 transition-[background-color,color,box-shadow] duration-300 ${optionIconClass(
+              studySessionActive,
+            )}`}
           >
-            <BookOpen size={15} strokeWidth={2.2} />
+            <BookOpen size={13.5} strokeWidth={2.2} />
           </span>
 
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12px] font-extrabold leading-4">
+            <span className="block truncate text-[11px] font-extrabold leading-4">
               Study Session
             </span>
             <span
-              className={`mt-0.5 block truncate text-[10px] font-semibold leading-3 ${
+              className={`block truncate text-[9px] font-semibold leading-3 ${
                 studySessionActive ? "text-violet-500" : "text-slate-400"
               }`}
             >

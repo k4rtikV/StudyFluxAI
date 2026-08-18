@@ -11,15 +11,67 @@ import {
 
 export const AuthContext = createContext(null);
 
+const SESSION_RETRY_DELAYS_MS = [350, 750, 1250, 1800, 2400];
+
+const wait = (delay) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, delay);
+  });
+
+const shouldRetrySessionRequest = (error) => {
+  const status = error?.response?.status;
+
+  // A 401/403 is a real logged-out/invalid-session response. Network failures
+  // and temporary server errors can happen when Vite becomes ready before the
+  // API during local startup, so only those cases receive a short retry window.
+  return !status || status >= 500;
+};
+
+const loadCurrentUserWithStartupRetry = async (isCancelled) => {
+  let lastError;
+
+  for (let attempt = 0; attempt <= SESSION_RETRY_DELAYS_MS.length; attempt += 1) {
+    if (isCancelled()) {
+      return null;
+    }
+
+    try {
+      return await getCurrentUser();
+    } catch (error) {
+      lastError = error;
+
+      if (
+        !shouldRetrySessionRequest(error) ||
+        attempt === SESSION_RETRY_DELAYS_MS.length
+      ) {
+        throw error;
+      }
+
+      await wait(SESSION_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+
+  throw lastError;
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] =
     useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadUser = async () => {
       try {
-        const response = await getCurrentUser();
+        const response = await loadCurrentUserWithStartupRetry(
+          () => cancelled,
+        );
+
+        if (!response || cancelled) {
+          return;
+        }
+
         let currentUser = response.data.user;
 
         if (
@@ -34,15 +86,25 @@ export function AuthProvider({ children }) {
           }
         }
 
-        setUser(currentUser);
+        if (!cancelled) {
+          setUser(currentUser);
+        }
       } catch {
-        setUser(null);
+        if (!cancelled) {
+          setUser(null);
+        }
       } finally {
-        setIsAuthLoading(false);
+        if (!cancelled) {
+          setIsAuthLoading(false);
+        }
       }
     };
 
     loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = (userData) => {
