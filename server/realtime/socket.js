@@ -25,6 +25,18 @@ export const initializeSocketServer = (httpServer) => {
 
     socket.on("leaderboard:join", () => socket.join("leaderboard"));
     socket.on("leaderboard:leave", () => socket.leave("leaderboard"));
+
+    socket.on("study-session:join", (sessionId) => {
+      if (typeof sessionId === "string" && /^[a-f0-9]{24}$/i.test(sessionId)) {
+        socket.join(`study-session:${sessionId}`);
+      }
+    });
+
+    socket.on("study-session:leave", (sessionId) => {
+      if (typeof sessionId === "string" && /^[a-f0-9]{24}$/i.test(sessionId)) {
+        socket.leave(`study-session:${sessionId}`);
+      }
+    });
   });
 
   return io;
@@ -41,6 +53,15 @@ export const emitPollResults = (pollId, results) => {
 export const emitLeaderboardChanged = (payload = {}) => {
   if (!io) return;
   io.to("leaderboard").emit("leaderboard:changed", {
+    updatedAt: new Date().toISOString(),
+    ...payload,
+  });
+};
+
+export const emitStudySessionChanged = (sessionId, payload = {}) => {
+  if (!io) return;
+  io.to(`study-session:${String(sessionId)}`).emit("study-session:changed", {
+    sessionId: String(sessionId),
     updatedAt: new Date().toISOString(),
     ...payload,
   });

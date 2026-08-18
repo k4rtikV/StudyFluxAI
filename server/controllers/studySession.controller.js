@@ -5,10 +5,9 @@ import StudySession from "../models/StudySession.js";
 import {
   beginPaidStudyGeneration,
   InsufficientFluxGemsError,
-  refundFailedStudyGeneration,
 } from "../services/fluxGem.service.js";
-import { generateLearningSession } from "../services/gemini.service.js";
 import { queueLeaderboardRefresh } from "../services/leaderboard.service.js";
+import { enqueueStudyGeneration } from "../services/studyGenerationQueue.service.js";
 import { validateStudyGenerationInput } from "../utils/studySessionValidation.js";
 
 const COSTS = {
@@ -105,12 +104,17 @@ const serializeStudySession = (
   quizSize: Number(studySession.quizSize || 0),
   cost: studySession.cost,
   status: studySession.status,
+  generationStage: studySession.generationStage ||
+    (studySession.status === "completed" ? "completed" : studySession.status === "failed" ? "failed" : "queued"),
+  generationMetrics: studySession.generationMetrics || null,
   modelUsed: studySession.modelUsed || "",
   fallbackUsed: Boolean(studySession.fallbackUsed),
   output: sanitizeOutput(studySession.output, includeQuizAnswers),
   quizProgress: serializeQuizProgress(studySession),
   chargedAt: studySession.chargedAt,
   refundedAt: studySession.refundedAt,
+  failureCode: studySession.failureCode || "",
+  failureMessage: studySession.failureMessage || "",
   completedAt: studySession.completedAt,
   createdAt: studySession.createdAt,
   updatedAt: studySession.updatedAt,
@@ -135,11 +139,18 @@ const serializeStudySessionSummary = (studySession) => {
     difficulty: studySession.difficulty,
     quizSize: Number(studySession.quizSize || 0),
     cost: studySession.cost,
+    status: studySession.status,
+    generationStage: studySession.generationStage ||
+      (studySession.status === "completed" ? "completed" : studySession.status === "failed" ? "failed" : "queued"),
+    generationMetrics: studySession.generationMetrics || null,
     modelUsed: studySession.modelUsed || "",
     fallbackUsed: Boolean(studySession.fallbackUsed),
     hasNotes: Boolean(studySession.output?.notes),
     hasQuiz: Boolean(studySession.output?.quiz?.questions?.length),
     quizProgress: serializeQuizProgress(studySession),
+    refundedAt: studySession.refundedAt || null,
+    failureCode: studySession.failureCode || "",
+    failureMessage: studySession.failureMessage || "",
     completedAt: studySession.completedAt,
     createdAt: studySession.createdAt,
   };
@@ -235,93 +246,41 @@ export const generateStudySession = async (req, res, next) => {
   }
 
   const studySessionId = reservation.studySession._id;
+  const sourceFile =
+    generationSettings.sourceMode === "source" && req.file
+      ? {
+          buffer: Buffer.from(req.file.buffer),
+          mimetype: req.file.mimetype,
+          originalname: req.file.originalname,
+          size: req.file.size,
+        }
+      : null;
 
-  try {
-    const generation = await generateLearningSession({
+  enqueueStudyGeneration({
+    studySessionId,
+    userId: req.user._id,
+    cost: generationCost,
+    generationInput: {
       profile: effectiveAcademicContext,
       generationType,
       ...generationSettings,
-      sourceFile:
-        generationSettings.sourceMode === "source" ? req.file : null,
-    });
+      sourceFile,
+    },
+  });
 
-    const completedSession = await StudySession.findOneAndUpdate(
-      {
-        _id: studySessionId,
-        user: req.user._id,
-        status: "generating",
+  return res.status(202).json({
+    success: true,
+    message:
+      "Generation started. You can leave this page while StudyFluxAI finishes in the background.",
+    data: {
+      studySession: serializeStudySession(reservation.studySession),
+      fluxGems: {
+        charged: generationCost,
+        balance: reservation.balance,
+        reserved: true,
       },
-      {
-        $set: {
-          status: "completed",
-          modelUsed: generation.modelUsed,
-          fallbackUsed: generation.fallbackUsed,
-          output: generation.output,
-          completedAt: new Date(),
-          failureCode: "",
-          failureMessage: "",
-        },
-      },
-      { new: true },
-    );
-
-    if (!completedSession) {
-      throw new Error(
-        "The generated learning content could not be saved.",
-      );
-    }
-
-    queueLeaderboardRefresh(req.user._id);
-
-    return res.status(201).json({
-      success: true,
-      message: generation.fallbackUsed
-        ? "Learning content generated using the fallback Gemini model."
-        : "Learning content generated successfully.",
-      data: {
-        studySession: serializeStudySession(completedSession),
-        fluxGems: {
-          charged: generationCost,
-          balance: reservation.balance,
-        },
-      },
-    });
-  } catch (generationError) {
-    let refundResult = {
-      refunded: false,
-      balance: reservation.balance,
-    };
-
-    try {
-      refundResult = await refundFailedStudyGeneration({
-        userId: req.user._id,
-        studySessionId,
-        cost: generationCost,
-        failureCode:
-          generationError.code || "AI_GENERATION_FAILED",
-        failureMessage:
-          generationError.message || "AI generation failed.",
-      });
-    } catch (refundError) {
-      console.error(
-        "CRITICAL: FluxGem refund failed after AI generation error:",
-        refundError,
-      );
-    }
-
-    return res.status(503).json({
-      success: false,
-      code:
-        generationError.code || "AI_GENERATION_FAILED",
-      message: refundResult.refunded
-        ? `The AI generation failed, so your ${generationCost} FluxGems were returned. Please try again.`
-        : "The AI generation failed. Please try again.",
-      data: {
-        refunded: refundResult.refunded,
-        balance: refundResult.balance,
-      },
-    });
-  }
+    },
+  });
 };
 
 export const getStudySession = async (req, res, next) => {
@@ -371,9 +330,10 @@ export const listStudySessions = async (req, res, next) => {
       50,
     );
 
+    const includePending = req.query.includePending === "true";
     const filter = {
       user: req.user._id,
-      status: "completed",
+      ...(includePending ? {} : { status: "completed" }),
     };
 
     if (["combined", "notes", "quiz"].includes(req.query.type)) {
@@ -389,7 +349,7 @@ export const listStudySessions = async (req, res, next) => {
 
     const sessions = await StudySession.find(filter)
       .select(
-        "generationType sourceMode topic sourceFile academicContext detailLevel difficulty quizSize cost modelUsed fallbackUsed output.sessionTitle output.shortDescription output.notes output.quiz quizProgress completedAt createdAt",
+        "generationType sourceMode topic sourceFile academicContext detailLevel difficulty quizSize cost status generationStage generationMetrics modelUsed fallbackUsed failureCode failureMessage refundedAt output.sessionTitle output.shortDescription output.notes output.quiz quizProgress completedAt createdAt updatedAt",
       )
       .sort({ createdAt: -1 })
       .limit(limit)

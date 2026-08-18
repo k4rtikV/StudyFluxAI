@@ -179,6 +179,24 @@ const studySessionSchema = new mongoose.Schema(
       index: true,
     },
 
+    generationStage: {
+      type: String,
+      enum: ["queued", "primary", "fallback", "completed", "failed"],
+      default: "queued",
+      index: true,
+    },
+
+    generationMetrics: {
+      queuedAt: { type: Date, default: null },
+      startedAt: { type: Date, default: null },
+      primaryStartedAt: { type: Date, default: null },
+      fallbackStartedAt: { type: Date, default: null },
+      primaryDurationMs: { type: Number, min: 0, default: 0 },
+      fallbackDurationMs: { type: Number, min: 0, default: 0 },
+      totalDurationMs: { type: Number, min: 0, default: 0 },
+      finishedAt: { type: Date, default: null },
+    },
+
     chargedAt: {
       type: Date,
       default: null,

@@ -528,7 +528,7 @@ function StandaloneGeneratorWorkspace({ generationType }) {
 
       toast.success(
         response.message ||
-          `${isNotes ? "AI Notes" : "Quiz"} generated successfully.`,
+          `Generation started for ${isNotes ? "AI Notes" : "your quiz"}.`,
       );
 
       navigate(
@@ -1119,7 +1119,7 @@ function StandaloneGeneratorWorkspace({ generationType }) {
               ) : (
                 <Sparkles size={18} />
               )}
-              {isGenerating ? "Generating..." : page.action}
+              {isGenerating ? "Starting..." : page.action}
             </button>
 
             {!hasEnoughFluxGems && (

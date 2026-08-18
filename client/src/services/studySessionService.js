@@ -66,11 +66,16 @@ export const generateStudySession = async ({
   return response.data;
 };
 
-export const listStudySessions = async (limit = 30, type = "") => {
+export const listStudySessions = async (
+  limit = 30,
+  type = "",
+  includePending = false,
+) => {
   const response = await api.get("/study-sessions", {
     params: {
       limit,
       ...(type ? { type } : {}),
+      ...(includePending ? { includePending: "true" } : {}),
     },
   });
 

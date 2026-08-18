@@ -36,6 +36,7 @@ import {
   getGoogleFormsExport,
   redirectToGoogleFormsConnection,
 } from "../services/studyExportService";
+import { getRealtimeSocket } from "../utils/realtimeSocket";
 
 const getErrorMessage = (error) =>
   error?.response?.data?.message ||
@@ -434,6 +435,44 @@ function StudySessionPage() {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    if (!studySession?.id || studySession.status !== "generating") {
+      return undefined;
+    }
+
+    let active = true;
+    const currentSessionId = String(studySession.id);
+
+    const refreshPendingSession = async () => {
+      try {
+        const response = await getStudySession(sessionId);
+        if (active) {
+          setStudySession(response?.data?.studySession || null);
+        }
+      } catch {
+        // The initial loader owns user-facing errors. Polling is best effort.
+      }
+    };
+
+    const intervalId = window.setInterval(refreshPendingSession, 3000);
+    const socket = getRealtimeSocket();
+    const handleSessionChanged = (payload) => {
+      if (String(payload?.sessionId || "") === currentSessionId) {
+        refreshPendingSession();
+      }
+    };
+
+    socket.emit("study-session:join", currentSessionId);
+    socket.on("study-session:changed", handleSessionChanged);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      socket.emit("study-session:leave", currentSessionId);
+      socket.off("study-session:changed", handleSessionChanged);
+    };
+  }, [sessionId, studySession?.id, studySession?.status]);
+
   const output = studySession?.output;
   const generationType = studySession?.generationType || "combined";
   const hasNotes = Boolean(output?.notes);
@@ -640,6 +679,119 @@ function StudySessionPage() {
             Loading your learning session...
           </div>
         </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (studySession?.status === "generating") {
+    const stage = studySession.generationStage || "queued";
+    const stageCopy = {
+      queued: {
+        label: "Queued",
+        title: "Your learning session is queued",
+        description: "StudyFluxAI has reserved your FluxGems and will start the AI worker shortly.",
+      },
+      primary: {
+        label: "Generating",
+        title: "Gemini is building your learning session",
+        description: "The primary model is preparing your structured learning content now.",
+      },
+      fallback: {
+        label: "Trying fallback",
+        title: "StudyFluxAI switched to the fallback model",
+        description: "The primary model was unavailable or returned an unusable response. Your generation is still active.",
+      },
+    }[stage] || {
+      label: "Generating",
+      title: "Your learning session is being generated",
+      description: "StudyFluxAI is preparing your content in the background.",
+    };
+
+    return (
+      <DashboardLayout>
+        <section className="mx-auto max-w-3xl rounded-3xl border border-violet-200/80 bg-white/80 p-6 shadow-[0_18px_50px_rgba(109,40,217,0.08)] backdrop-blur-xl sm:p-8">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-violet-100 via-indigo-50 to-emerald-50 text-violet-600">
+            <LoaderCircle size={26} className="animate-spin" />
+          </div>
+
+          <div className="mt-5 text-center">
+            <span className={`inline-flex rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] ${stage === "fallback" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-violet-200 bg-violet-50 text-violet-700"}`}>
+              {stageCopy.label}
+            </span>
+            <h1 className="mt-3 text-2xl font-extrabold text-slate-950 sm:text-3xl">
+              {stageCopy.title}
+            </h1>
+            <p className="mx-auto mt-2 max-w-xl leading-7 text-slate-500">
+              {stageCopy.description}
+            </p>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-500">
+                  Session
+                </p>
+                <p className="mt-1 font-extrabold text-slate-900">
+                  {studySession.topic || studySession.sourceFile?.fileName || "AI learning session"}
+                </p>
+              </div>
+              <p className="text-sm font-extrabold text-emerald-700">
+                {studySession.cost} FluxGems reserved
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-5 text-center text-sm leading-6 text-slate-500">
+            You can leave this page or open the Study Library. Generation continues in the background and this page updates automatically.
+          </p>
+
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => navigate("/library")}
+              className="rounded-xl border border-violet-200 bg-white px-4 py-2.5 text-sm font-extrabold text-violet-700 transition hover:-translate-y-0.5 hover:bg-violet-50"
+            >
+              Back to Study Library
+            </button>
+          </div>
+        </section>
+      </DashboardLayout>
+    );
+  }
+
+  if (studySession?.status === "failed") {
+    return (
+      <DashboardLayout>
+        <section className="mx-auto max-w-3xl rounded-3xl border border-rose-200 bg-white/85 p-7 text-center shadow-sm backdrop-blur-xl sm:p-9">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-50 text-rose-600">
+            <X size={25} />
+          </div>
+          <h1 className="mt-5 text-2xl font-extrabold text-slate-950">
+            Generation could not be completed
+          </h1>
+          <p className="mx-auto mt-2 max-w-xl leading-7 text-slate-500">
+            {studySession.refundedAt
+              ? `Your ${studySession.cost} FluxGems were automatically returned.`
+              : "The generation stopped before usable learning content was produced."}
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate("/library")}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-700"
+            >
+              Study Library
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(newGenerationPath)}
+              className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-extrabold text-white"
+            >
+              Try another generation
+            </button>
+          </div>
+        </section>
       </DashboardLayout>
     );
   }

@@ -53,6 +53,10 @@ export const beginPaidStudyGeneration = async ({
             user: userId,
             cost,
             status: "generating",
+            generationStage: "queued",
+            generationMetrics: {
+              queuedAt: new Date(),
+            },
             chargedAt: new Date(),
           },
         ],
@@ -116,7 +120,9 @@ export const refundFailedStudyGeneration = async ({
         {
           $set: {
             status: "failed",
+            generationStage: "failed",
             refundedAt: new Date(),
+            "generationMetrics.finishedAt": new Date(),
             failureCode,
             failureMessage: String(failureMessage || "").slice(0, 500),
           },

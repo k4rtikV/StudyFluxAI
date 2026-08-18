@@ -10,12 +10,13 @@ import {
   PlayCircle,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 
 import DashboardLayout from "../layouts/DashboardLayout";
 import { listStudySessions } from "../services/studySessionService";
+import { getRealtimeSocket } from "../utils/realtimeSocket";
 
 const formatDate = (value) => {
   if (!value) {
@@ -56,33 +57,54 @@ function StudyLibraryPage() {
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const loadSessions = useCallback(async (showError = true) => {
+    try {
+      const response = await listStudySessions(40, "", true);
+      setSessions(response?.data?.studySessions || []);
+    } catch (error) {
+      if (showError) {
+        toast.error(getErrorMessage(error));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    let active = true;
+    loadSessions();
+  }, [loadSessions]);
 
-    const loadSessions = async () => {
-      try {
-        const response = await listStudySessions(40);
+  useEffect(() => {
+    const pendingIds = sessions
+      .filter((session) => session.status === "generating")
+      .map((session) => String(session.id));
 
-        if (active) {
-          setSessions(response?.data?.studySessions || []);
-        }
-      } catch (error) {
-        if (active) {
-          toast.error(getErrorMessage(error));
-        }
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
+    if (pendingIds.length === 0) {
+      return undefined;
+    }
+
+    const refresh = () => loadSessions(false);
+    const intervalId = window.setInterval(refresh, 4000);
+    const socket = getRealtimeSocket();
+    const handleSessionChanged = (payload) => {
+      if (pendingIds.includes(String(payload?.sessionId || ""))) {
+        refresh();
       }
     };
 
-    loadSessions();
+    pendingIds.forEach((sessionId) => {
+      socket.emit("study-session:join", sessionId);
+    });
+    socket.on("study-session:changed", handleSessionChanged);
 
     return () => {
-      active = false;
+      window.clearInterval(intervalId);
+      pendingIds.forEach((sessionId) => {
+        socket.emit("study-session:leave", sessionId);
+      });
+      socket.off("study-session:changed", handleSessionChanged);
     };
-  }, []);
+  }, [loadSessions, sessions]);
 
   return (
     <DashboardLayout>
@@ -139,8 +161,11 @@ function StudyLibraryPage() {
             const generationType = session.generationType || "combined";
             const meta = TYPE_META[generationType] || TYPE_META.combined;
             const TypeIcon = meta.Icon;
-            const hasNotes = session.hasNotes ?? generationType !== "quiz";
-            const hasQuiz = session.hasQuiz ?? generationType !== "notes";
+            const isGenerating = session.status === "generating";
+            const isFailed = session.status === "failed";
+            const isCompleted = session.status === "completed";
+            const hasNotes = isCompleted && Boolean(session.hasNotes);
+            const hasQuiz = isCompleted && Boolean(session.hasQuiz);
             const attempts = Number(session.quizProgress?.attempts || 0);
             const latestScore = Number(session.quizProgress?.latestScore || 0);
             const totalQuestions = Number(
@@ -160,6 +185,23 @@ function StudyLibraryPage() {
                         {meta.label}
                       </span>
 
+                      {isGenerating && (
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] ${session.generationStage === "fallback" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-violet-200 bg-violet-50 text-violet-700"}`}>
+                          <LoaderCircle size={12} className="animate-spin" />
+                          {session.generationStage === "fallback"
+                            ? "Trying fallback"
+                            : session.generationStage === "primary"
+                              ? "Generating"
+                              : "Queued"}
+                        </span>
+                      )}
+
+                      {isFailed && (
+                        <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-rose-700">
+                          Failed · {session.refundedAt ? "Refunded" : "Stopped"}
+                        </span>
+                      )}
+
                       {hasQuiz && (
                         attempts > 0 ? (
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-emerald-700">
@@ -178,11 +220,16 @@ function StudyLibraryPage() {
                       {session.title}
                     </h2>
 
-                    {session.description && (
-                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
-                        {session.description}
-                      </p>
-                    )}
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
+                      {session.description ||
+                        (isGenerating
+                          ? "StudyFluxAI is preparing this learning item in the background. You can safely leave this page."
+                          : isFailed
+                            ? session.refundedAt
+                              ? "Generation did not complete and the reserved FluxGems were returned automatically."
+                              : "Generation stopped before usable content was produced."
+                            : "Saved learning content.")}
+                    </p>
                   </div>
                 </div>
 
@@ -203,7 +250,17 @@ function StudyLibraryPage() {
                       <span className="text-[10px] font-extrabold uppercase tracking-[0.1em]">Content</span>
                     </div>
                     <p className="mt-1.5 text-sm font-bold text-slate-800">
-                      {hasQuiz ? `${session.quizSize} questions` : "Notes only"}
+                      {isGenerating
+                        ? session.generationStage === "fallback"
+                          ? "Fallback model"
+                          : session.generationStage === "primary"
+                            ? "AI generating"
+                            : "Waiting for worker"
+                        : isFailed
+                          ? "Generation failed"
+                          : hasQuiz
+                            ? `${session.quizSize} questions`
+                            : "Notes only"}
                     </p>
                   </div>
 
@@ -211,40 +268,67 @@ function StudyLibraryPage() {
                     <div className="flex items-center gap-2 text-slate-500">
                       <Clock3 size={15} />
                       <span className="text-[10px] font-extrabold uppercase tracking-[0.1em]">
-                        {hasQuiz ? "Quiz status" : "FluxGems"}
+                        {isGenerating || isFailed ? "FluxGems" : hasQuiz ? "Quiz status" : "FluxGems"}
                       </span>
                     </div>
                     <p className="mt-1.5 text-sm font-bold text-slate-800">
-                      {hasQuiz
-                        ? attempts > 0
-                          ? `${latestScore}/${totalQuestions}`
-                          : "Not attempted"
-                        : `${session.cost} spent`}
+                      {isGenerating
+                        ? `${session.cost} reserved`
+                        : isFailed
+                          ? session.refundedAt
+                            ? `${session.cost} refunded`
+                            : `${session.cost} pending`
+                          : hasQuiz
+                            ? attempts > 0
+                              ? `${latestScore}/${totalQuestions}`
+                              : "Not attempted"
+                            : `${session.cost} spent`}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                  {hasNotes && (
+                  {isGenerating ? (
                     <button
                       type="button"
                       onClick={() => navigate(`/study/${session.id}`)}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-2.5 text-sm font-extrabold text-indigo-700 transition hover:-translate-y-0.5 hover:bg-indigo-50"
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5"
                     >
-                      <FileText size={16} />
-                      Open notes
+                      <LoaderCircle size={16} className="animate-spin" />
+                      View generation
                     </button>
-                  )}
-
-                  {hasQuiz && (
+                  ) : isFailed ? (
                     <button
                       type="button"
-                      onClick={() => navigate(`/study/${session.id}?tab=quiz`)}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-emerald-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5"
+                      onClick={() => navigate(`/study/${session.id}`)}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-extrabold text-rose-700 transition hover:-translate-y-0.5"
                     >
-                      <PlayCircle size={16} />
-                      {attempts > 0 ? "Review quiz" : "Take quiz"}
+                      View status
                     </button>
+                  ) : (
+                    <>
+                      {hasNotes && (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/study/${session.id}`)}
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-2.5 text-sm font-extrabold text-indigo-700 transition hover:-translate-y-0.5 hover:bg-indigo-50"
+                        >
+                          <FileText size={16} />
+                          Open notes
+                        </button>
+                      )}
+
+                      {hasQuiz && (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/study/${session.id}?tab=quiz`)}
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-emerald-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5"
+                        >
+                          <PlayCircle size={16} />
+                          {attempts > 0 ? "Review quiz" : "Take quiz"}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </article>

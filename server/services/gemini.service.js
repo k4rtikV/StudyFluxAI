@@ -13,6 +13,49 @@ const FALLBACK_HTTP_STATUSES = new Set([
   504,
 ]);
 
+const PRIMARY_TIMEOUT_MS = Math.max(
+  Number(process.env.GEMINI_PRIMARY_TIMEOUT_MS || 60000),
+  5000,
+);
+const FALLBACK_TIMEOUT_MS = Math.max(
+  Number(process.env.GEMINI_FALLBACK_TIMEOUT_MS || 60000),
+  5000,
+);
+
+const runWithTimeout = (operation, timeoutMs, model) =>
+  new Promise((resolve, reject) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+
+      const error = new Error(
+        `${model} did not respond within ${Math.round(timeoutMs / 1000)} seconds.`,
+      );
+      error.code = "GEMINI_MODEL_TIMEOUT";
+      error.status = 504;
+      reject(error);
+    }, timeoutMs);
+
+    Promise.resolve()
+      .then(operation)
+      .then(
+        (value) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(error);
+        },
+      );
+  });
+
 const notesProperty = {
   type: "object",
   properties: {
@@ -384,15 +427,27 @@ const generateWithModel = async ({
       ]
     : prompt;
 
-  const response = await ai.models.generateContent({
+  const timeoutMs =
+    model === String(
+      process.env.GEMINI_FALLBACK_MODEL || DEFAULT_FALLBACK_MODEL,
+    ).trim()
+      ? FALLBACK_TIMEOUT_MS
+      : PRIMARY_TIMEOUT_MS;
+
+  const response = await runWithTimeout(
+    () =>
+      ai.models.generateContent({
+        model,
+        contents,
+        config: {
+          responseMimeType: "application/json",
+          responseJsonSchema: responseSchemas[generationType],
+          temperature: generationType === "quiz" ? 0.35 : 0.45,
+        },
+      }),
+    timeoutMs,
     model,
-    contents,
-    config: {
-      responseMimeType: "application/json",
-      responseJsonSchema: responseSchemas[generationType],
-      temperature: generationType === "quiz" ? 0.35 : 0.45,
-    },
-  });
+  );
 
   if (!response.text) {
     throw new InvalidGeminiOutputError(
@@ -446,6 +501,7 @@ export const generateLearningSession = async ({
   difficulty,
   quizSize,
   sourceFile,
+  onStageChange,
 }) => {
   const ai = getApiClient();
   const primaryModel = String(
@@ -475,61 +531,101 @@ export const generateLearningSession = async ({
 
   const primarySourceFile =
     sourceFile?.mimetype === "application/pdf" ? sourceFile : null;
+  const totalStartedAt = Date.now();
+  const timings = {
+    primaryDurationMs: 0,
+    fallbackDurationMs: 0,
+    totalDurationMs: 0,
+  };
 
   try {
-    const output = await generateWithModel({
-      ai,
-      model: primaryModel,
-      prompt,
-      sourceFile: primarySourceFile,
-      generationType,
-      quizSize,
-    });
-
-    return {
-      output,
-      modelUsed: primaryModel,
-      fallbackUsed: false,
-    };
-  } catch (primaryError) {
-    if (
-      !fallbackModel ||
-      fallbackModel === primaryModel ||
-      !shouldUseFallback(primaryError)
-    ) {
-      const cleaned = cleanModelError(primaryError);
-      const error = new Error(cleaned.message);
-      Object.assign(error, cleaned);
-      throw error;
-    }
-
-    console.warn(
-      `Gemini primary model ${primaryModel} failed; trying ${fallbackModel}: ${primaryError.message}`,
-    );
+    await onStageChange?.("primary", { model: primaryModel });
+    const primaryStartedAt = Date.now();
 
     try {
       const output = await generateWithModel({
         ai,
-        model: fallbackModel,
+        model: primaryModel,
         prompt,
         sourceFile: primarySourceFile,
         generationType,
         quizSize,
       });
 
+      timings.primaryDurationMs = Date.now() - primaryStartedAt;
+      timings.totalDurationMs = Date.now() - totalStartedAt;
+
       return {
         output,
-        modelUsed: fallbackModel,
-        fallbackUsed: true,
+        modelUsed: primaryModel,
+        fallbackUsed: false,
+        timings,
       };
-    } catch (fallbackError) {
-      const cleaned = cleanModelError(fallbackError);
-      const error = new Error(cleaned.message);
-      error.code = "GEMINI_ALL_MODELS_FAILED";
-      error.status = cleaned.status;
-      error.primaryError = cleanModelError(primaryError);
-      error.fallbackError = cleaned;
-      throw error;
+    } catch (primaryError) {
+      timings.primaryDurationMs = Date.now() - primaryStartedAt;
+
+      if (
+        !fallbackModel ||
+        fallbackModel === primaryModel ||
+        !shouldUseFallback(primaryError)
+      ) {
+        const cleaned = cleanModelError(primaryError);
+        const error = new Error(cleaned.message);
+        Object.assign(error, cleaned);
+        timings.totalDurationMs = Date.now() - totalStartedAt;
+        error.generationTimings = timings;
+        throw error;
+      }
+
+      console.warn(
+        `Gemini primary model ${primaryModel} failed; trying ${fallbackModel}: ${primaryError.message}`,
+      );
+
+      await onStageChange?.("fallback", {
+        model: fallbackModel,
+        primaryError: cleanModelError(primaryError),
+      });
+
+      const fallbackStartedAt = Date.now();
+
+      try {
+        const output = await generateWithModel({
+          ai,
+          model: fallbackModel,
+          prompt,
+          sourceFile: primarySourceFile,
+          generationType,
+          quizSize,
+        });
+
+        timings.fallbackDurationMs = Date.now() - fallbackStartedAt;
+        timings.totalDurationMs = Date.now() - totalStartedAt;
+
+        return {
+          output,
+          modelUsed: fallbackModel,
+          fallbackUsed: true,
+          timings,
+        };
+      } catch (fallbackError) {
+        timings.fallbackDurationMs = Date.now() - fallbackStartedAt;
+        timings.totalDurationMs = Date.now() - totalStartedAt;
+
+        const cleaned = cleanModelError(fallbackError);
+        const error = new Error(cleaned.message);
+        error.code = "GEMINI_ALL_MODELS_FAILED";
+        error.status = cleaned.status;
+        error.primaryError = cleanModelError(primaryError);
+        error.fallbackError = cleaned;
+        error.generationTimings = timings;
+        throw error;
+      }
     }
+  } catch (error) {
+    if (!error.generationTimings) {
+      timings.totalDurationMs = Date.now() - totalStartedAt;
+      error.generationTimings = timings;
+    }
+    throw error;
   }
 };

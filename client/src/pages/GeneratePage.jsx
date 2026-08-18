@@ -281,7 +281,7 @@ function GeneratePage() {
 
       toast.success(
         response.message ||
-          "Learning session generated successfully.",
+          "Generation started. You can continue browsing while it finishes.",
       );
 
       navigate(`/study/${sessionId}`);
@@ -781,7 +781,7 @@ function GeneratePage() {
               )}
 
               {isGenerating
-                ? "Generating with Gemini..."
+                ? "Starting generation..."
                 : "Generate learning session"}
             </button>
 
