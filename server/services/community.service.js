@@ -10,6 +10,8 @@ import User from "../models/User.js";
 import XPTransaction from "../models/XPTransaction.js";
 import { emitPollResults } from "../realtime/socket.js";
 import { queueLeaderboardRefresh } from "./leaderboard.service.js";
+import { getProgressOverview } from "./progression.service.js";
+import { getLevelTransition } from "../utils/progressionRules.js";
 
 const POLL_CACHE_TTL_SECONDS = 45;
 
@@ -127,6 +129,7 @@ export const submitDailyChallenge = async ({ userId, challengeId, selectedOption
 
   await syncCommunityStatuses();
 
+  const beforeProgress = await getProgressOverview(userId);
   const mongoSession = await mongoose.startSession();
   let responseData = null;
 
@@ -261,6 +264,26 @@ export const submitDailyChallenge = async ({ userId, challengeId, selectedOption
   } finally {
     await mongoSession.endSession();
   }
+
+  const afterProgress = await getProgressOverview(userId);
+  const previousTotalXp = Number(beforeProgress?.stats?.totalXp || 0);
+  const currentTotalXp = Number(afterProgress?.stats?.totalXp || 0);
+
+  responseData.progression = {
+    ...afterProgress.progression,
+    xpEarned: Math.max(currentTotalXp - previousTotalXp, 0),
+    dailyChallengeXpEarned: Math.max(
+      Number(afterProgress?.stats?.dailyChallengeXp || 0) -
+        Number(beforeProgress?.stats?.dailyChallengeXp || 0),
+      0,
+    ),
+    achievementXpEarned: Math.max(
+      Number(afterProgress?.stats?.achievementXp || 0) -
+        Number(beforeProgress?.stats?.achievementXp || 0),
+      0,
+    ),
+    levelUp: getLevelTransition(previousTotalXp, currentTotalXp),
+  };
 
   queueLeaderboardRefresh(userId);
   return responseData;

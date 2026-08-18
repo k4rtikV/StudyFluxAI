@@ -2,7 +2,6 @@ import {
   ArrowLeft,
   BookOpen,
   CalendarDays,
-  CheckCircle2,
   Gem,
   Mail,
   MessageSquare,
@@ -189,7 +188,7 @@ function AdminUserDetailsPage() {
         <AdminStatCard icon={BookOpen} label="Study sessions" value={stats.completedStudySessions} helper="Completed AI-generated sessions" tone="cyan" />
         <AdminStatCard icon={Trophy} label="Challenge attempts" value={stats.challengeAttempts} helper={`${stats.challengeAccuracy}% correct-answer rate`} tone="emerald" />
         <AdminStatCard icon={MessageSquare} label="Poll votes" value={stats.pollVotes} helper="Community poll participation" tone="violet" />
-        <AdminStatCard icon={Zap} label="Activity XP" value={stats.rewardedActivityXp} helper="XP earned from rewarded activities" tone="amber" />
+        <AdminStatCard icon={Zap} label={`Level ${stats.level || 1}`} value={`${Number(stats.totalXp || 0).toLocaleString()} XP`} helper={`Quiz ${Number(stats.quizXp || 0)} · Challenges ${Number(stats.dailyChallengeXp || 0)} · Achievements ${Number(stats.achievementXp || 0)}`} tone="amber" />
       </section>
 
       <section className="mt-5 grid gap-5 xl:grid-cols-2">

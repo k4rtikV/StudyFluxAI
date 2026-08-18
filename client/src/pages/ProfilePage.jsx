@@ -1,12 +1,15 @@
 import {
   ArrowUpRight,
+  Award,
   BookOpen,
   CreditCard,
   GraduationCap,
   History,
+  Flame,
   LoaderCircle,
   Pencil,
   ShieldCheck,
+  Trophy,
   WalletCards,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +18,7 @@ import { useLocation, useNavigate } from "react-router";
 
 import useAuth from "../hooks/useAuth";
 import UserAvatar from "../components/common/UserAvatar";
+import LevelKite from "../components/progression/LevelKite";
 import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getFluxGemActivity,
@@ -23,6 +27,7 @@ import {
 import {
   getLearningProfile,
 } from "../services/learningProfileService";
+import { getProgressOverview } from "../services/progressService";
 
 const ACTIVITY_LABELS = {
   developer_grant: "Developer test grant",
@@ -162,6 +167,8 @@ function ProfilePage() {
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [progressOverview, setProgressOverview] = useState(null);
+  const [progressLoading, setProgressLoading] = useState(true);
   const [gemActivity, setGemActivity] = useState([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityPage, setActivityPage] = useState(1);
@@ -244,6 +251,36 @@ function ProfilePage() {
     };
 
     load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadProgress = async () => {
+      try {
+        const response = await getProgressOverview();
+        if (active) {
+          setProgressOverview(response?.data || null);
+        }
+      } catch (error) {
+        if (active) {
+          toast.error(
+            error?.response?.data?.message ||
+              "Your progression could not be loaded.",
+          );
+        }
+      } finally {
+        if (active) {
+          setProgressLoading(false);
+        }
+      }
+    };
+
+    loadProgress();
 
     return () => {
       active = false;
@@ -361,6 +398,16 @@ function ProfilePage() {
     }
   };
 
+  const progressStats = progressOverview?.stats || {};
+  const progression = progressOverview?.progression || {};
+  const level = Number(progression.level || progressStats.level || 1);
+  const totalXp = Number(progressStats.totalXp || 0);
+  const xpIntoLevel = Number(progression.xpIntoLevel || 0);
+  const xpForLevel = Number(progression.xpForLevel || 0);
+  const progressPercent = Number(progression.progressPercent || 0);
+  const xpToNextLevel = Number(progression.xpToNextLevel || 0);
+  const levels = Array.isArray(progression.levels) ? progression.levels : [];
+
   return (
     <DashboardLayout>
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -390,6 +437,133 @@ function ProfilePage() {
           <Pencil size={17} />
           Edit profile
         </button>
+      </section>
+
+      <section className="mt-6 overflow-hidden rounded-[30px] border border-violet-200/80 bg-gradient-to-br from-violet-50/95 via-white to-emerald-50/80 shadow-[0_20px_50px_rgba(91,33,182,0.08)]">
+        {progressLoading ? (
+          <div className="flex min-h-[240px] items-center justify-center p-6">
+            <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
+              <LoaderCircle size={18} className="animate-spin text-violet-600" />
+              Loading progression...
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 sm:p-7">
+            <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-center">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <div className="shrink-0">
+                  <LevelKite level={level} size={88} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-violet-600">
+                    StudyFluxAI progression
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h2 className="text-3xl font-black tracking-tight text-slate-950">
+                      Level {level}
+                    </h2>
+                    <span className="text-sm font-bold text-slate-500">
+                      {totalXp.toLocaleString()} lifetime XP
+                    </span>
+                  </div>
+
+                  <div className="mt-4 max-w-2xl">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+                      <span className="text-slate-600">
+                        {progression.isMaxLevel
+                          ? "Current level cap reached"
+                          : `Progress to Level ${Number(progression.nextLevel || level + 1)}`}
+                      </span>
+                      <span className="text-violet-700">
+                        {progression.isMaxLevel
+                          ? "MAX LEVEL"
+                          : `${xpIntoLevel.toLocaleString()} / ${xpForLevel.toLocaleString()} XP`}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-3 overflow-hidden rounded-full bg-white ring-1 ring-violet-100">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-violet-600 transition-all duration-500"
+                        style={{ width: `${Math.min(Math.max(progressPercent, 0), 100)}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {progression.isMaxLevel
+                        ? `You have reached Level ${Number(progression.maxLevel || 12)}, the current StudyFluxAI progression cap.`
+                        : `${xpToNextLevel.toLocaleString()} XP remaining. Lifetime XP never resets when you level up.`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-white bg-white/78 p-3 shadow-sm">
+                  <Trophy size={16} className="text-amber-600" />
+                  <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">Quiz XP</p>
+                  <p className="mt-1 text-lg font-black text-slate-900">{Number(progressStats.quizXp || 0)}</p>
+                </div>
+                <div className="rounded-2xl border border-white bg-white/78 p-3 shadow-sm">
+                  <Flame size={16} className="text-emerald-600" />
+                  <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">Streak</p>
+                  <p className="mt-1 text-lg font-black text-slate-900">{Number(progressStats.currentStreak || 0)}d</p>
+                </div>
+                <div className="rounded-2xl border border-white bg-white/78 p-3 shadow-sm">
+                  <Award size={16} className="text-violet-600" />
+                  <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-400">Awards</p>
+                  <p className="mt-1 text-lg font-black text-slate-900">{Number(progressStats.unlockedCount || 0)}</p>
+                </div>
+              </div>
+            </div>
+
+            {levels.length > 0 ? (
+              <div className="mt-6 border-t border-violet-100/80 pt-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-extrabold uppercase tracking-[0.13em] text-slate-500">Level journey</p>
+                    <p className="mt-1 text-xs text-slate-500">Thresholds are lifetime XP totals.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/achievements")}
+                    className="rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-extrabold text-violet-700 transition hover:bg-violet-50"
+                  >
+                    XP rules & achievements
+                  </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12">
+                  {levels.map((item) => {
+                    const reached = totalXp >= Number(item.threshold || 0);
+                    const current = Number(item.level) === level;
+                    return (
+                      <div
+                        key={item.level}
+                        className={`rounded-xl border px-2 py-2.5 text-center transition ${
+                          current
+                            ? "border-violet-300 bg-violet-100/80 ring-2 ring-violet-100"
+                            : reached
+                              ? "border-emerald-200 bg-emerald-50/75"
+                              : "border-slate-200 bg-white/70"
+                        }`}
+                      >
+                        <p className={`text-xs font-black ${current ? "text-violet-700" : reached ? "text-emerald-700" : "text-slate-500"}`}>
+                          L{item.level}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold text-slate-500">
+                          {Number(item.threshold || 0).toLocaleString()} XP
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            <p className="mt-4 text-[11px] leading-5 text-slate-500">
+              XP is earned progression and cannot be purchased. FluxGems remain your separate spendable AI currency.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="mt-6 grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">

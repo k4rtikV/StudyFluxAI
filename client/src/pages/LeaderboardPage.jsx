@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 import UserAvatar from "../components/common/UserAvatar";
+import LevelKite from "../components/progression/LevelKite";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { getLeaderboard } from "../services/leaderboardService";
 import { getRealtimeSocket } from "../utils/realtimeSocket";
@@ -127,7 +128,8 @@ function PodiumCard({ entry, place, board }) {
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2">
-          <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">
+            <LevelKite level={entry.level} size={20} showTail={false} />
             Level {entry.level}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
@@ -192,8 +194,9 @@ function RankingRow({ entry, board }) {
       </div>
 
       <div className="hidden sm:block">
-        <span className="rounded-full border border-violet-100 bg-violet-50/80 px-2.5 py-1 text-[10px] font-bold text-violet-700">
-          Level {entry.level}
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-100 bg-violet-50/80 px-2 py-1 text-[10px] font-bold text-violet-700">
+          <LevelKite level={entry.level} size={22} showTail={false} />
+          L{entry.level}
         </span>
       </div>
 
@@ -340,7 +343,7 @@ function LeaderboardPage() {
           <div>
             <Trophy className="mx-auto text-slate-300" size={36} />
             <h3 className="mt-4 text-xl font-black text-slate-950">No ranked learners yet</h3>
-            <p className="mt-2 text-sm text-slate-500">Earn XP from achievements and Daily Challenges to populate the board.</p>
+            <p className="mt-2 text-sm text-slate-500">Earn XP from quiz milestones, achievements and Daily Challenges to populate the board.</p>
           </div>
         </section>
       ) : (

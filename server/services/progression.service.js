@@ -3,25 +3,23 @@ import StudySession from "../models/StudySession.js";
 import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
 import DailyChallengeAttempt from "../models/DailyChallengeAttempt.js";
-import XPTransaction from "../models/XPTransaction.js";
 import User from "../models/User.js";
+import {
+  ACHIEVEMENT_XP,
+  getLevelProgress,
+  getPublicProgressionRules,
+} from "../utils/progressionRules.js";
+import {
+  getXpLedgerTotals,
+  syncAchievementXpTransactions,
+  syncQuizXpTransactions,
+} from "./xpLedger.service.js";
 import {
   getLocalTodayDayNumber,
   normalizeTimeZone,
   toLocalDayNumber,
 } from "../utils/timezone.js";
 
-const ACHIEVEMENT_XP = {
-  first_step: 50,
-  quiz_starter: 50,
-  focused_learner: 250,
-  three_day_spark: 100,
-  one_week_streak: 250,
-  consistency_champion: 1000,
-  sharp_mind: 100,
-  near_perfect: 150,
-  challenge_winner: 100,
-};
 
 const calculateStreaks = (dateValues, timeZone) => {
   const uniqueDays = [
@@ -220,18 +218,16 @@ export const getProgressOverview = async (userId) => {
   const unlockedAchievements = achievementValues.filter(
     (item) => item.unlocked,
   );
-  const achievementXp = unlockedAchievements.reduce(
-    (total, item) => total + item.xpReward,
-    0,
-  );
 
-  const activityXpTotals = await XPTransaction.aggregate([
-    { $match: { user: userId, reason: "daily_challenge" } },
-    { $group: { _id: null, total: { $sum: "$amount" } } },
+  // Keep XP ledger-backed and idempotent. Existing saved activity is
+  // backfilled the first time progression is read after a rules update.
+  await Promise.all([
+    syncAchievementXpTransactions({ userId, achievements }),
+    syncQuizXpTransactions({ userId, sessions }),
   ]);
 
-  const activityXp = Number(activityXpTotals[0]?.total || 0);
-  const totalXp = achievementXp + activityXp;
+  const xpTotals = await getXpLedgerTotals(userId);
+  const levelProgress = getLevelProgress(xpTotals.totalXp);
 
   const rewardTotals = await FluxGemTransaction.aggregate([
     {
@@ -283,15 +279,23 @@ export const getProgressOverview = async (userId) => {
       bestStreak,
       bestQuizPercentage,
       unlockedCount: unlockedAchievements.length,
-      achievementXp,
-      activityXp,
-      totalXp,
+      achievementXp: xpTotals.achievementXp,
+      dailyChallengeXp: xpTotals.dailyChallengeXp,
+      quizXp: xpTotals.quizXp,
+      activityXp: xpTotals.activityXp,
+      totalXp: xpTotals.totalXp,
+      level: levelProgress.level,
+      maxLevel: levelProgress.maxLevel,
       completedDailyChallenges: challengeAttempts.length,
       challengeWins,
       gemRewardsEarned,
       streakTimeZone: timeZone,
     },
     achievements,
+    progression: {
+      ...levelProgress,
+      ...getPublicProgressionRules(),
+    },
     recentSessions: recentSessions.map((session) => ({
       id: session._id,
       title:

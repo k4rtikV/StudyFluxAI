@@ -226,7 +226,7 @@ function DashboardPage() {
           iconClass="bg-amber-50 text-amber-600"
           label="XP"
           value={`${totalXp} XP`}
-          helper="Earn XP through achievements and correct Daily Challenge answers."
+          helper="Earn XP from quiz milestones, achievements and correct Daily Challenge answers."
         />
 
         <MetricCard

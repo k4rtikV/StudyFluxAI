@@ -27,7 +27,7 @@ const xpTransactionSchema = new mongoose.Schema(
     },
     reason: {
       type: String,
-      enum: ["daily_challenge", "achievement"],
+      enum: ["daily_challenge", "achievement", "quiz"],
       required: true,
       index: true,
     },
@@ -40,6 +40,18 @@ const xpTransactionSchema = new mongoose.Schema(
     achievementKey: {
       type: String,
       enum: ACHIEVEMENT_KEYS,
+      default: null,
+      index: true,
+    },
+    studySession: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StudySession",
+      default: null,
+      index: true,
+    },
+    quizMilestone: {
+      type: String,
+      enum: ["completion", "score_80", "score_90"],
       default: null,
       index: true,
     },
@@ -65,6 +77,17 @@ xpTransactionSchema.index(
 xpTransactionSchema.index(
   { user: 1, reason: 1, achievementKey: 1 },
   { unique: true, partialFilterExpression: { achievementKey: { $type: "string" } } },
+);
+
+xpTransactionSchema.index(
+  { user: 1, reason: 1, studySession: 1, quizMilestone: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      studySession: { $type: "objectId" },
+      quizMilestone: { $type: "string" },
+    },
+  },
 );
 
 export default mongoose.model("XPTransaction", xpTransactionSchema);

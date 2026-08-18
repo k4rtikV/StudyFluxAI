@@ -7,8 +7,10 @@ import {
   InsufficientFluxGemsError,
 } from "../services/fluxGem.service.js";
 import { queueLeaderboardRefresh } from "../services/leaderboard.service.js";
+import { getProgressOverview } from "../services/progression.service.js";
 import { enqueueStudyGeneration } from "../services/studyGenerationQueue.service.js";
 import { validateStudyGenerationInput } from "../utils/studySessionValidation.js";
+import { getLevelTransition } from "../utils/progressionRules.js";
 
 const COSTS = {
   combined: Math.max(
@@ -445,6 +447,7 @@ export const submitStudyQuiz = async (req, res, next) => {
     const percentage = Number(
       ((score / totalQuestions) * 100).toFixed(2),
     );
+    const beforeProgress = await getProgressOverview(req.user._id);
     const now = new Date();
     const previousAttempts = Number(studySession.quizProgress?.attempts || 0);
     const previousBest = Number(
@@ -465,6 +468,22 @@ export const submitStudyQuiz = async (req, res, next) => {
 
     await studySession.save();
 
+    const afterProgress = await getProgressOverview(req.user._id);
+    const previousTotalXp = Number(beforeProgress?.stats?.totalXp || 0);
+    const currentTotalXp = Number(afterProgress?.stats?.totalXp || 0);
+    const xpEarned = Math.max(currentTotalXp - previousTotalXp, 0);
+    const quizXpEarned = Math.max(
+      Number(afterProgress?.stats?.quizXp || 0) -
+        Number(beforeProgress?.stats?.quizXp || 0),
+      0,
+    );
+    const achievementXpEarned = Math.max(
+      Number(afterProgress?.stats?.achievementXp || 0) -
+        Number(beforeProgress?.stats?.achievementXp || 0),
+      0,
+    );
+    const levelUp = getLevelTransition(previousTotalXp, currentTotalXp);
+
     queueLeaderboardRefresh(req.user._id);
 
     return res.status(200).json({
@@ -477,6 +496,13 @@ export const submitStudyQuiz = async (req, res, next) => {
           percentage,
         },
         quizProgress: serializeQuizProgress(studySession),
+        progression: {
+          ...afterProgress.progression,
+          xpEarned,
+          quizXpEarned,
+          achievementXpEarned,
+          levelUp,
+        },
         review: questions.map((question) => ({
           correctOptionIndex: question.correctOptionIndex,
           explanation: question.explanation || "",

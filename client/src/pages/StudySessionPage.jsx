@@ -16,6 +16,7 @@ import {
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import toast from "react-hot-toast";
@@ -25,6 +26,7 @@ import {
   useSearchParams,
 } from "react-router";
 
+import LevelKite from "../components/progression/LevelKite";
 import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getStudySession,
@@ -37,6 +39,7 @@ import {
   redirectToGoogleFormsConnection,
 } from "../services/studyExportService";
 import { getRealtimeSocket } from "../utils/realtimeSocket";
+import { emitProgressionChanged } from "../utils/progressionEvents";
 
 const getErrorMessage = (error) =>
   error?.response?.data?.message ||
@@ -199,6 +202,7 @@ function QuizView({
         }
       : null,
   );
+  const [progressionReward, setProgressionReward] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const allAnswered = useMemo(
@@ -213,6 +217,7 @@ function QuizView({
     setSubmitted(false);
     setReview([]);
     setResult(null);
+    setProgressionReward(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -229,12 +234,24 @@ function QuizView({
         answers,
       );
 
+      const progression = response?.data?.progression || null;
       setReview(response?.data?.review || []);
       setResult(response?.data?.result || null);
+      setProgressionReward(progression);
       setSubmitted(true);
       onProgressUpdate?.(response?.data?.quizProgress || null);
+      emitProgressionChanged();
 
-      toast.success("Quiz result saved to your progress.");
+      if (progression?.levelUp?.leveledUp) {
+        toast.success(
+          `Level up! You reached Level ${progression.levelUp.currentLevel}.`,
+          { duration: 4500 },
+        );
+      } else if (Number(progression?.xpEarned || 0) > 0) {
+        toast.success(`Quiz saved — +${Number(progression.xpEarned)} XP earned.`);
+      } else {
+        toast.success("Quiz result saved. Previously earned XP milestones were not repeated.");
+      }
     } catch (error) {
       toast.error(
         error?.response?.data?.message ||
@@ -272,14 +289,29 @@ function QuizView({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700 transition hover:-translate-y-0.5"
-            >
-              <RotateCcw size={16} />
-              Try again
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {Number(progressionReward?.xpEarned || 0) > 0 ? (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-extrabold text-amber-700">
+                  +{Number(progressionReward.xpEarned)} XP
+                </span>
+              ) : null}
+
+              {progressionReward?.levelUp?.leveledUp ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-extrabold text-violet-700">
+                  <LevelKite level={progressionReward.levelUp.currentLevel} size={24} showTail={false} />
+                  Level {progressionReward.levelUp.currentLevel}
+                </span>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={handleReset}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-sm font-bold text-emerald-700 transition hover:-translate-y-0.5"
+              >
+                <RotateCcw size={16} />
+                Try again
+              </button>
+            </div>
           </div>
         )}
       </article>
@@ -406,6 +438,7 @@ function StudySessionPage() {
     useState(false);
   const [googleFormsExport, setGoogleFormsExport] =
     useState(null);
+  const previousGenerationStatusRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -472,6 +505,17 @@ function StudySessionPage() {
       socket.off("study-session:changed", handleSessionChanged);
     };
   }, [sessionId, studySession?.id, studySession?.status]);
+
+  useEffect(() => {
+    const currentStatus = studySession?.status || null;
+    const previousStatus = previousGenerationStatusRef.current;
+
+    if (previousStatus === "generating" && currentStatus === "completed") {
+      emitProgressionChanged();
+    }
+
+    previousGenerationStatusRef.current = currentStatus;
+  }, [studySession?.status]);
 
   const output = studySession?.output;
   const generationType = studySession?.generationType || "combined";

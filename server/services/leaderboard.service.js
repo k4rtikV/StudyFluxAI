@@ -5,7 +5,7 @@ import User from "../models/User.js";
 import XPTransaction from "../models/XPTransaction.js";
 import { emitLeaderboardChanged } from "../realtime/socket.js";
 import { getProgressOverview } from "./progression.service.js";
-import { syncAchievementXpTransactions } from "./xpLedger.service.js";
+import { getLevelProgress } from "../utils/progressionRules.js";
 
 const LEADERBOARD_META_KEY = "studyflux:leaderboard:meta:v1";
 const META_TTL_SECONDS = 6 * 60 * 60;
@@ -64,8 +64,6 @@ const normalizeBoard = (value) => {
   return candidate;
 };
 
-const getLevel = (xp) => Math.floor(Math.max(Number(xp) || 0, 0) / 500) + 1;
-
 const aggregatePeriodXp = async ({ userId, periodInfo }) => {
   const [result] = await XPTransaction.aggregate([
     { $match: { user: new mongoose.Types.ObjectId(String(userId)) } },
@@ -118,12 +116,6 @@ const aggregatePeriodXp = async ({ userId, periodInfo }) => {
 
 export const computeLeaderboardMetrics = async (userId, periodInfo = getPeriodInfo()) => {
   const progress = await getProgressOverview(userId);
-
-  await syncAchievementXpTransactions({
-    userId,
-    achievements: progress.achievements,
-  });
-
   const periodXp = await aggregatePeriodXp({ userId, periodInfo });
 
   return {
@@ -310,7 +302,7 @@ const serializeEntry = ({ rank, user, metrics, board, currentUserId, exposeUserI
   ...(exposeUserId ? { userId: String(user._id) } : {}),
   fullName: user.fullName || "StudyFluxAI learner",
   avatar: user.avatar || "",
-  level: getLevel(metrics.overallXp),
+  level: getLevelProgress(metrics.overallXp).level,
   score: scoreForBoard(metrics, board),
   overallXp: metrics.overallXp,
   weeklyXp: metrics.weeklyXp,

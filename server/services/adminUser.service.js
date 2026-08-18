@@ -6,9 +6,9 @@ import LearningProfile from "../models/LearningProfile.js";
 import PollVote from "../models/PollVote.js";
 import StudySession from "../models/StudySession.js";
 import User from "../models/User.js";
-import XPTransaction from "../models/XPTransaction.js";
 import { emitLeaderboardChanged } from "../realtime/socket.js";
 import { queueLeaderboardRefresh, removeUserFromLeaderboard } from "./leaderboard.service.js";
+import { getProgressOverview } from "./progression.service.js";
 
 const httpError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -151,7 +151,7 @@ export const getAdminUserDetails = async (userId) => {
     challengeAttempts,
     correctChallengeAttempts,
     pollVotes,
-    xpAggregate,
+    progressOverview,
     paidPurchaseAggregate,
   ] = await Promise.all([
     LearningProfile.findOne({ user: user._id }).lean(),
@@ -159,10 +159,7 @@ export const getAdminUserDetails = async (userId) => {
     DailyChallengeAttempt.countDocuments({ user: user._id }),
     DailyChallengeAttempt.countDocuments({ user: user._id, isCorrect: true }),
     PollVote.countDocuments({ user: user._id }),
-    XPTransaction.aggregate([
-      { $match: { user: user._id, reason: "daily_challenge" } },
-      { $group: { _id: null, xp: { $sum: "$amount" } } },
-    ]),
+    getProgressOverview(user._id),
     FluxGemPurchase.aggregate([
       { $match: { user: user._id, status: "paid" } },
       {
@@ -203,7 +200,11 @@ export const getAdminUserDetails = async (userId) => {
           ? Math.round((correctChallengeAttempts / challengeAttempts) * 100)
           : 0,
       pollVotes,
-      rewardedActivityXp: Number(xpAggregate[0]?.xp || 0),
+      totalXp: Number(progressOverview?.stats?.totalXp || 0),
+      level: Number(progressOverview?.progression?.level || 1),
+      achievementXp: Number(progressOverview?.stats?.achievementXp || 0),
+      quizXp: Number(progressOverview?.stats?.quizXp || 0),
+      dailyChallengeXp: Number(progressOverview?.stats?.dailyChallengeXp || 0),
       paidFluxGemPurchases: Number(purchases.purchases || 0),
       purchasedFluxGems: Number(purchases.gems || 0),
       purchaseAmountPaise: Number(purchases.amountPaise || 0),

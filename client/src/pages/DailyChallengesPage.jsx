@@ -23,6 +23,7 @@ import {
   voteCommunityPoll,
 } from "../services/communityService";
 import { getCommunitySocket } from "../utils/communitySocket";
+import { emitProgressionChanged } from "../utils/progressionEvents";
 
 const formatDateTime = (value) =>
   value
@@ -209,9 +210,11 @@ function DailyChallengesPage() {
     try {
       const response = await answerDailyChallenge(challenge.id, selectedOption);
       const nextChallenge = response.data?.challenge;
+      const progression = response.data?.progression || null;
       const balance = Number(response.data?.balance);
 
       setChallenge(nextChallenge);
+      emitProgressionChanged();
       if (Number.isFinite(balance)) {
         setUser((current) =>
           current ? { ...current, fluxGems: balance } : current,
@@ -219,8 +222,16 @@ function DailyChallengesPage() {
       }
 
       if (nextChallenge?.attempt?.isCorrect) {
+        const totalXpEarned = Number(
+          progression?.xpEarned ?? nextChallenge.attempt.xpEarned ?? 0,
+        );
+        const levelUp = progression?.levelUp;
+
         toast.success(
-          `Correct — +${nextChallenge.attempt.xpEarned} XP and +${nextChallenge.attempt.fluxGemsEarned} FluxGems.`,
+          levelUp?.leveledUp
+            ? `Correct — +${totalXpEarned} XP, +${nextChallenge.attempt.fluxGemsEarned} FluxGems. Level up to ${levelUp.currentLevel}!`
+            : `Correct — +${totalXpEarned} XP and +${nextChallenge.attempt.fluxGemsEarned} FluxGems.`,
+          { duration: levelUp?.leveledUp ? 4500 : 3000 },
         );
       } else {
         toast("Answer saved. Check the explanation below.");
