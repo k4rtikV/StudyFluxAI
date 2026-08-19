@@ -24,6 +24,16 @@ export const ACHIEVEMENT_XP = Object.freeze({
   sharp_mind: 100,
   near_perfect: 150,
   challenge_winner: 100,
+  first_interview: 100,
+  interview_five: 250,
+  interview_ten: 500,
+  interview_variety: 200,
+  role_rehearsal: 150,
+  interview_improver: 250,
+});
+
+export const SMART_INTERVIEW_XP = Object.freeze({
+  dailyCompletion: 75,
 });
 
 export const QUIZ_XP_MILESTONES = Object.freeze({
@@ -114,5 +124,9 @@ export const getPublicProgressionRules = () => ({
       oncePerSession: true,
     },
   ],
+  smartInterview: {
+    completionXp: SMART_INTERVIEW_XP.dailyCompletion,
+    firstCompletionPerLocalDayOnly: true,
+  },
   xpPurchasable: false,
 });

@@ -49,6 +49,7 @@ const fluxGemTransactionSchema = new mongoose.Schema(
         "purchase",
         "reward",
         "daily_challenge_reward",
+        "smart_interview",
       ],
       required: true,
       index: true,
@@ -72,6 +73,13 @@ const fluxGemTransactionSchema = new mongoose.Schema(
     tutorMessage: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "TutorMessage",
+      default: null,
+      index: true,
+    },
+
+    interviewSession: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InterviewSession",
       default: null,
       index: true,
     },

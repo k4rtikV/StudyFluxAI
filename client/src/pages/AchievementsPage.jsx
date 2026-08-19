@@ -84,6 +84,43 @@ const ACHIEVEMENT_GROUPS = [
       },
     ],
   },
+  {
+    title: "Smart Interview",
+    icon: Sparkles,
+    accent: "bg-cyan-50 text-cyan-700",
+    items: [
+      {
+        key: "first_interview",
+        title: "First Interview",
+        description: "Complete your first Smart Interview.",
+      },
+      {
+        key: "interview_five",
+        title: "Interview Regular",
+        description: "Complete 5 Smart Interviews.",
+      },
+      {
+        key: "interview_ten",
+        title: "Interview Veteran",
+        description: "Complete 10 Smart Interviews.",
+      },
+      {
+        key: "interview_variety",
+        title: "Well Rounded",
+        description: "Complete 3 different Smart Interview types.",
+      },
+      {
+        key: "role_rehearsal",
+        title: "Role Rehearsal",
+        description: "Practice the same target role across 3 completed interviews.",
+      },
+      {
+        key: "interview_improver",
+        title: "Clear Improvement",
+        description: "Improve your overall score by 10+ points on the same role and interview type.",
+      },
+    ],
+  },
 ];
 
 function AchievementsPage() {
@@ -129,6 +166,7 @@ function AchievementsPage() {
   const quizMilestones = Array.isArray(progression.quizMilestones)
     ? progression.quizMilestones
     : [];
+  const smartInterviewRule = progression.smartInterview || {};
 
   const groups = useMemo(
     () =>
@@ -296,6 +334,13 @@ function AchievementsPage() {
                 <p className="mt-3 text-xl font-black text-amber-600">Configured XP</p>
                 <p className="mt-1 text-[11px] leading-4 text-slate-500">The reward shown on that day&apos;s challenge is ledger-backed.</p>
               </div>
+
+              <div className="rounded-2xl border border-white bg-white/78 p-4 shadow-sm">
+                <p className="text-xs font-extrabold uppercase tracking-[0.1em] text-cyan-700">Smart Interview</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-slate-700">Complete a full adaptive mock interview.</p>
+                <p className="mt-3 text-xl font-black text-amber-600">+{Number(smartInterviewRule.completionXp || 75)} XP</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-500">Completion XP is awarded only for your first completed interview per learner-local day. Achievement XP remains one-time and separate.</p>
+              </div>
             </div>
 
             <p className="mt-4 text-xs leading-5 text-slate-500">
@@ -391,7 +436,7 @@ function AchievementsPage() {
               <div>
                 <h2 className="text-lg font-extrabold text-slate-900">Progress comes from saved activity</h2>
                 <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
-                  Generated quiz results, achievement unlocks and correct Daily Challenge answers are stored in the XP ledger. Learning sessions, Tutor questions and Daily Challenge participation also contribute to streaks. Streak days use your saved timezone ({stats.streakTimeZone || "UTC"}).
+                  Generated quiz results, Smart Interview completions, achievement unlocks and correct Daily Challenge answers are stored in the XP ledger. Learning sessions, Tutor questions, completed Smart Interviews and Daily Challenge participation also contribute to streaks. Streak days and Smart Interview daily-XP protection use your saved timezone ({stats.streakTimeZone || "UTC"}).
                 </p>
               </div>
             </div>

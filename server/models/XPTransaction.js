@@ -10,6 +10,12 @@ const ACHIEVEMENT_KEYS = [
   "sharp_mind",
   "near_perfect",
   "challenge_winner",
+  "first_interview",
+  "interview_five",
+  "interview_ten",
+  "interview_variety",
+  "role_rehearsal",
+  "interview_improver",
 ];
 
 const xpTransactionSchema = new mongoose.Schema(
@@ -27,7 +33,7 @@ const xpTransactionSchema = new mongoose.Schema(
     },
     reason: {
       type: String,
-      enum: ["daily_challenge", "achievement", "quiz"],
+      enum: ["daily_challenge", "achievement", "quiz", "smart_interview"],
       required: true,
       index: true,
     },
@@ -46,6 +52,17 @@ const xpTransactionSchema = new mongoose.Schema(
     studySession: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "StudySession",
+      default: null,
+      index: true,
+    },
+    interviewSession: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InterviewSession",
+      default: null,
+      index: true,
+    },
+    interviewDayKey: {
+      type: Number,
       default: null,
       index: true,
     },
@@ -80,12 +97,34 @@ xpTransactionSchema.index(
 );
 
 xpTransactionSchema.index(
+  { user: 1, reason: 1, interviewDayKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      reason: "smart_interview",
+      interviewDayKey: { $type: "number" },
+    },
+  },
+);
+
+xpTransactionSchema.index(
   { user: 1, reason: 1, studySession: 1, quizMilestone: 1 },
   {
     unique: true,
     partialFilterExpression: {
       studySession: { $type: "objectId" },
-      quizMilestone: { $type: "string" },
+      interviewSession: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InterviewSession",
+      default: null,
+      index: true,
+    },
+    interviewDayKey: {
+      type: Number,
+      default: null,
+      index: true,
+    },
+    quizMilestone: { $type: "string" },
     },
   },
 );

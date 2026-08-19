@@ -37,6 +37,7 @@ const ACTIVITY_LABELS = {
   ai_tutor: "AI Tutor question",
   ai_tutor_refund: "AI Tutor question refund",
   ai_tutor_quiz_conversion: "AI Tutor quiz conversion",
+  smart_interview: "Smart Interview",
 };
 
 const getGenerationActivityLabel = (activity, refund = false) => {

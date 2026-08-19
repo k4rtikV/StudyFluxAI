@@ -28,6 +28,9 @@ import RegisterPage from "./pages/RegisterPage";
 import StudyLibraryPage from "./pages/StudyLibraryPage";
 import StudyPlannerPage from "./pages/StudyPlannerPage";
 import StudySessionPage from "./pages/StudySessionPage";
+import SmartInterviewPage from "./pages/SmartInterviewPage";
+import SmartInterviewSessionPage from "./pages/SmartInterviewSessionPage";
+import SmartInterviewReportPage from "./pages/SmartInterviewReportPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import WalletPage from "./pages/WalletPage";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
@@ -178,6 +181,33 @@ function App() {
         element={
           <ProtectedRoute>
             <StudyPlannerPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/interview"
+        element={
+          <ProtectedRoute>
+            <SmartInterviewPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/interview/:interviewId"
+        element={
+          <ProtectedRoute>
+            <SmartInterviewSessionPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/interview/:interviewId/report"
+        element={
+          <ProtectedRoute>
+            <SmartInterviewReportPage />
           </ProtectedRoute>
         }
       />

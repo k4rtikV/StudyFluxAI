@@ -46,7 +46,7 @@ const PRIMARY_NAV = [
   {
     label: "Smart Interview",
     icon: MessagesSquare,
-    comingSoon: true,
+    path: "/interview",
   },
   {
     label: "Daily Challenges",
@@ -378,6 +378,13 @@ function DashboardSidebar({ open, onClose }) {
     if (
       item.path === "/generate" &&
       location.pathname.startsWith("/generate")
+    ) {
+      return true;
+    }
+
+    if (
+      item.path === "/interview" &&
+      location.pathname.startsWith("/interview")
     ) {
       return true;
     }

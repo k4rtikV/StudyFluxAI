@@ -16,6 +16,7 @@ import progressRoutes from "./routes/progressRoutes.js";
 import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 import studySessionRoutes from "./routes/studySessionRoutes.js";
 import studyPlannerRoutes from "./routes/studyPlannerRoutes.js";
+import interviewRoutes from "./routes/interviewRoutes.js";
 import studyExportRoutes from "./routes/studyExportRoutes.js";
 import googleFormsIntegrationRoutes from "./routes/googleFormsIntegrationRoutes.js";
 import tutorRoutes from "./routes/tutorRoutes.js";
@@ -78,6 +79,7 @@ app.use("/api/admin", adminRoutes);
 
 app.use("/api/study-sessions", studySessionRoutes);
 app.use("/api/study-planner", studyPlannerRoutes);
+app.use("/api/interviews", interviewRoutes);
 
 app.use("/api/study-exports", studyExportRoutes);
 

@@ -16,6 +16,7 @@ import {
   ClipboardList,
   CornerDownLeft,
   CalendarCheck2,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -80,6 +81,13 @@ const SEARCH_ITEMS = [
     path: "/planner",
     icon: CalendarCheck2,
     keywords: ["planner", "plan", "schedule", "goal", "study time"],
+  },
+  {
+    label: "Smart Interview",
+    description: "Set up and practise role-focused mock interviews.",
+    path: "/interview",
+    icon: BriefcaseBusiness,
+    keywords: ["interview", "mock interview", "career", "job", "technical", "behavioral", "coding"],
   },
   {
     label: "Wallet",

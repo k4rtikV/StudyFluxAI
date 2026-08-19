@@ -4,6 +4,7 @@ import StudySession from "../models/StudySession.js";
 import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
 import DailyChallengeAttempt from "../models/DailyChallengeAttempt.js";
+import InterviewSession from "../models/InterviewSession.js";
 import User from "../models/User.js";
 import {
   ACHIEVEMENT_XP,
@@ -13,8 +14,10 @@ import {
 import {
   getXpLedgerTotals,
   syncAchievementXpTransactions,
+  syncInterviewXpTransactions,
   syncQuizXpTransactions,
 } from "./xpLedger.service.js";
+import { buildInterviewAchievements } from "./interviewProgression.service.js";
 import {
   getLocalTodayDayNumber,
   normalizeTimeZone,
@@ -201,6 +204,16 @@ export const getProgressOverview = async (userId) => {
     .sort({ answeredAt: 1 })
     .lean();
 
+  const completedInterviews = await InterviewSession.find({
+    user: userId,
+    status: "completed",
+  })
+    .select(
+      "targetRole interviewType transcript completedAt completionTimezone completionLocalDay createdAt status",
+    )
+    .sort({ completedAt: 1, createdAt: 1 })
+    .lean();
+
   const challengeWins = challengeAttempts.filter(
     (attempt) => attempt.isCorrect,
   ).length;
@@ -229,6 +242,7 @@ export const getProgressOverview = async (userId) => {
       (message) => message.completedAt,
     ),
     ...challengeAttempts.map((attempt) => attempt.answeredAt),
+    ...completedInterviews.map((interview) => interview.completedAt || interview.createdAt),
   ];
 
   const { currentStreak, bestStreak } = calculateStreaks(
@@ -251,6 +265,7 @@ export const getProgressOverview = async (userId) => {
     sharp_mind: achievement({ key: "sharp_mind", current: bestQuizPercentage >= 80 ? 1 : 0, target: 1, earnedAt: getQuizAchievementEarnedAt(sessions, 80) }),
     near_perfect: achievement({ key: "near_perfect", current: bestQuizPercentage >= 90 ? 1 : 0, target: 1, earnedAt: getQuizAchievementEarnedAt(sessions, 90) }),
     challenge_winner: achievement({ key: "challenge_winner", current: challengeWins, target: 1, earnedAt: firstChallengeWin?.answeredAt || null }),
+    ...buildInterviewAchievements(completedInterviews),
   };
 
   const achievementValues = Object.values(achievements);
@@ -263,6 +278,7 @@ export const getProgressOverview = async (userId) => {
   await Promise.all([
     syncAchievementXpTransactions({ userId, achievements }),
     syncQuizXpTransactions({ userId, sessions }),
+    syncInterviewXpTransactions({ userId, interviews: completedInterviews, timeZone }),
   ]);
 
   const xpTotals = await getXpLedgerTotals(userId);
@@ -321,12 +337,14 @@ export const getProgressOverview = async (userId) => {
       achievementXp: xpTotals.achievementXp,
       dailyChallengeXp: xpTotals.dailyChallengeXp,
       quizXp: xpTotals.quizXp,
+      smartInterviewXp: xpTotals.smartInterviewXp,
       activityXp: xpTotals.activityXp,
       totalXp: xpTotals.totalXp,
       level: levelProgress.level,
       maxLevel: levelProgress.maxLevel,
       completedDailyChallenges: challengeAttempts.length,
       challengeWins,
+      completedSmartInterviews: completedInterviews.length,
       gemRewardsEarned,
       streakTimeZone: timeZone,
     },
