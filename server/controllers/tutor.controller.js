@@ -6,6 +6,14 @@ import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
 
 import { generateTutorReply } from "../services/tutorGemini.service.js";
+import {
+  extractTutorQuiz,
+  looksLikeTutorQuiz,
+  persistTutorQuizConversion,
+  TUTOR_QUIZ_CONVERSION_COST,
+  TutorQuizConversionError,
+  TutorQuizConversionInsufficientGemsError,
+} from "../services/tutorQuizConversion.service.js";
 import { queueLeaderboardRefresh } from "../services/leaderboard.service.js";
 import {
   completeTutorQuestion,
@@ -72,6 +80,17 @@ const serializeMessage = (message) => ({
   fallbackUsed:
     message.role === "assistant"
       ? Boolean(message.fallbackUsed)
+      : undefined,
+  quizConversion:
+    message.role === "assistant"
+      ? {
+          eligible:
+            Boolean(message.convertedStudySession) ||
+            looksLikeTutorQuiz(message.content),
+          cost: TUTOR_QUIZ_CONVERSION_COST,
+          studySessionId: message.convertedStudySession || null,
+          convertedAt: message.convertedAt || null,
+        }
       : undefined,
   createdAt: message.createdAt,
   completedAt: message.completedAt,
@@ -333,6 +352,164 @@ export const archiveTutorConversation = async (req, res, next) => {
       message: "Tutor conversation removed from history.",
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const convertTutorQuizToStudyLibrary = async (req, res, next) => {
+  try {
+    const conversation = await findOwnedConversation(
+      req.user._id,
+      req.params.conversationId,
+    );
+
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        code: "TUTOR_CONVERSATION_NOT_FOUND",
+        message: "Tutor conversation not found.",
+      });
+    }
+
+    const assistantMessageId = String(
+      req.body?.assistantMessageId || "",
+    ).trim();
+
+    if (!mongoose.isValidObjectId(assistantMessageId)) {
+      return res.status(400).json({
+        success: false,
+        code: "TUTOR_QUIZ_MESSAGE_REQUIRED",
+        message: "Choose the Tutor quiz you want to save.",
+      });
+    }
+
+    const assistantMessage = await TutorMessage.findOne({
+      _id: assistantMessageId,
+      user: req.user._id,
+      conversation: conversation._id,
+      role: "assistant",
+      status: "completed",
+    });
+
+    if (!assistantMessage) {
+      return res.status(404).json({
+        success: false,
+        code: "TUTOR_QUIZ_MESSAGE_NOT_FOUND",
+        message: "That Tutor reply could not be found.",
+      });
+    }
+
+    if (assistantMessage.convertedStudySession) {
+      const existing = await StudySession.findOne({
+        _id: assistantMessage.convertedStudySession,
+        user: req.user._id,
+      }).lean();
+
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          message: "This Tutor quiz is already saved in Study Library.",
+          data: {
+            studySession: {
+              id: existing._id,
+              title:
+                existing.output?.sessionTitle ||
+                existing.topic ||
+                "Tutor quiz",
+              generationType: "quiz",
+              origin: existing.origin || "ai_tutor",
+            },
+            balance: Number(req.user.fluxGems || 0),
+            charged: 0,
+            alreadyConverted: true,
+          },
+        });
+      }
+    }
+
+    if (!looksLikeTutorQuiz(assistantMessage.content)) {
+      return res.status(400).json({
+        success: false,
+        code: "TUTOR_QUIZ_NOT_FOUND",
+        message: "I couldn't find a complete quiz in that Tutor reply.",
+      });
+    }
+
+    let contextStudySession = null;
+    if (conversation.contextStudySession) {
+      contextStudySession = await StudySession.findOne({
+        _id: conversation.contextStudySession,
+        user: req.user._id,
+        status: "completed",
+      })
+        .select(
+          "output.quiz quizProgressionSource generationType origin",
+        )
+        .lean();
+    }
+
+    // Extraction/validation happens before the wallet transaction. The 25 FG
+    // charge is therefore committed only if a valid Study Library quiz can be
+    // persisted successfully.
+    const extracted = await extractTutorQuiz({
+      assistantContent: assistantMessage.content,
+      academicContext: conversation.academicContext || {},
+    });
+
+    const persisted = await persistTutorQuizConversion({
+      userId: req.user._id,
+      conversation,
+      assistantMessage,
+      extracted,
+      contextStudySession,
+    });
+
+    return res.status(persisted.alreadyConverted ? 200 : 201).json({
+      success: true,
+      message: persisted.alreadyConverted
+        ? "This Tutor quiz is already saved in Study Library."
+        : "Tutor quiz saved to Study Library.",
+      data: {
+        studySession: {
+          id: persisted.studySession._id,
+          title:
+            persisted.studySession.output?.sessionTitle ||
+            persisted.studySession.topic ||
+            "Tutor quiz",
+          generationType: "quiz",
+          origin: "ai_tutor",
+          sourceKind:
+            persisted.studySession.tutorProvenance?.sourceKind ||
+            "tutor_generated",
+        },
+        balance: persisted.balance,
+        charged: persisted.alreadyConverted
+          ? 0
+          : TUTOR_QUIZ_CONVERSION_COST,
+        alreadyConverted: persisted.alreadyConverted,
+      },
+    });
+  } catch (error) {
+    if (error instanceof TutorQuizConversionInsufficientGemsError) {
+      return res.status(402).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+        data: {
+          required: error.required,
+          balance: Number(req.user.fluxGems || 0),
+        },
+      });
+    }
+
+    if (error instanceof TutorQuizConversionError) {
+      return res.status(error.status || 400).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+      });
+    }
+
     next(error);
   }
 };

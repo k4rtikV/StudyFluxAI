@@ -36,6 +36,7 @@ const ACTIVITY_LABELS = {
   daily_challenge_reward: "Daily challenge reward",
   ai_tutor: "AI Tutor question",
   ai_tutor_refund: "AI Tutor question refund",
+  ai_tutor_quiz_conversion: "AI Tutor quiz conversion",
 };
 
 const getGenerationActivityLabel = (activity, refund = false) => {

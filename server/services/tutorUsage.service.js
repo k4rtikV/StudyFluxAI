@@ -5,6 +5,7 @@ import TutorConversation from "../models/TutorConversation.js";
 import TutorDailyUsage from "../models/TutorDailyUsage.js";
 import TutorMessage from "../models/TutorMessage.js";
 import User from "../models/User.js";
+import { normalizeTimeZone, toLocalDayNumber } from "../utils/timezone.js";
 
 const getFreeLimit = () =>
   Math.max(
@@ -36,8 +37,20 @@ const getStaleLockMs = () =>
     30000,
   );
 
-export const getTutorDayKey = (date = new Date()) =>
-  date.toISOString().slice(0, 10);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const getTutorDayKey = (date = new Date(), timeZone = "UTC") => {
+  const localDayNumber = toLocalDayNumber(date, normalizeTimeZone(timeZone));
+  if (!Number.isFinite(localDayNumber)) {
+    return new Date(date).toISOString().slice(0, 10);
+  }
+  return new Date(localDayNumber * DAY_MS).toISOString().slice(0, 10);
+};
+
+const getTutorTimeZone = async (userId) => {
+  const user = await User.findById(userId).select("timezone").lean();
+  return normalizeTimeZone(user?.timezone);
+};
 
 export class TutorBusyError extends Error {
   constructor(message = "Your AI Tutor is already answering another question.") {
@@ -121,7 +134,8 @@ const truncateTitle = (value) => {
 };
 
 
-export const recoverStaleTutorReservation = async (userId) => {
+export const recoverStaleTutorReservation = async (userId, providedTimeZone = null) => {
+  const timeZone = providedTimeZone || (await getTutorTimeZone(userId));
   const staleBefore = new Date(Date.now() - getStaleLockMs());
 
   const staleMessage = await TutorMessage.findOne({
@@ -169,7 +183,7 @@ export const recoverStaleTutorReservation = async (userId) => {
     userMessageId: staleMessage._id,
     dayKey:
       staleMessage.billing?.dayKey ||
-      getTutorDayKey(staleMessage.createdAt),
+      getTutorDayKey(staleMessage.createdAt, timeZone),
     isFree: Boolean(staleMessage.billing?.isFree),
     cost: Number(staleMessage.billing?.cost || 0),
     balance: null,
@@ -191,9 +205,10 @@ export const recoverStaleTutorReservation = async (userId) => {
 };
 
 export const getTutorUsageStatus = async (userId) => {
-  await recoverStaleTutorReservation(userId);
+  const timeZone = await getTutorTimeZone(userId);
+  await recoverStaleTutorReservation(userId, timeZone);
 
-  const dayKey = getTutorDayKey();
+  const dayKey = getTutorDayKey(new Date(), timeZone);
   const usage = await ensureDailyUsage(userId, dayKey);
 
   const freeLimit = getFreeLimit();
@@ -201,6 +216,7 @@ export const getTutorUsageStatus = async (userId) => {
 
   return {
     dayKey,
+    timeZone,
     freeLimit,
     freeUsed: Number(usage?.freeQuestionsUsed || 0),
     freeRemaining: Math.max(
@@ -220,9 +236,10 @@ export const reserveTutorQuestion = async ({
   conversationId,
   question,
 }) => {
-  await recoverStaleTutorReservation(userId);
+  const timeZone = await getTutorTimeZone(userId);
+  await recoverStaleTutorReservation(userId, timeZone);
 
-  const dayKey = getTutorDayKey();
+  const dayKey = getTutorDayKey(new Date(), timeZone);
   const usageDoc = await ensureDailyUsage(userId, dayKey);
   const mongoSession = await mongoose.startSession();
 

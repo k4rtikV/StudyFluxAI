@@ -17,12 +17,24 @@ const safeDate = (value, fallback = new Date()) => {
 };
 
 const buildQuizEntries = (sessions = []) => {
-  const entries = [];
+  const entriesByKey = new Map();
+
+  const addEntry = ({ studySession, milestone, amount, earnedAt }) => {
+    const key = `${String(studySession)}:${milestone}`;
+    const existing = entriesByKey.get(key);
+    if (!existing || earnedAt < existing.earnedAt) {
+      entriesByKey.set(key, { studySession, milestone, amount, earnedAt });
+    }
+  };
 
   for (const session of sessions) {
     const attempts = Number(session?.quizProgress?.attempts || 0);
     if (attempts <= 0 || !session?._id) continue;
 
+    // Tutor derivatives that clone an existing Study Library quiz share the
+    // original quiz's progression identity. A new Tutor-created quiz has no
+    // source and therefore uses its own StudySession id.
+    const progressionSession = session.quizProgressionSource || session._id;
     const firstCompletedAt = safeDate(
       session.quizProgress?.firstCompletedAt ||
         session.completedAt ||
@@ -34,16 +46,16 @@ const buildQuizEntries = (sessions = []) => {
     );
     const bestPercentage = Number(session.quizProgress?.bestPercentage || 0);
 
-    entries.push({
-      studySession: session._id,
+    addEntry({
+      studySession: progressionSession,
       milestone: "completion",
       amount: QUIZ_XP_MILESTONES.completion,
       earnedAt: firstCompletedAt,
     });
 
     if (bestPercentage >= 80) {
-      entries.push({
-        studySession: session._id,
+      addEntry({
+        studySession: progressionSession,
         milestone: "score_80",
         amount: QUIZ_XP_MILESTONES.score_80,
         earnedAt: latestCompletedAt,
@@ -51,8 +63,8 @@ const buildQuizEntries = (sessions = []) => {
     }
 
     if (bestPercentage >= 90) {
-      entries.push({
-        studySession: session._id,
+      addEntry({
+        studySession: progressionSession,
         milestone: "score_90",
         amount: QUIZ_XP_MILESTONES.score_90,
         earnedAt: latestCompletedAt,
@@ -60,7 +72,7 @@ const buildQuizEntries = (sessions = []) => {
     }
   }
 
-  return entries;
+  return [...entriesByKey.values()];
 };
 
 export const syncAchievementXpTransactions = async ({ userId, achievements }) => {

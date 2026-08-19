@@ -34,8 +34,15 @@ const studySessionSchema = new mongoose.Schema(
 
     sourceMode: {
       type: String,
-      enum: ["topic", "source"],
+      enum: ["topic", "source", "tutor"],
       required: true,
+    },
+
+    origin: {
+      type: String,
+      enum: ["ai_generation", "ai_tutor"],
+      default: "ai_generation",
+      index: true,
     },
 
     topic: {
@@ -162,8 +169,50 @@ const studySessionSchema = new mongoose.Schema(
 
     quizSize: {
       type: Number,
-      enum: [0, 5, 10, 15],
+      min: 0,
+      max: 30,
+      validate: {
+        validator: (value) => Number.isInteger(value),
+        message: "Quiz size must be a whole number.",
+      },
       default: 0,
+    },
+
+    // Tutor-created derivatives can share the original quiz's progression
+    // identity so cloning the same quiz cannot create fresh XP milestones.
+    quizProgressionSource: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StudySession",
+      default: null,
+      index: true,
+    },
+
+    tutorProvenance: {
+      conversation: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "TutorConversation",
+        default: null,
+        index: true,
+      },
+      assistantMessage: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "TutorMessage",
+        default: null,
+      },
+      sourceStudySession: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "StudySession",
+        default: null,
+      },
+      sourceKind: {
+        type: String,
+        enum: ["", "tutor_generated", "study_session_derivative"],
+        default: "",
+      },
+      convertedAt: {
+        type: Date,
+        default: null,
+      },
     },
 
     cost: {
@@ -290,6 +339,15 @@ const studySessionSchema = new mongoose.Schema(
 
 studySessionSchema.index({ user: 1, createdAt: -1 });
 studySessionSchema.index({ user: 1, generationType: 1, createdAt: -1 });
+studySessionSchema.index(
+  { "tutorProvenance.assistantMessage": 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      "tutorProvenance.assistantMessage": { $type: "objectId" },
+    },
+  },
+);
 
 const StudySession = mongoose.model(
   "StudySession",

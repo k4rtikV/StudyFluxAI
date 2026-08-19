@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import LearningProfile from "../models/LearningProfile.js";
+import QuizAttempt from "../models/QuizAttempt.js";
 import StudySession from "../models/StudySession.js";
 import {
   beginPaidStudyGeneration,
@@ -96,7 +97,10 @@ const serializeStudySession = (
 ) => ({
   id: studySession._id,
   generationType: getGenerationType(studySession),
+  origin: studySession.origin || "ai_generation",
   sourceMode: studySession.sourceMode,
+  tutorProvenance: studySession.tutorProvenance || null,
+  quizProgressionSource: studySession.quizProgressionSource || null,
   topic: studySession.topic || "",
   sourceFile: studySession.sourceFile || null,
   academicContext:
@@ -128,6 +132,8 @@ const serializeStudySessionSummary = (studySession) => {
   return {
     id: studySession._id,
     generationType,
+    origin: studySession.origin || "ai_generation",
+    tutorProvenance: studySession.tutorProvenance || null,
     title:
       studySession.output?.sessionTitle ||
       studySession.topic ||
@@ -351,7 +357,7 @@ export const listStudySessions = async (req, res, next) => {
 
     const sessions = await StudySession.find(filter)
       .select(
-        "generationType sourceMode topic sourceFile academicContext detailLevel difficulty quizSize cost status generationStage generationMetrics modelUsed fallbackUsed failureCode failureMessage refundedAt output.sessionTitle output.shortDescription output.notes output.quiz quizProgress completedAt createdAt updatedAt",
+        "generationType origin sourceMode topic sourceFile academicContext detailLevel difficulty quizSize cost status generationStage generationMetrics modelUsed fallbackUsed failureCode failureMessage refundedAt output.sessionTitle output.shortDescription output.notes output.quiz quizProgress quizProgressionSource tutorProvenance completedAt createdAt updatedAt",
       )
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -454,7 +460,7 @@ export const submitStudyQuiz = async (req, res, next) => {
       studySession.quizProgress?.bestPercentage || 0,
     );
 
-    studySession.quizProgress = {
+    const nextQuizProgress = {
       attempts: previousAttempts + 1,
       latestAnswers: normalizedAnswers,
       latestScore: score,
@@ -466,7 +472,43 @@ export const submitStudyQuiz = async (req, res, next) => {
       lastCompletedAt: now,
     };
 
-    await studySession.save();
+    const mongoSession = await mongoose.startSession();
+    try {
+      await mongoSession.withTransaction(async () => {
+        const updated = await StudySession.findOneAndUpdate(
+          {
+            _id: studySession._id,
+            user: req.user._id,
+            status: "completed",
+          },
+          { $set: { quizProgress: nextQuizProgress } },
+          { new: true, session: mongoSession },
+        );
+
+        if (!updated) {
+          throw new Error("The quiz could not be updated.");
+        }
+
+        await QuizAttempt.create(
+          [
+            {
+              user: req.user._id,
+              studySession: studySession._id,
+              answers: normalizedAnswers,
+              score,
+              totalQuestions,
+              percentage,
+              attemptedAt: now,
+            },
+          ],
+          { session: mongoSession },
+        );
+      });
+    } finally {
+      await mongoSession.endSession();
+    }
+
+    studySession.quizProgress = nextQuizProgress;
 
     const afterProgress = await getProgressOverview(req.user._id);
     const previousTotalXp = Number(beforeProgress?.stats?.totalXp || 0);

@@ -2,10 +2,12 @@ import {
   ArrowRight,
   BookOpenCheck,
   BrainCircuit,
+  CheckCircle2,
   GraduationCap,
   History,
   LoaderCircle,
   MessageSquarePlus,
+  Save,
   Send,
   Sparkles,
   Trash2,
@@ -31,6 +33,7 @@ import { listStudySessions } from "../services/studySessionService";
 import {
   archiveTutorConversation,
   createTutorConversation,
+  convertTutorQuizToStudyLibrary,
   getTutorConversation,
   getTutorUsage,
   listTutorConversations,
@@ -62,6 +65,15 @@ const SUGGESTIONS = [
 const getErrorMessage = (error) =>
   error?.response?.data?.message ||
   "AI Tutor could not complete that request.";
+
+const isQuizConversionCommand = (value) => {
+  const text = String(value || "").trim().toLowerCase();
+  const asksForSave = /\b(save|convert|add|move)\b/.test(text);
+  const refersToQuiz = /\b(?:this|that|the|last)\s+quiz\b/.test(text);
+  const asksForDifferentExport = /\b(pdf|google forms?|export)\b/.test(text);
+
+  return asksForSave && refersToQuiz && !asksForDifferentExport;
+};
 
 const formatConversationTime = (value) => {
   if (!value) {
@@ -245,6 +257,8 @@ function AITutorPage() {
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversionTarget, setConversionTarget] = useState(null);
+  const [convertingMessageId, setConvertingMessageId] = useState("");
 
   const bottomRef = useRef(null);
 
@@ -412,10 +426,101 @@ function AITutorPage() {
     );
   };
 
+  const openTutorQuizConversion = (message) => {
+    if (!message?.quizConversion?.eligible) {
+      toast.error("This Tutor reply does not contain a complete quiz to save.");
+      return;
+    }
+
+    if (message.quizConversion.studySessionId) {
+      navigate(`/study/${message.quizConversion.studySessionId}?tab=quiz`);
+      return;
+    }
+
+    setConversionTarget(message);
+  };
+
+  const handleConfirmTutorQuizConversion = async () => {
+    if (!activeConversationId || !conversionTarget?.id || convertingMessageId) {
+      return;
+    }
+
+    try {
+      setConvertingMessageId(conversionTarget.id);
+
+      const response = await convertTutorQuizToStudyLibrary(
+        activeConversationId,
+        conversionTarget.id,
+      );
+      const data = response?.data || {};
+      const studySessionId = data.studySession?.id || "";
+
+      updateBalance(data.balance);
+
+      if (studySessionId) {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === conversionTarget.id
+              ? {
+                  ...message,
+                  quizConversion: {
+                    ...(message.quizConversion || {}),
+                    eligible: true,
+                    studySessionId,
+                    convertedAt: new Date().toISOString(),
+                  },
+                }
+              : message,
+          ),
+        );
+
+        try {
+          const sessionsResponse = await listStudySessions(30);
+          setStudySessions(sessionsResponse?.data?.studySessions || []);
+        } catch {
+          // Conversion already succeeded; a context-list refresh can wait.
+        }
+      }
+
+      setConversionTarget(null);
+      toast.success(
+        data.alreadyConverted
+          ? "This Tutor quiz is already in Study Library."
+          : `Tutor quiz saved to Study Library · ${Number(data.charged || 25)} FluxGems`,
+        { duration: 4200 },
+      );
+    } catch (error) {
+      const balance = error?.response?.data?.data?.balance;
+      updateBalance(balance);
+      toast.error(getErrorMessage(error), { duration: 4500 });
+    } finally {
+      setConvertingMessageId("");
+    }
+  };
+
   const handleSend = async (overrideText = "") => {
     const question = String(overrideText || input).trim();
 
     if (!question || sending) {
+      return;
+    }
+
+    if (isQuizConversionCommand(question)) {
+      const convertibleMessage = [...messages]
+        .reverse()
+        .find(
+          (message) =>
+            message.role === "assistant" &&
+            message.quizConversion?.eligible,
+        );
+
+      if (!convertibleMessage) {
+        toast.error("I couldn't find a recent Tutor quiz to save in this conversation.");
+        return;
+      }
+
+      setInput("");
+      openTutorQuizConversion(convertibleMessage);
       return;
     }
 
@@ -757,7 +862,43 @@ function AITutorPage() {
                             {message.content}
                           </p>
                         ) : (
-                          <TutorMessageContent content={message.content} />
+                          <>
+                            <TutorMessageContent content={message.content} />
+
+                            {message.quizConversion?.eligible && (
+                              <div className="mt-5 border-t border-cyan-100 pt-4">
+                                {message.quizConversion.studySessionId ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      navigate(`/study/${message.quizConversion.studySessionId}?tab=quiz`)
+                                    }
+                                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-extrabold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100/70"
+                                  >
+                                    <CheckCircle2 size={15} />
+                                    Saved to Study Library · Open quiz
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => openTutorQuizConversion(message)}
+                                    disabled={Boolean(convertingMessageId)}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-3.5 py-2 text-xs font-extrabold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {convertingMessageId === message.id ? (
+                                      <LoaderCircle size={15} className="animate-spin" />
+                                    ) : (
+                                      <Save size={15} />
+                                    )}
+                                    Save to Study Library
+                                    <span className="rounded-full bg-white/18 px-2 py-0.5">
+                                      {Number(message.quizConversion.cost || 25)} FG
+                                    </span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </>
                         )}
 
                         {isUser && message.billing && (
@@ -908,6 +1049,95 @@ function AITutorPage() {
           </aside>
         </>
       )}
+      {conversionTarget && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-violet-200 bg-white p-5 shadow-2xl sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-violet-600">
+                  AI Tutor → Study Library
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">
+                  Save this quiz as a Library entry?
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setConversionTarget(null)}
+                disabled={Boolean(convertingMessageId)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+                aria-label="Close Tutor quiz conversion"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-cyan-100 bg-gradient-to-br from-violet-50/80 via-white to-cyan-50/70 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <FluxGemMark size={28} />
+                  <div>
+                    <p className="text-xs font-bold text-slate-500">Conversion cost</p>
+                    <p className="font-black text-slate-950">
+                      {Number(conversionTarget.quizConversion?.cost || 25)} FluxGems
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs font-bold text-slate-500">
+                  Balance: {Number(user?.fluxGems || 0)} FG
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-slate-600">
+              StudyFluxAI will validate the Tutor quiz, create a quiz-only entry marked
+              <strong className="text-slate-800"> Made with AI Tutor</strong>, and keep it compatible with quiz attempts, progression, and Google Forms export.
+            </p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              This action does not consume a Tutor question. The conversion cost is committed only if the Library entry is created successfully.
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConversionTarget(null)}
+                disabled={Boolean(convertingMessageId)}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              {Number(user?.fluxGems || 0) < Number(conversionTarget.quizConversion?.cost || 25) ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/wallet")}
+                  className="rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm"
+                >
+                  Get FluxGems
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleConfirmTutorQuizConversion}
+                  disabled={Boolean(convertingMessageId)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {convertingMessageId ? (
+                    <LoaderCircle size={16} className="animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  {convertingMessageId
+                    ? "Converting quiz..."
+                    : `Confirm · ${Number(conversionTarget.quizConversion?.cost || 25)} FluxGems`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </DashboardLayout>
   );
 }

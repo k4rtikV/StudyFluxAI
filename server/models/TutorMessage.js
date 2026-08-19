@@ -90,6 +90,18 @@ const tutorMessageSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    convertedStudySession: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StudySession",
+      default: null,
+      index: true,
+    },
+
+    convertedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -1,5 +1,6 @@
 import {
   BookOpenCheck,
+  BrainCircuit,
   CalendarDays,
   CheckCircle2,
   Clock3,
@@ -184,6 +185,13 @@ function StudyLibraryPage() {
                         <TypeIcon size={12} />
                         {meta.label}
                       </span>
+
+                      {session.origin === "ai_tutor" && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-violet-50 to-cyan-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-cyan-800">
+                          <BrainCircuit size={12} />
+                          Made with AI Tutor
+                        </span>
+                      )}
 
                       {isGenerating && (
                         <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] ${session.generationStage === "fallback" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-violet-200 bg-violet-50 text-violet-700"}`}>

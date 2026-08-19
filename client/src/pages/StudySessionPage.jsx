@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   BookOpenCheck,
+  BrainCircuit,
   Check,
   CheckCircle2,
   Clock3,
@@ -528,11 +529,13 @@ function StudySessionPage() {
         ? "/generate/quiz"
         : "/generate";
   const generationLabel =
-    generationType === "notes"
-      ? "Generated AI Notes"
-      : generationType === "quiz"
-        ? "Generated AI Quiz"
-        : "Generated learning session";
+    studySession?.origin === "ai_tutor"
+      ? "AI Tutor quiz"
+      : generationType === "notes"
+        ? "Generated AI Notes"
+        : generationType === "quiz"
+          ? "Generated AI Quiz"
+          : "Generated learning session";
 
   useEffect(() => {
     if (!studySession?.id || !hasQuiz) {
@@ -880,6 +883,13 @@ function StudySessionPage() {
               <p className="text-sm font-bold text-violet-600">
                 {generationLabel}
               </p>
+
+              {studySession.origin === "ai_tutor" && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-gradient-to-r from-violet-50 to-cyan-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-cyan-800">
+                  <BrainCircuit size={12} />
+                  Made with AI Tutor
+                </span>
+              )}
 
               {studySession.fallbackUsed && (
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-amber-700">

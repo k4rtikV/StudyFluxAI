@@ -50,3 +50,16 @@ export const sendTutorMessage = async (
 
   return response.data;
 };
+
+
+export const convertTutorQuizToStudyLibrary = async (
+  conversationId,
+  assistantMessageId,
+) => {
+  const response = await api.post(
+    `/tutor/conversations/${conversationId}/quiz-conversions`,
+    { assistantMessageId },
+  );
+
+  return response.data;
+};

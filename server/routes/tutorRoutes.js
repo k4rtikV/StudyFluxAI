@@ -3,6 +3,7 @@ import express from "express";
 import {
   archiveTutorConversation,
   createTutorConversation,
+  convertTutorQuizToStudyLibrary,
   getTutorConversation,
   getTutorUsage,
   listTutorConversations,
@@ -27,6 +28,12 @@ router.delete(
   "/conversations/:conversationId",
   protect,
   archiveTutorConversation,
+);
+
+router.post(
+  "/conversations/:conversationId/quiz-conversions",
+  protect,
+  convertTutorQuizToStudyLibrary,
 );
 
 router.post(

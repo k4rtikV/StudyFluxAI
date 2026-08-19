@@ -1,4 +1,5 @@
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
+import QuizAttempt from "../models/QuizAttempt.js";
 import StudySession from "../models/StudySession.js";
 import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
@@ -137,11 +138,35 @@ export const getProgressOverview = async (userId) => {
     user: userId,
     status: "completed",
   })
-    .select("generationType createdAt completedAt quizProgress")
+    .select("generationType origin createdAt completedAt quizProgress quizProgressionSource")
     .sort({ completedAt: 1, createdAt: 1 })
     .lean();
 
-  const completedSessions = sessions.length;
+  // Saving a Tutor quiz is an artifact conversion, not learning activity by
+  // itself. Once the learner actually takes it, it can count as a completed
+  // learning item, but the conversion timestamp itself never creates a streak.
+  const generatedSessionActivity = sessions.filter(
+    (session) => (session.origin || "ai_generation") !== "ai_tutor",
+  );
+  const getSessionLearningDate = (session) => {
+    if (!session) return null;
+
+    return (session.origin || "ai_generation") === "ai_tutor"
+      ? session.quizProgress?.firstCompletedAt || null
+      : session.completedAt || session.createdAt || null;
+  };
+  const sessionAchievementActivity = sessions
+    .filter(
+      (session) =>
+        (session.origin || "ai_generation") !== "ai_tutor" ||
+        Number(session.quizProgress?.attempts || 0) > 0,
+    )
+    .sort(
+      (a, b) =>
+        new Date(getSessionLearningDate(a) || 0) -
+        new Date(getSessionLearningDate(b) || 0),
+    );
+  const completedSessions = sessionAchievementActivity.length;
   const completedQuizzes = sessions.filter(
     (session) => Number(session.quizProgress?.attempts || 0) > 0,
   ).length;
@@ -160,6 +185,13 @@ export const getProgressOverview = async (userId) => {
   })
     .select("completedAt")
     .sort({ completedAt: 1 })
+    .lean();
+
+  const quizAttempts = await QuizAttempt.find({
+    user: userId,
+  })
+    .select("attemptedAt studySession")
+    .sort({ attemptedAt: 1 })
     .lean();
 
   const challengeAttempts = await DailyChallengeAttempt.find({
@@ -182,10 +214,17 @@ export const getProgressOverview = async (userId) => {
     0,
   );
 
+  const legacyQuizAttemptDates = sessions.flatMap((session) => [
+    session.quizProgress?.firstCompletedAt || null,
+    session.quizProgress?.lastCompletedAt || null,
+  ]).filter(Boolean);
+
   const activityDates = [
-    ...sessions.map(
+    ...generatedSessionActivity.map(
       (session) => session.completedAt || session.createdAt,
     ),
+    ...quizAttempts.map((attempt) => attempt.attemptedAt),
+    ...legacyQuizAttemptDates,
     ...tutorActivityMessages.map(
       (message) => message.completedAt,
     ),
@@ -197,9 +236,9 @@ export const getProgressOverview = async (userId) => {
     timeZone,
   );
 
-  const firstSessionEarnedAt = sessions[0]?.completedAt || sessions[0]?.createdAt || null;
+  const firstSessionEarnedAt = getSessionLearningDate(sessionAchievementActivity[0]);
   const firstQuizEarnedAt = getFirstQuizAttemptEarnedAt(sessions);
-  const focusedLearnerEarnedAt = sessions[9]?.completedAt || sessions[9]?.createdAt || null;
+  const focusedLearnerEarnedAt = getSessionLearningDate(sessionAchievementActivity[9]);
   const firstChallengeWin = challengeAttempts.find((attempt) => attempt.isCorrect);
 
   const achievements = {
@@ -252,7 +291,7 @@ export const getProgressOverview = async (userId) => {
     status: "completed",
   })
     .select(
-      "generationType topic sourceMode sourceFile output quizSize quizProgress createdAt completedAt",
+      "generationType origin topic sourceMode sourceFile output quizSize quizProgress tutorProvenance createdAt completedAt",
     )
     .sort({ createdAt: -1 })
     .limit(3)
@@ -305,6 +344,7 @@ export const getProgressOverview = async (userId) => {
         "Learning session",
       description: session.output?.shortDescription || "",
       generationType: session.generationType || "combined",
+      origin: session.origin || "ai_generation",
       quizSize: Number(session.quizSize || 0),
       quizAttempts: Number(session.quizProgress?.attempts || 0),
       latestQuizScore: Number(session.quizProgress?.latestScore || 0),

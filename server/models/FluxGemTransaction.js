@@ -44,6 +44,7 @@ const fluxGemTransactionSchema = new mongoose.Schema(
         "ai_generation_refund",
         "ai_tutor",
         "ai_tutor_refund",
+        "ai_tutor_quiz_conversion",
         "developer_grant",
         "purchase",
         "reward",
