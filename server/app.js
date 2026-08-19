@@ -15,6 +15,7 @@ import learningProfileRoutes from "./routes/learningProfileRoutes.js";
 import progressRoutes from "./routes/progressRoutes.js";
 import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 import studySessionRoutes from "./routes/studySessionRoutes.js";
+import studyPlannerRoutes from "./routes/studyPlannerRoutes.js";
 import studyExportRoutes from "./routes/studyExportRoutes.js";
 import googleFormsIntegrationRoutes from "./routes/googleFormsIntegrationRoutes.js";
 import tutorRoutes from "./routes/tutorRoutes.js";
@@ -76,6 +77,7 @@ app.use("/api/community", communityRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/study-sessions", studySessionRoutes);
+app.use("/api/study-planner", studyPlannerRoutes);
 
 app.use("/api/study-exports", studyExportRoutes);
 

@@ -130,7 +130,7 @@ function NavButton({ item, active, onSelect }) {
 
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 left-full hidden w-12 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.97)_55%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:block ${
+        className={`pointer-events-none absolute inset-y-0 left-full hidden w-8 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.94)_50%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:block ${
           emphasized ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
         }`}
       />
@@ -212,7 +212,7 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
 
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 left-full hidden w-12 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.97)_55%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:block ${
+        className={`pointer-events-none absolute inset-y-0 left-full hidden w-8 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.94)_50%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:block ${
           emphasized ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
         }`}
       />

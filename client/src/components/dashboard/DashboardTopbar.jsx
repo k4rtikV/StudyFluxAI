@@ -2,7 +2,6 @@ import {
   ArrowUpRight,
   Award,
   Bell,
-  ChevronDown,
   Flame,
   LogOut,
   Menu,
@@ -16,6 +15,7 @@ import {
   FileText,
   ClipboardList,
   CornerDownLeft,
+  CalendarCheck2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -28,6 +28,8 @@ import useAuth from "../../hooks/useAuth";
 import { logoutUser } from "../../services/authService";
 import { getProgressOverview } from "../../services/progressService";
 import { subscribeToProgressionChanges } from "../../utils/progressionEvents";
+import { getStudyPlannerSummary } from "../../services/studyPlannerService";
+import { subscribeToStudyPlannerChanges } from "../../utils/studyPlannerEvents";
 
 const SEARCH_ITEMS = [
   {
@@ -73,6 +75,13 @@ const SEARCH_ITEMS = [
     keywords: ["library", "saved", "sessions", "notes", "quizzes"],
   },
   {
+    label: "Study Planner",
+    description: "Schedule learning goals and attach related Study Library material.",
+    path: "/planner",
+    icon: CalendarCheck2,
+    keywords: ["planner", "plan", "schedule", "goal", "study time"],
+  },
+  {
     label: "Wallet",
     description: "Buy and manage FluxGems.",
     path: "/wallet",
@@ -95,6 +104,29 @@ const SEARCH_ITEMS = [
   },
 ];
 
+const formatPlannerTarget = (value) => {
+  if (!value) return "No target set";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No target set";
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const formatPlannerDuration = (minutes) => {
+  const total = Number(minutes || 0);
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+  if (!hours) return `${mins} min`;
+  if (!mins) return `${hours} hr${hours === 1 ? "" : "s"}`;
+  return `${hours} hr ${mins} min`;
+};
+
 function DashboardTopbar({ onOpenSidebar }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -107,6 +139,7 @@ function DashboardTopbar({ onOpenSidebar }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [progressOverview, setProgressOverview] = useState(null);
   const [progressLoading, setProgressLoading] = useState(false);
+  const [plannerSummary, setPlannerSummary] = useState(null);
 
   const profileRef = useRef(null);
   const gemMenuRef = useRef(null);
@@ -196,6 +229,29 @@ function DashboardTopbar({ onOpenSidebar }) {
     [loadProgress],
   );
 
+  const loadPlannerSummary = useCallback(async () => {
+    try {
+      const response = await getStudyPlannerSummary();
+      setPlannerSummary(response?.data || null);
+    } catch {
+      // Keep the topbar available if planner summary cannot be loaded.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPlannerSummary();
+  }, [loadPlannerSummary]);
+
+  useEffect(
+    () => subscribeToStudyPlannerChanges(loadPlannerSummary),
+    [loadPlannerSummary],
+  );
+
+  useEffect(() => {
+    const timer = window.setInterval(loadPlannerSummary, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadPlannerSummary]);
+
   const handleSearchSubmit = (event) => {
     event.preventDefault();
 
@@ -273,9 +329,8 @@ function DashboardTopbar({ onOpenSidebar }) {
           </form>
 
           {searchOpen && (
-            <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-50 overflow-hidden rounded-[22px] border border-white/80 bg-white/96 shadow-[0_24px_56px_rgba(15,23,42,0.16)] ring-1 ring-slate-200/70 backdrop-blur-2xl">
-              <div className="h-1 bg-gradient-to-r from-emerald-400 via-cyan-400 to-violet-500" />
-
+            <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-50 rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.16)]">
+              <div className="overflow-hidden rounded-[21.5px] bg-white/96 ring-1 ring-white/70 backdrop-blur-2xl">
               <div className="flex items-center justify-between gap-3 border-b border-slate-100/90 bg-gradient-to-r from-emerald-50/70 via-cyan-50/45 to-violet-50/60 px-4 py-3">
                 <div>
                   <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
@@ -336,6 +391,7 @@ function DashboardTopbar({ onOpenSidebar }) {
                   </div>
                 )}
               </div>
+              </div>
             </div>
           )}
         </div>
@@ -353,15 +409,33 @@ function DashboardTopbar({ onOpenSidebar }) {
             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
           </button>
 
-          <div ref={gemMenuRef} className="relative shrink-0">
+          <div
+            ref={gemMenuRef}
+            className="relative shrink-0"
+            onMouseEnter={() => {
+              setGemMenuOpen(true);
+              setProfileOpen(false);
+            }}
+            onMouseLeave={() => setGemMenuOpen(false)}
+            onFocusCapture={() => {
+              setGemMenuOpen(true);
+              setProfileOpen(false);
+            }}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setGemMenuOpen(false);
+              }
+            }}
+          >
             <button
               type="button"
               onClick={() => {
-                setGemMenuOpen((current) => !current);
+                setGemMenuOpen(true);
                 setProfileOpen(false);
               }}
               className="flex min-h-[52px] items-center gap-2 rounded-2xl border border-white/84 bg-white/92 px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
               aria-label="Open FluxGems wallet menu"
+              aria-expanded={gemMenuOpen}
             >
               <FluxGemMark size={32} />
 
@@ -375,11 +449,12 @@ function DashboardTopbar({ onOpenSidebar }) {
                 </p>
               </div>
 
-              <ChevronDown size={14} className="hidden text-slate-400 xl:block" />
             </button>
 
             {gemMenuOpen && (
-              <div className="absolute right-0 top-[calc(100%+10px)] z-40 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+              <div className="absolute right-0 top-full z-40 w-64 pt-2.5">
+                <div className="rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
+                  <div className="rounded-[21.5px] bg-white p-2">
                 <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-cyan-50/70 to-violet-50 p-3">
                   <div className="flex items-center gap-3">
                     <FluxGemMark size={38} />
@@ -404,18 +479,116 @@ function DashboardTopbar({ onOpenSidebar }) {
                   <span>Buy more FluxGems</span>
                   <span className="text-emerald-600">+</span>
                 </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
-          <div ref={profileRef} className="relative shrink-0">
+          <div className="group/planner relative shrink-0">
+            <button
+              type="button"
+              onClick={() => goTo("/planner")}
+              className={`relative flex min-h-[52px] items-center gap-2 rounded-2xl border px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition ${
+                location.pathname === "/planner"
+                  ? "border-violet-100 bg-white text-violet-700"
+                  : "border-white/84 bg-white/92 text-slate-600 hover:bg-white"
+              }`}
+              aria-label="Open Study Planner"
+            >
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-violet-100 via-cyan-100 to-emerald-100 text-violet-700 ring-1 ring-white">
+                <CalendarCheck2 size={17} />
+              </span>
+
+              <div className="hidden text-left leading-tight 2xl:block">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-violet-600">
+                  Planner
+                </p>
+                <p className="text-xs font-extrabold text-slate-800">
+                  {plannerSummary?.nextPlan ? "Up next" : "Plan study"}
+                </p>
+              </div>
+
+              {Number(plannerSummary?.upcomingCount || 0) > 0 && (
+                <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-violet-600 px-1 text-[10px] font-black text-white ring-2 ring-white">
+                  {Number(plannerSummary.upcomingCount) > 9 ? "9+" : Number(plannerSummary.upcomingCount)}
+                </span>
+              )}
+            </button>
+
+            <div className="pointer-events-none invisible absolute right-0 top-full z-50 w-[300px] translate-y-1 pt-2.5 opacity-0 transition-all duration-200 group-hover/planner:pointer-events-auto group-hover/planner:visible group-hover/planner:translate-y-0 group-hover/planner:opacity-100 group-focus-within/planner:pointer-events-auto group-focus-within/planner:visible group-focus-within/planner:translate-y-0 group-focus-within/planner:opacity-100">
+              <div className="rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
+                <div className="overflow-hidden rounded-[21.5px] bg-white/97 backdrop-blur-2xl">
+                <div className="p-3">
+                  {plannerSummary?.nextPlan ? (
+                    <div className="rounded-2xl bg-gradient-to-br from-violet-50 via-white to-cyan-50 p-3.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-600">Up next</p>
+                        <span className="rounded-full bg-white px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500 ring-1 ring-slate-200">
+                          {plannerSummary.nextPlan.priority || "medium"} priority
+                        </span>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-sm font-black leading-5 text-slate-900">{plannerSummary.nextPlan.title}</p>
+                      <p className="mt-0.5 truncate text-xs font-bold text-violet-600">{plannerSummary.nextPlan.topic}</p>
+                      <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                        <CalendarCheck2 size={13} className="shrink-0 text-cyan-600" />
+                        <span className="truncate">{formatPlannerTarget(plannerSummary.nextPlan.targetAt)}</span>
+                      </div>
+                      <p className="mt-1 pl-[21px] text-[11px] font-semibold text-slate-500">{formatPlannerDuration(plannerSummary.nextPlan.durationMinutes)}</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/75 p-4 text-center">
+                      <p className="text-sm font-extrabold text-slate-800">Nothing upcoming yet</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">Create a focused study block when you are ready.</p>
+                    </div>
+                  )}
+
+                  {Number(plannerSummary?.overdueCount || 0) > 0 && (
+                    <div className="mt-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">
+                      {Number(plannerSummary.overdueCount)} overdue {Number(plannerSummary.overdueCount) === 1 ? "plan needs" : "plans need"} attention
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => goTo("/planner")}
+                    className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-extrabold text-slate-700 transition hover:bg-violet-50 hover:text-violet-700"
+                  >
+                    <span>Open Study Planner</span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            ref={profileRef}
+            className="relative shrink-0"
+            onMouseEnter={() => {
+              setProfileOpen(true);
+              setGemMenuOpen(false);
+            }}
+            onMouseLeave={() => setProfileOpen(false)}
+            onFocusCapture={() => {
+              setProfileOpen(true);
+              setGemMenuOpen(false);
+            }}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setProfileOpen(false);
+              }
+            }}
+          >
             <button
               type="button"
               onClick={() => {
-                setProfileOpen((current) => !current);
+                setProfileOpen(true);
                 setGemMenuOpen(false);
               }}
               className="flex min-h-[52px] max-w-[240px] items-center gap-2 rounded-2xl border border-white/84 bg-white/92 p-1.5 pr-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
+              aria-expanded={profileOpen}
             >
               <UserAvatar
                 user={user}
@@ -444,11 +617,12 @@ function DashboardTopbar({ onOpenSidebar }) {
                 </p>
               </div>
 
-              <ChevronDown size={15} className="hidden shrink-0 text-slate-400 xl:block" />
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 top-[calc(100%+10px)] z-40 w-[min(22rem,calc(100vw-2rem))] rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
+              <div className="absolute right-0 top-full z-40 w-[min(22rem,calc(100vw-2rem))] pt-2.5">
+                <div className="rounded-[25px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
+                  <div className="rounded-[23.5px] bg-white p-2">
                 <div className="px-3 py-2.5">
                   <p className="truncate text-sm font-bold text-slate-900">
                     {user?.fullName}
@@ -571,6 +745,8 @@ function DashboardTopbar({ onOpenSidebar }) {
                   <LogOut size={16} />
                   {isLoggingOut ? "Signing out..." : "Sign out"}
                 </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

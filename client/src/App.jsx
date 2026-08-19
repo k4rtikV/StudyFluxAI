@@ -26,6 +26,7 @@ import ProfilePage from "./pages/ProfilePage";
 import QuizGeneratorPage from "./pages/QuizGeneratorPage";
 import RegisterPage from "./pages/RegisterPage";
 import StudyLibraryPage from "./pages/StudyLibraryPage";
+import StudyPlannerPage from "./pages/StudyPlannerPage";
 import StudySessionPage from "./pages/StudySessionPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import WalletPage from "./pages/WalletPage";
@@ -168,6 +169,15 @@ function App() {
         element={
           <ProtectedRoute>
             <StudySessionPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/planner"
+        element={
+          <ProtectedRoute>
+            <StudyPlannerPage />
           </ProtectedRoute>
         }
       />

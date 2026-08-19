@@ -61,12 +61,14 @@ const QUICK_ACTIONS = [
   {
     title: "Study Planner",
     description:
-      "Organize upcoming learning goals and sessions.",
+      "Schedule focused goals and attach related Study Library material.",
     icon: CalendarDays,
     accent:
       "bg-emerald-50 text-emerald-600",
     border:
       "border-emerald-200/90 hover:border-emerald-300",
+    path: "/planner",
+    actionLabel: "Open planner",
   },
 ];
 
