@@ -238,8 +238,8 @@ function DashboardTopbar({ onOpenSidebar }) {
   const isMaxLevel = Boolean(progression.isMaxLevel);
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/14 bg-[linear-gradient(90deg,rgb(93,166,157)_0%,rgb(93,166,157)_10%,rgb(89,174,164)_20%,rgb(75,177,185)_36%,rgb(61,153,207)_54%,rgb(63,116,207)_72%,rgb(82,88,197)_87%,rgb(104,70,187)_100%)] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:left-[286px]">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0)_12%,rgba(255,255,255,0.035)_42%,rgba(255,255,255,0.06)_100%)]" />
+    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/14 bg-[linear-gradient(90deg,#0d6b72_0%,#0e7490_22%,#1695b3_38%,#3b82d0_57%,#4f63c7_76%,#6d28b8_100%)] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:left-[286px]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_2%_0%,rgba(255,255,255,0.12),transparent_19%),linear-gradient(90deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0.015)_35%,rgba(255,255,255,0.07)_100%)]" />
       <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-white/18" />
 
       <div className="relative flex min-h-[82px] items-center gap-3 px-4 py-3 sm:px-6 xl:px-8">

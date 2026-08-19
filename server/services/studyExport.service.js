@@ -1,6 +1,9 @@
 import GoogleWorkspaceConnection from "../models/GoogleWorkspaceConnection.js";
 import StudyExport from "../models/StudyExport.js";
-import { createGoogleFormsQuiz } from "./googleForms.service.js";
+import {
+  createGoogleFormsQuiz,
+  normalizeGoogleFormsExportMode,
+} from "./googleForms.service.js";
 import {
   decryptSecret,
   encryptSecret,
@@ -19,6 +22,8 @@ export const serializeStudyExport = (
     ),
     exportType:
       studyExport.exportType || "google_forms",
+    exportMode:
+      studyExport.exportMode || "standard",
     externalId: studyExport.externalId || "",
     editUrl: studyExport.editUrl || "",
     responderUrl: studyExport.responderUrl || "",
@@ -101,11 +106,16 @@ export const getExistingGoogleFormsExport =
       exportType: "google_forms",
     }).lean();
 
-export const ensureGoogleFormsQuizExport =
+const googleFormsExportInFlight = new Map();
+
+const createOrReuseGoogleFormsQuizExport =
   async ({
     userId,
     studySession,
+    exportMode = "standard",
   }) => {
+    const normalizedExportMode =
+      normalizeGoogleFormsExportMode(exportMode);
     const existing =
       await getExistingGoogleFormsExport({
         userId,
@@ -139,6 +149,7 @@ export const ensureGoogleFormsQuizExport =
       await createGoogleFormsQuiz({
         refreshToken,
         studySession,
+        exportMode: normalizedExportMode,
       });
 
     let studyExport;
@@ -148,6 +159,7 @@ export const ensureGoogleFormsQuizExport =
         user: userId,
         studySession: studySession._id,
         exportType: "google_forms",
+        exportMode: normalizedExportMode,
         externalId: result.formId,
         editUrl: result.editUrl,
         responderUrl: result.responderUrl,
@@ -185,4 +197,38 @@ export const ensureGoogleFormsQuizExport =
       created: true,
       studyExport,
     };
+  };
+
+export const ensureGoogleFormsQuizExport =
+  async ({
+    userId,
+    studySession,
+    exportMode = "standard",
+  }) => {
+    const key = `${String(userId)}:${String(studySession?._id || "")}`;
+    const existingTask =
+      googleFormsExportInFlight.get(key);
+
+    if (existingTask) {
+      return existingTask;
+    }
+
+    const task =
+      createOrReuseGoogleFormsQuizExport({
+        userId,
+        studySession,
+        exportMode,
+      });
+
+    googleFormsExportInFlight.set(key, task);
+
+    try {
+      return await task;
+    } finally {
+      if (
+        googleFormsExportInFlight.get(key) === task
+      ) {
+        googleFormsExportInFlight.delete(key);
+      }
+    }
   };

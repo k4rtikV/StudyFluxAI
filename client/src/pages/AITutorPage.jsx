@@ -437,6 +437,15 @@ function AITutorPage() {
       return;
     }
 
+    if (convertingMessageId) {
+      toast(
+        convertingMessageId === message.id
+          ? "This quiz is already being saved in the background."
+          : "Another Tutor quiz is already being saved. You can keep using StudyFluxAI while it finishes.",
+      );
+      return;
+    }
+
     setConversionTarget(message);
   };
 
@@ -445,12 +454,26 @@ function AITutorPage() {
       return;
     }
 
-    try {
-      setConvertingMessageId(conversionTarget.id);
+    const conversationId = activeConversationId;
+    const targetMessage = conversionTarget;
+    const targetMessageId = targetMessage.id;
+    const toastId = `tutor-quiz-conversion-${targetMessageId}`;
 
+    setConvertingMessageId(targetMessageId);
+    setConversionTarget(null);
+
+    toast.loading(
+      "Saving quiz to Study Library in the background. You can keep using StudyFluxAI.",
+      {
+        id: toastId,
+        duration: Infinity,
+      },
+    );
+
+    try {
       const response = await convertTutorQuizToStudyLibrary(
-        activeConversationId,
-        conversionTarget.id,
+        conversationId,
+        targetMessageId,
       );
       const data = response?.data || {};
       const studySessionId = data.studySession?.id || "";
@@ -460,7 +483,7 @@ function AITutorPage() {
       if (studySessionId) {
         setMessages((current) =>
           current.map((message) =>
-            message.id === conversionTarget.id
+            message.id === targetMessageId
               ? {
                   ...message,
                   quizConversion: {
@@ -482,19 +505,30 @@ function AITutorPage() {
         }
       }
 
-      setConversionTarget(null);
       toast.success(
         data.alreadyConverted
-          ? "This Tutor quiz is already in Study Library."
-          : `Tutor quiz saved to Study Library · ${Number(data.charged || 25)} FluxGems`,
-        { duration: 4200 },
+          ? "This Tutor quiz was already in Study Library."
+          : `Quiz saved to Study Library · ${Number(data.charged || 25)} FluxGems`,
+        {
+          id: toastId,
+          duration: 5000,
+        },
       );
     } catch (error) {
       const balance = error?.response?.data?.data?.balance;
       updateBalance(balance);
-      toast.error(getErrorMessage(error), { duration: 4500 });
+
+      toast.error(
+        `${getErrorMessage(error)} No conversion charge is kept if the Library entry was not created.`,
+        {
+          id: toastId,
+          duration: 5200,
+        },
+      );
     } finally {
-      setConvertingMessageId("");
+      setConvertingMessageId((current) =>
+        current === targetMessageId ? "" : current,
+      );
     }
   };
 

@@ -203,6 +203,9 @@ export const connectGoogleForms = async (
     const sessionId = String(
       req.query.sessionId || "",
     ).trim();
+    const exportMode = String(
+      req.query.exportMode || "standard",
+    ).trim();
 
     if (!sessionId) {
       return res.status(400).json({
@@ -241,6 +244,7 @@ export const connectGoogleForms = async (
       createGoogleFormsOauthState({
         userId: req.user._id,
         sessionId,
+        exportMode,
       });
 
     const authorizationUrl =
@@ -320,6 +324,7 @@ export const googleFormsCallback = async (
     await ensureGoogleFormsQuizExport({
       userId: stateData.userId,
       studySession,
+      exportMode: stateData.exportMode,
     });
 
     return res.redirect(
@@ -431,6 +436,7 @@ export const exportQuizToGoogleForms =
         await ensureGoogleFormsQuizExport({
           userId: req.user._id,
           studySession,
+          exportMode: req.body?.exportMode || "standard",
         });
 
       return res.status(

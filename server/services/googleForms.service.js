@@ -4,6 +4,17 @@ import { google } from "googleapis";
 const GOOGLE_FORMS_SCOPE =
   "https://www.googleapis.com/auth/drive.file";
 
+
+export const GOOGLE_FORMS_EXPORT_MODES = {
+  STANDARD: "standard",
+  STUDENT_DETAILS: "student_details",
+};
+
+export const normalizeGoogleFormsExportMode = (value) =>
+  value === GOOGLE_FORMS_EXPORT_MODES.STUDENT_DETAILS
+    ? GOOGLE_FORMS_EXPORT_MODES.STUDENT_DETAILS
+    : GOOGLE_FORMS_EXPORT_MODES.STANDARD;
+
 const getOauthConfig = () => {
   const clientId = String(
     process.env.GOOGLE_FORMS_CLIENT_ID || "",
@@ -63,11 +74,13 @@ const getStateSecret = () => {
 export const createGoogleFormsOauthState = ({
   userId,
   sessionId = "",
+  exportMode = GOOGLE_FORMS_EXPORT_MODES.STANDARD,
 }) =>
   jwt.sign(
     {
       purpose: "google_forms_connect",
       sessionId: String(sessionId || ""),
+      exportMode: normalizeGoogleFormsExportMode(exportMode),
     },
     getStateSecret(),
     {
@@ -95,6 +108,7 @@ export const verifyGoogleFormsOauthState = (state) => {
   return {
     userId: payload.sub,
     sessionId: String(payload.sessionId || ""),
+    exportMode: normalizeGoogleFormsExportMode(payload.exportMode),
   };
 };
 
@@ -173,6 +187,22 @@ const validateQuizForExport = (quiz) => {
       error.code = "INVALID_QUIZ_EXPORT_DATA";
       throw error;
     }
+
+    const formsDisplayOptions = options.map((option) =>
+      cleanDisplayedText(option, 1000),
+    );
+
+    if (
+      formsDisplayOptions.some((option) => !option) ||
+      new Set(formsDisplayOptions).size !==
+        formsDisplayOptions.length
+    ) {
+      const error = new Error(
+        `Quiz question ${index + 1} has answer options that become empty or identical after Google Forms text normalization.`,
+      );
+      error.code = "INVALID_QUIZ_EXPORT_DATA";
+      throw error;
+    }
   });
 
   return questions;
@@ -183,24 +213,79 @@ const cleanText = (value, maxLength = 5000) =>
     .trim()
     .slice(0, maxLength);
 
+// Google Forms rejects newlines in several user-visible fields such as
+// item titles and choice values. Tutor-created quizzes can legitimately
+// contain Markdown/code blocks, so normalize only the Forms payload while
+// preserving the richer source content stored in StudyFluxAI.
+const cleanDisplayedText = (value, maxLength = 5000) =>
+  String(value || "")
+    // Remove fenced-code delimiters/language labels while keeping code text.
+    .replace(/```[a-zA-Z0-9_+-]*\s*/g, " ")
+    .replace(/```/g, " ")
+    // Remove inline-code delimiters; Forms does not render Markdown.
+    .replace(/`([^`]*)`/g, "$1")
+    // Displayed text sent to Forms must be a single line.
+    .replace(/[\r\n\u2028\u2029]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+
+const STUDENT_DETAIL_FIELDS = [
+  {
+    title: "Student name",
+    description: "Enter your full name.",
+  },
+  {
+    title: "Class",
+    description: "Enter your class or year.",
+  },
+  {
+    title: "Division",
+    description: "Enter your division or section.",
+  },
+];
+
+const buildStudentDetailRequest = (field, index) => ({
+  createItem: {
+    item: {
+      title: field.title,
+      description: field.description,
+      questionItem: {
+        question: {
+          required: true,
+          textQuestion: {
+            paragraph: false,
+          },
+        },
+      },
+    },
+    location: {
+      index,
+    },
+  },
+});
+
 const buildQuestionRequest = (
   question,
-  index,
+  questionIndex,
+  locationIndex = questionIndex,
 ) => {
   const explanation =
-    cleanText(question.explanation, 2000) ||
+    cleanDisplayedText(question.explanation, 2000) ||
     "Review the correct answer and the related StudyFluxAI notes.";
 
-  const correctValue = cleanText(
-    question.options[question.correctOptionIndex],
-    1000,
+  const displayOptions = question.options.map((option) =>
+    cleanDisplayedText(option, 1000),
   );
+
+  const correctValue =
+    displayOptions[question.correctOptionIndex];
 
   return {
     createItem: {
       item: {
-        title: cleanText(
-          `${index + 1}. ${question.question}`,
+        title: cleanDisplayedText(
+          `${questionIndex + 1}. ${question.question}`,
           4000,
         ),
         questionItem: {
@@ -225,9 +310,9 @@ const buildQuestionRequest = (
             choiceQuestion: {
               type: "RADIO",
               shuffle: false,
-              options: question.options.map(
+              options: displayOptions.map(
                 (option) => ({
-                  value: cleanText(option, 1000),
+                  value: option,
                 }),
               ),
             },
@@ -235,7 +320,7 @@ const buildQuestionRequest = (
         },
       },
       location: {
-        index,
+        index: locationIndex,
       },
     },
   };
@@ -244,7 +329,10 @@ const buildQuestionRequest = (
 export const createGoogleFormsQuiz = async ({
   refreshToken,
   studySession,
+  exportMode = GOOGLE_FORMS_EXPORT_MODES.STANDARD,
 }) => {
+  const normalizedExportMode =
+    normalizeGoogleFormsExportMode(exportMode);
   const questions = validateQuizForExport(
     studySession?.output?.quiz,
   );
@@ -260,11 +348,11 @@ export const createGoogleFormsQuiz = async ({
   });
 
   const quizTitle =
-    cleanText(studySession.output?.quiz?.title, 250) ||
-    cleanText(studySession.output?.sessionTitle, 250) ||
+    cleanDisplayedText(studySession.output?.quiz?.title, 250) ||
+    cleanDisplayedText(studySession.output?.sessionTitle, 250) ||
     "StudyFluxAI Quiz";
 
-  const documentTitle = cleanText(
+  const documentTitle = cleanDisplayedText(
     `StudyFluxAI - ${quizTitle}`,
     250,
   );
@@ -302,33 +390,79 @@ export const createGoogleFormsQuiz = async ({
     "Generated from a saved StudyFluxAI quiz.",
   ].filter(Boolean);
 
-  const requests = [
-    {
-      updateSettings: {
-        settings: {
-          quizSettings: {
-            isQuiz: true,
+  // Keep form metadata separate from item creation. More importantly,
+  // create the non-scored student identity fields while the form is still
+  // a normal form. Google Forms can then be switched into quiz mode before
+  // the scored MCQs are added. This avoids mixing ungraded text questions,
+  // quiz-mode activation and graded choice questions in one batch request.
+  await forms.forms.batchUpdate({
+    formId,
+    requestBody: {
+      requests: [
+        {
+          updateFormInfo: {
+            info: {
+              description:
+                descriptionParts.join("\n\n"),
+            },
+            updateMask: "description",
           },
         },
-        updateMask: "quizSettings.isQuiz",
-      },
+      ],
     },
-    {
-      updateFormInfo: {
-        info: {
-          description:
-            descriptionParts.join("\n\n"),
-        },
-        updateMask: "description",
+  });
+
+  let questionOffset = 0;
+
+  if (
+    normalizedExportMode ===
+    GOOGLE_FORMS_EXPORT_MODES.STUDENT_DETAILS
+  ) {
+    const studentDetailRequests =
+      STUDENT_DETAIL_FIELDS.map(
+        buildStudentDetailRequest,
+      );
+
+    await forms.forms.batchUpdate({
+      formId,
+      requestBody: {
+        requests: studentDetailRequests,
       },
-    },
-    ...questions.map(buildQuestionRequest),
-  ];
+    });
+
+    questionOffset =
+      studentDetailRequests.length;
+  }
 
   await forms.forms.batchUpdate({
     formId,
     requestBody: {
-      requests,
+      requests: [
+        {
+          updateSettings: {
+            settings: {
+              quizSettings: {
+                isQuiz: true,
+              },
+            },
+            updateMask: "quizSettings.isQuiz",
+          },
+        },
+      ],
+    },
+  });
+
+  await forms.forms.batchUpdate({
+    formId,
+    requestBody: {
+      requests: questions.map(
+        (question, index) =>
+          buildQuestionRequest(
+            question,
+            index,
+            index + questionOffset,
+          ),
+      ),
     },
   });
 

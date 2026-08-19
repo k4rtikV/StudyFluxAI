@@ -14,6 +14,7 @@ import { NavLink, useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import { useState } from "react";
 
+import BrandLogo from "../common/BrandLogo";
 import useAuth from "../../hooks/useAuth";
 import { logoutUser } from "../../services/authService";
 
@@ -98,19 +99,9 @@ function AdminSidebar({ open, onClose }) {
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="flex items-center gap-3 text-left"
+            className="rounded-2xl text-left transition hover:translate-x-0.5"
           >
-            <img
-              src="/sfai-logo.png"
-              alt="StudyFluxAI"
-              className="h-11 w-11 object-contain"
-            />
-            <div>
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-emerald-300">
-                StudyFluxAI
-              </p>
-              <p className="mt-0.5 text-sm font-black text-white">Admin Console</p>
-            </div>
+            <BrandLogo tone="inverse" size="md" subtitle="Admin Console" />
           </button>
 
           <button

@@ -23,6 +23,12 @@ const studyExportSchema = new mongoose.Schema(
       default: "google_forms",
     },
 
+    exportMode: {
+      type: String,
+      enum: ["standard", "student_details"],
+      default: "standard",
+    },
+
     externalId: {
       type: String,
       trim: true,

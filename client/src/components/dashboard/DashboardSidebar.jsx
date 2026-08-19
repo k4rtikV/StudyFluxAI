@@ -19,6 +19,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import FluxGemMark from "./FluxGemMark";
+import BrandLogo from "../common/BrandLogo";
 import useAuth from "../../hooks/useAuth";
 
 const PRIMARY_NAV = [
@@ -422,28 +423,20 @@ function DashboardSidebar({ open, onClose }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[286px] flex-col border-r border-transparent bg-[linear-gradient(180deg,rgb(93,166,157)_0%,rgba(86,171,151,0.96)_38%,rgba(62,143,119,0.95)_100%)] shadow-[6px_0_24px_rgba(4,44,35,0.08)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[286px] flex-col bg-[linear-gradient(180deg,#0d6b72_0%,#0f766e_42%,#0b5f56_100%)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_20%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_center_right,rgba(16,185,129,0.16),transparent_36%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.06),transparent_28%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.10),transparent_22%),radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_center_right,rgba(99,102,241,0.10),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.10),transparent_30%)]" />
 
-        <div className="relative flex h-[76px] items-center justify-between border-b border-white/8 px-5">
+        <div className="relative flex h-[82px] items-center justify-between border-b border-white/10 px-5">
           <button
             type="button"
             onClick={goDashboard}
-            className="rounded-xl px-1.5 py-1 transition hover:scale-[1.015] hover:opacity-95"
+            className="rounded-2xl px-1 py-1.5 text-left transition hover:translate-x-0.5"
             aria-label="Go to dashboard"
           >
-            <img
-              src="/studyfluxai-logo.png"
-              alt="StudyFluxAI"
-              className="w-[185px]"
-              style={{
-                filter:
-                  "drop-shadow(1px 0 0 rgba(255,255,255,0.96)) drop-shadow(-1px 0 0 rgba(255,255,255,0.96)) drop-shadow(0 1px 0 rgba(255,255,255,0.96)) drop-shadow(0 -1px 0 rgba(255,255,255,0.96)) drop-shadow(1px 1px 0 rgba(255,255,255,0.82)) drop-shadow(-1px 1px 0 rgba(255,255,255,0.82)) drop-shadow(1px -1px 0 rgba(255,255,255,0.82)) drop-shadow(-1px -1px 0 rgba(255,255,255,0.82)) drop-shadow(0 4px 12px rgba(4,44,35,0.18))",
-              }}
-            />
+            <BrandLogo tone="inverse" size="lg" subtitle="Learning workspace" />
           </button>
 
           <button

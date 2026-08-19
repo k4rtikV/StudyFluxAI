@@ -28,6 +28,7 @@ import {
 } from "react-router";
 
 import LevelKite from "../components/progression/LevelKite";
+import GoogleFormsExportModal from "../components/study/GoogleFormsExportModal";
 import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getStudySession,
@@ -35,10 +36,13 @@ import {
 } from "../services/studySessionService";
 import {
   downloadStudyNotesPdf,
-  exportQuizToGoogleForms,
   getGoogleFormsExport,
-  redirectToGoogleFormsConnection,
 } from "../services/studyExportService";
+import {
+  GOOGLE_FORMS_EXPORT_TASK_EVENT,
+  isGoogleFormsExportTaskActive,
+  startGoogleFormsExportTask,
+} from "../services/googleFormsExportTaskService";
 import { getRealtimeSocket } from "../utils/realtimeSocket";
 import { emitProgressionChanged } from "../utils/progressionEvents";
 
@@ -437,6 +441,8 @@ function StudySessionPage() {
     useState(false);
   const [isExportingForms, setIsExportingForms] =
     useState(false);
+  const [googleFormsExportModalOpen, setGoogleFormsExportModalOpen] =
+    useState(false);
   const [googleFormsExport, setGoogleFormsExport] =
     useState(null);
   const previousGenerationStatusRef = useRef(null);
@@ -648,60 +654,84 @@ function StudySessionPage() {
     }
   };
 
-  const handleGoogleFormsExport = async () => {
-    if (
-      !studySession?.id ||
-      !hasQuiz ||
-      isExportingForms
-    ) {
+  const handleGoogleFormsExport = (exportMode = "standard") => {
+    if (!studySession?.id || !hasQuiz) {
       return;
     }
 
-    try {
-      setIsExportingForms(true);
-
-      const response =
-        await exportQuizToGoogleForms(
-          studySession.id,
-        );
-
-      const studyExport =
-        response?.data?.studyExport ||
-        null;
-
-      setGoogleFormsExport(studyExport);
-
-      toast.success(
-        response?.message ||
-          "Quiz exported to Google Forms.",
+    if (isGoogleFormsExportTaskActive(studySession.id)) {
+      toast(
+        "This quiz is already being exported to Google Forms in the background.",
       );
-    } catch (error) {
-      const code =
-        error?.response?.data?.code;
+      setGoogleFormsExportModalOpen(false);
+      setIsExportingForms(true);
+      return;
+    }
 
-      if (
-        code ===
-          "GOOGLE_FORMS_NOT_CONNECTED" ||
-        code ===
-          "GOOGLE_FORMS_RECONNECT_REQUIRED"
-      ) {
-        toast(
-          "Connect Google Forms to continue.",
-        );
-        redirectToGoogleFormsConnection(
-          studySession.id,
-        );
+    setGoogleFormsExportModalOpen(false);
+    setIsExportingForms(true);
+
+    startGoogleFormsExportTask({
+      sessionId: studySession.id,
+      exportMode,
+    });
+  };
+
+  useEffect(() => {
+    if (!studySession?.id || !hasQuiz) {
+      setIsExportingForms(false);
+      return undefined;
+    }
+
+    const currentSessionId = String(studySession.id);
+
+    setIsExportingForms(
+      isGoogleFormsExportTaskActive(currentSessionId),
+    );
+
+    const handleGoogleFormsTaskChanged = (event) => {
+      const detail = event?.detail || {};
+
+      if (String(detail.sessionId || "") !== currentSessionId) {
         return;
       }
 
-      toast.error(
-        error?.response?.data?.message ||
-          "Google Forms could not export this quiz.",
+      if (detail.status === "started") {
+        setIsExportingForms(true);
+        return;
+      }
+
+      if (detail.status === "success") {
+        if (detail.studyExport) {
+          setGoogleFormsExport(detail.studyExport);
+        }
+        setIsExportingForms(false);
+        return;
+      }
+
+      if (
+        detail.status === "error" ||
+        detail.status === "authorization_required" ||
+        detail.status === "settled"
+      ) {
+        setIsExportingForms(
+          isGoogleFormsExportTaskActive(currentSessionId),
+        );
+      }
+    };
+
+    window.addEventListener(
+      GOOGLE_FORMS_EXPORT_TASK_EVENT,
+      handleGoogleFormsTaskChanged,
+    );
+
+    return () => {
+      window.removeEventListener(
+        GOOGLE_FORMS_EXPORT_TASK_EVENT,
+        handleGoogleFormsTaskChanged,
       );
-    } finally {
-      setIsExportingForms(false);
-    }
-  };
+    };
+  }, [studySession?.id, hasQuiz]);
 
   useEffect(() => {
     if (!studySession || !output) {
@@ -1036,7 +1066,7 @@ function StudySessionPage() {
                 <button
                   type="button"
                   disabled={isExportingForms}
-                  onClick={handleGoogleFormsExport}
+                  onClick={() => setGoogleFormsExportModalOpen(true)}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-emerald-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isExportingForms ? (
@@ -1107,6 +1137,13 @@ function StudySessionPage() {
           />
         ) : null}
       </section>
+
+      <GoogleFormsExportModal
+        open={googleFormsExportModalOpen}
+        loading={isExportingForms}
+        onClose={() => setGoogleFormsExportModalOpen(false)}
+        onExport={handleGoogleFormsExport}
+      />
     </DashboardLayout>
   );
 }

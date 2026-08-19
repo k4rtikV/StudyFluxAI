@@ -100,19 +100,23 @@ export const getGoogleFormsExport =
   };
 
 export const exportQuizToGoogleForms =
-  async (sessionId) => {
+  async (sessionId, exportMode = "standard") => {
     const response = await api.post(
       `/study-exports/${sessionId}/google-forms`,
+      {
+        exportMode,
+      },
     );
 
     return response.data;
   };
 
 export const redirectToGoogleFormsConnection =
-  (sessionId) => {
+  (sessionId, exportMode = "standard") => {
     const url =
       `${getApiOrigin()}/integrations/google-forms/connect` +
-      `?sessionId=${encodeURIComponent(sessionId)}`;
+      `?sessionId=${encodeURIComponent(sessionId)}` +
+      `&exportMode=${encodeURIComponent(exportMode)}`;
 
     window.location.assign(url);
   };
