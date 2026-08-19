@@ -9,6 +9,28 @@ import {
   updateAdminChallenge,
   updateAdminPoll,
 } from "../services/adminCommunity.service.js";
+import {
+  generateAdminChallengeDraft,
+  generateAdminPollDraft,
+} from "../services/adminCommunityAi.service.js";
+
+export const generateChallengeDraft = async (req, res, next) => {
+  try {
+    const result = await generateAdminChallengeDraft(req.body || {});
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const generatePollDraft = async (req, res, next) => {
+  try {
+    const result = await generateAdminPollDraft(req.body || {});
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getCommunityOverview = async (req, res, next) => {
   try {

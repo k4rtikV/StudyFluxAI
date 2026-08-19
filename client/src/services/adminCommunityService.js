@@ -47,3 +47,13 @@ export const deleteAdminPoll = async (pollId) => {
   const response = await api.delete(`/admin/community/polls/${pollId}`);
   return response.data;
 };
+
+export const generateAdminChallengeDraft = async (payload) => {
+  const response = await api.post("/admin/community/challenges/ai-draft", payload);
+  return response.data;
+};
+
+export const generateAdminPollDraft = async (payload) => {
+  const response = await api.post("/admin/community/polls/ai-draft", payload);
+  return response.data;
+};
