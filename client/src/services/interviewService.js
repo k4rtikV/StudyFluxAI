@@ -25,7 +25,12 @@ export const getInterviewQuestionAudio = async (interviewId, questionId) => {
     params: { questionId },
     responseType: "blob",
   });
-  return response.data;
+  return {
+    blob: response.data,
+    serverTtsMs: Math.max(0, Number(response.headers?.["x-interview-tts-ms"] || 0)),
+    cacheStatus: response.headers?.["x-interview-audio-cache"] || "unknown",
+    voice: response.headers?.["x-interview-voice"] || "",
+  };
 };
 
 export const submitInterviewAnswer = async ({
@@ -110,4 +115,9 @@ export const downloadInterviewReportPdf = async (interviewId) => {
     blob: response.data,
     contentDisposition: response.headers?.["content-disposition"] || "",
   };
+};
+
+export const exportInterviewQuestionsToTutor = async (interviewId) => {
+  const response = await api.post(`/interviews/${interviewId}/tutor-analysis`);
+  return response.data;
 };

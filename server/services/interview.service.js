@@ -39,6 +39,7 @@ export const INTERVIEW_ELIGIBLE_EDUCATION_LEVELS = new Set([
 const initializeFlights = new Map();
 const answerFlights = new Map();
 const questionAudioCache = new Map();
+const questionAudioFlights = new Map();
 const QUESTION_AUDIO_CACHE_LIMIT = 80;
 
 const singleFlight = (map, key, operation) => {
@@ -56,6 +57,50 @@ const putAudioCache = (key, value) => {
     if (firstKey) questionAudioCache.delete(firstKey);
   }
   questionAudioCache.set(key, value);
+};
+
+const logInterviewTiming = (event, details = {}) => {
+  if (String(process.env.INTERVIEW_TIMING_LOGS || "true").toLowerCase() === "false") return;
+  console.info(`[smart-interview] ${event}`, details);
+};
+
+const audioCacheKey = ({ interviewId, questionId, voice }) =>
+  `${interviewId}:${questionId}:${voice || "Kore"}`;
+
+const generateCachedQuestionAudio = ({ interviewId, question, voice = "Kore" }) => {
+  const cacheKey = audioCacheKey({ interviewId, questionId: question.id, voice });
+  if (questionAudioCache.has(cacheKey)) {
+    return Promise.resolve({ ...questionAudioCache.get(cacheKey), cacheStatus: "hit" });
+  }
+
+  return singleFlight(questionAudioFlights, cacheKey, async () => {
+    if (questionAudioCache.has(cacheKey)) {
+      return { ...questionAudioCache.get(cacheKey), cacheStatus: "hit" };
+    }
+    const startedAt = Date.now();
+    const generated = await generateInterviewQuestionAudio({
+      questionText: question.text,
+      voice,
+    });
+    const cached = { ...generated, generatedAt: Date.now() };
+    putAudioCache(cacheKey, cached);
+    logInterviewTiming("question_audio_ready", {
+      interviewId: String(interviewId),
+      questionId: question.id,
+      sequence: question.sequence,
+      model: generated.model,
+      usedFallback: Boolean(generated.usedFallback),
+      ttsMs: Number(generated.durationMs || Date.now() - startedAt),
+    });
+    return { ...cached, cacheStatus: "generated" };
+  });
+};
+
+const prewarmQuestionAudio = ({ interviewId, question, voice }) => {
+  if (!question?.id || !question?.text) return;
+  generateCachedQuestionAudio({ interviewId, question, voice }).catch((error) => {
+    console.warn("Smart Interview question-audio prewarm failed; on-demand retry remains available:", error?.message || error);
+  });
 };
 
 export class InterviewEligibilityError extends Error {
@@ -282,6 +327,12 @@ export const initializeSmartInterview = async ({ userId, interviewId }) =>
       return { interview: interview.toObject(), initialized: false };
     }
 
+    prewarmQuestionAudio({
+      interviewId: updated._id,
+      question: updated.currentQuestion,
+      voice: updated.interviewer?.voice || "Kore",
+    });
+
     return { interview: updated.toObject(), initialized: true };
   });
 
@@ -320,11 +371,14 @@ export const submitSmartInterviewAnswer = async ({
       );
     }
 
+    const turnStartedAt = Date.now();
+    const evaluationStartedAt = Date.now();
     const evaluated = await evaluateInterviewAnswer({
       interview,
       answerFile,
       completionReason: input.completionReason,
     });
+    const evaluationMs = Date.now() - evaluationStartedAt;
 
     const currentQuestion = { ...interview.currentQuestion };
     const turn = {
@@ -342,19 +396,53 @@ export const submitSmartInterviewAnswer = async ({
 
     const now = new Date();
     if (evaluated.shouldComplete) {
-      interview.transcript.push(turn);
-      interview.currentQuestion = null;
-      interview.phase = "report_generating";
-      interview.status = "completed";
-      interview.completedAt = now;
-      interview.lastActivityAt = now;
       await stampInterviewCompletionDay({ userId, interview, completedAt: now });
-      await interview.save();
+      let completedInterview = await InterviewSession.findOneAndUpdate(
+        {
+          _id: interviewId,
+          user: userId,
+          status: "in_progress",
+          phase: "interviewing",
+          "currentQuestion.id": input.questionId,
+          "transcript.question.id": { $ne: input.questionId },
+        },
+        {
+          $push: { transcript: turn },
+          $set: {
+            currentQuestion: null,
+            phase: "report_generating",
+            status: "completed",
+            completedAt: now,
+            lastActivityAt: now,
+            completionTimezone: interview.completionTimezone,
+            completionLocalDay: interview.completionLocalDay,
+          },
+        },
+        { new: true },
+      );
+
+      if (!completedInterview) {
+        const latest = await InterviewSession.findOne({ _id: interviewId, user: userId });
+        if (!latest) throw new InterviewStateError("Interview not found.", "INTERVIEW_NOT_FOUND", 404);
+        const existingTurn = findProcessedTurn(latest, input);
+        if (existingTurn) {
+          return {
+            interview: latest.toObject(),
+            turn: existingTurn,
+            duplicate: true,
+            completed: latest.status === "completed",
+          };
+        }
+        throw new InterviewStateError(
+          "That question is no longer active. Reload the interview to continue.",
+          "INTERVIEW_QUESTION_STALE",
+        );
+      }
 
       let progression = null;
       try {
         progression = await syncSmartInterviewProgression({ userId, interviewId });
-        interview.progressionReward = {
+        completedInterview.progressionReward = {
           xpEarned: progression.xpEarned,
           interviewCompletionXp: progression.interviewCompletionXp,
           achievementXpEarned: progression.achievementXpEarned,
@@ -363,15 +451,21 @@ export const submitSmartInterviewAnswer = async ({
           levelUp: progression.levelUp,
           processedAt: new Date(),
         };
-        await interview.save();
+        await completedInterview.save();
         queueLeaderboardRefresh(userId);
       } catch (error) {
         console.error("Smart Interview progression sync failed; it will be backfilled from progression overview:", error);
       }
 
       queueSmartInterviewReport({ userId, interviewId });
+      logInterviewTiming("answer_processed_complete", {
+        interviewId: String(completedInterview._id),
+        questionId: input.questionId,
+        evaluationMs,
+        totalMs: Date.now() - turnStartedAt,
+      });
       return {
-        interview: interview.toObject(),
+        interview: completedInterview.toObject(),
         turn,
         duplicate: false,
         completed: true,
@@ -387,13 +481,59 @@ export const submitSmartInterviewAnswer = async ({
       usedFallback: evaluated.usedFallback,
     });
 
-    interview.transcript.push(turn);
-    interview.currentQuestion = nextQuestion;
-    interview.questionCount = Math.max(Number(interview.questionCount || 0), nextSequence);
-    interview.lastActivityAt = now;
-    await interview.save();
+    const updatedInterview = await InterviewSession.findOneAndUpdate(
+      {
+        _id: interviewId,
+        user: userId,
+        status: "in_progress",
+        phase: "interviewing",
+        "currentQuestion.id": input.questionId,
+        "transcript.question.id": { $ne: input.questionId },
+      },
+      {
+        $push: { transcript: turn },
+        $set: {
+          currentQuestion: nextQuestion,
+          questionCount: Math.max(Number(interview.questionCount || 0), nextSequence),
+          lastActivityAt: now,
+        },
+      },
+      { new: true },
+    );
 
-    return { interview: interview.toObject(), turn, duplicate: false, completed: false };
+    if (!updatedInterview) {
+      const latest = await InterviewSession.findOne({ _id: interviewId, user: userId });
+      if (!latest) throw new InterviewStateError("Interview not found.", "INTERVIEW_NOT_FOUND", 404);
+      const existingTurn = findProcessedTurn(latest, input);
+      if (existingTurn) {
+        return {
+          interview: latest.toObject(),
+          turn: existingTurn,
+          duplicate: true,
+          completed: latest.status === "completed",
+        };
+      }
+      throw new InterviewStateError(
+        "That question is no longer active. Reload the interview to continue.",
+        "INTERVIEW_QUESTION_STALE",
+      );
+    }
+
+    prewarmQuestionAudio({
+      interviewId: updatedInterview._id,
+      question: nextQuestion,
+      voice: updatedInterview.interviewer?.voice || "Kore",
+    });
+    logInterviewTiming("answer_processed", {
+      interviewId: String(updatedInterview._id),
+      questionId: input.questionId,
+      nextQuestionId: nextQuestion.id,
+      sequence: nextSequence,
+      evaluationMs,
+      totalMs: Date.now() - turnStartedAt,
+    });
+
+    return { interview: updatedInterview.toObject(), turn, duplicate: false, completed: false };
   });
 
 export const getSmartInterviewQuestionAudio = async ({ userId, interviewId, questionId }) => {
@@ -403,13 +543,9 @@ export const getSmartInterviewQuestionAudio = async ({ userId, interviewId, ques
     throw new InterviewStateError("That interview question is no longer active.", "INTERVIEW_QUESTION_STALE");
   }
 
-  const cacheKey = `${interviewId}:${questionId}:${interview.interviewer?.voice || "Kore"}`;
-  if (questionAudioCache.has(cacheKey)) return questionAudioCache.get(cacheKey);
-
-  const generated = await generateInterviewQuestionAudio({
-    questionText: interview.currentQuestion.text,
+  return generateCachedQuestionAudio({
+    interviewId,
+    question: interview.currentQuestion,
     voice: interview.interviewer?.voice || "Kore",
   });
-  putAudioCache(cacheKey, generated);
-  return generated;
 };

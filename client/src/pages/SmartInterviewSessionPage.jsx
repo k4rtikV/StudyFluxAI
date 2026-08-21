@@ -52,18 +52,39 @@ function SmartInterviewSessionPage() {
   const [processingError, setProcessingError] = useState("");
   const [retryPayload, setRetryPayload] = useState(null);
   const [lastTurnNotice, setLastTurnNotice] = useState("");
+  const [slowVoice, setSlowVoice] = useState(false);
+  const [voiceLatencyMs, setVoiceLatencyMs] = useState(null);
 
   const recorderRef = useRef(null);
   const playerRef = useRef(null);
   const audioUrlRef = useRef("");
+  const voiceSlowTimerRef = useRef(null);
+  const audioRequestTokenRef = useRef(0);
   const mountedRef = useRef(true);
 
   const cleanupPlayer = useCallback(() => {
-    if (playerRef.current) {
-      playerRef.current.pause();
-      playerRef.current.src = "";
-      playerRef.current = null;
+    if (voiceSlowTimerRef.current) {
+      window.clearTimeout(voiceSlowTimerRef.current);
+      voiceSlowTimerRef.current = null;
     }
+
+    const player = playerRef.current;
+    playerRef.current = null;
+
+    if (player) {
+      // Detach handlers before clearing src. Some browsers emit an error event
+      // when a completed media element is torn down, which previously surfaced
+      // a false "Question audio could not be played" state after Astra spoke.
+      player.onplaying = null;
+      player.onended = null;
+      player.onerror = null;
+      try { player.pause(); } catch {}
+      try {
+        player.removeAttribute("src");
+        player.load();
+      } catch {}
+    }
+
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = "";
@@ -160,9 +181,7 @@ function SmartInterviewSessionPage() {
 
       const nextQuestion = nextInterview?.currentQuestion;
       if (nextQuestion?.id) {
-        window.setTimeout(() => {
-          if (mountedRef.current) playQuestionRef.current?.(nextQuestion);
-        }, 650);
+        playQuestionRef.current?.(nextQuestion);
       } else {
         setEngineState("paused");
       }
@@ -174,6 +193,8 @@ function SmartInterviewSessionPage() {
   }, [interviewId]);
 
   const startListening = useCallback(async (question) => {
+    audioRequestTokenRef.current += 1;
+    cleanupPlayer();
     await cleanupRecorder();
     setHasSpeech(false);
     setElapsedMs(0);
@@ -181,6 +202,7 @@ function SmartInterviewSessionPage() {
     setLevel(0);
     setMicError("");
     setAudioError("");
+    setSlowVoice(false);
     setEngineState("listening");
 
     try {
@@ -206,43 +228,85 @@ function SmartInterviewSessionPage() {
       setEngineState("paused");
       setMicError(errorMessage(error, "Microphone access was lost. Reconnect the microphone to continue."));
     }
-  }, [cleanupRecorder, processFinishedRecording, turnConfig.endSilenceMs, turnConfig.maxAnswerSeconds, turnConfig.noSpeechTimeoutMs]);
+  }, [cleanupPlayer, cleanupRecorder, processFinishedRecording, turnConfig.endSilenceMs, turnConfig.maxAnswerSeconds, turnConfig.noSpeechTimeoutMs]);
 
   const playQuestion = useCallback(async (question) => {
     if (!question?.id) return;
     await cleanupRecorder();
     cleanupPlayer();
-    setEngineState("speaking");
+    setEngineState("voice_preparing");
+    setSlowVoice(false);
+    setVoiceLatencyMs(null);
     setAudioError("");
     setMicError("");
     setProcessingError("");
-    setLevel(0.2);
+    setLevel(0.12);
+
+    const requestToken = audioRequestTokenRef.current + 1;
+    audioRequestTokenRef.current = requestToken;
+    const requestStartedAt = performance.now();
+    voiceSlowTimerRef.current = window.setTimeout(() => {
+      if (mountedRef.current && audioRequestTokenRef.current === requestToken) {
+        setSlowVoice(true);
+      }
+    }, 4000);
 
     try {
-      const blob = await getInterviewQuestionAudio(interviewId, question.id);
-      if (!mountedRef.current) return;
-      const url = URL.createObjectURL(blob);
+      const audio = await getInterviewQuestionAudio(interviewId, question.id);
+      if (!mountedRef.current || audioRequestTokenRef.current !== requestToken) return;
+      if (voiceSlowTimerRef.current) {
+        window.clearTimeout(voiceSlowTimerRef.current);
+        voiceSlowTimerRef.current = null;
+      }
+      const requestMs = Math.round(performance.now() - requestStartedAt);
+      setVoiceLatencyMs(requestMs);
+      setSlowVoice(false);
+      console.info("[smart-interview] question_audio_received", {
+        questionId: question.id,
+        sequence: question.sequence,
+        requestMs,
+        serverTtsMs: audio.serverTtsMs,
+        cacheStatus: audio.cacheStatus,
+        voice: audio.voice,
+      });
+
+      const url = URL.createObjectURL(audio.blob);
       audioUrlRef.current = url;
       const player = new Audio(url);
       playerRef.current = player;
+      player.onplaying = () => {
+        if (!mountedRef.current || audioRequestTokenRef.current !== requestToken) return;
+        setSlowVoice(false);
+        setAudioError("");
+        setEngineState("speaking");
+        setLevel(0.22);
+        console.info("[smart-interview] question_audio_playing", {
+          questionId: question.id,
+          sequence: question.sequence,
+          totalMs: Math.round(performance.now() - requestStartedAt),
+        });
+      };
       player.onended = () => {
+        if (!mountedRef.current || audioRequestTokenRef.current !== requestToken) return;
         cleanupPlayer();
-        if (mountedRef.current) startListening(question);
+        startListening(question);
       };
       player.onerror = () => {
+        if (!mountedRef.current || audioRequestTokenRef.current !== requestToken) return;
         cleanupPlayer();
         if (!mountedRef.current) return;
         setLevel(0);
         setEngineState("paused");
-        setAudioError("Question audio could not be played. You can retry Astra's voice or answer from the visible question text.");
+        setAudioError("Question audio could not be played. Retry Astra's voice or start answering from the visible question.");
       };
       await player.play();
     } catch (error) {
+      if (!mountedRef.current || audioRequestTokenRef.current !== requestToken) return;
       cleanupPlayer();
-      if (!mountedRef.current) return;
       setLevel(0);
+      setSlowVoice(false);
       setEngineState("paused");
-      setAudioError(errorMessage(error, "Astra's voice could not be generated. Retry the audio or continue from the question text."));
+      setAudioError(errorMessage(error, "Astra's voice could not be generated. Retry the voice or start answering from the visible question."));
     }
   }, [cleanupPlayer, cleanupRecorder, interviewId, startListening]);
 
@@ -279,6 +343,7 @@ function SmartInterviewSessionPage() {
     if (!currentQuestion?.id) return;
     await cleanupRecorder();
     setLastTurnNotice("");
+    setSlowVoice(false);
     startListening(currentQuestion);
   };
 
@@ -362,13 +427,39 @@ function SmartInterviewSessionPage() {
                       <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-slate-400">Question {currentQuestion.sequence} · {currentQuestion.category}</p>
                       <span className="mt-1 inline-block rounded-full bg-violet-50 px-2 py-1 text-[9px] font-extrabold uppercase tracking-wide text-violet-700">{currentQuestion.difficulty}</span>
                     </div>
-                    {lastTurnNotice && <span className="hidden text-xs font-bold text-emerald-600 sm:block">{lastTurnNotice}</span>}
+                    <div className="text-right">
+                      {lastTurnNotice && <span className="hidden text-xs font-bold text-emerald-600 sm:block">{lastTurnNotice}</span>}
+                      {voiceLatencyMs != null && <span className="mt-1 hidden text-[10px] font-bold text-slate-400 sm:block">Last voice ready in {(voiceLatencyMs / 1000).toFixed(1)}s</span>}
+                    </div>
                   </div>
 
                   <h2 className="mt-5 text-2xl font-black leading-9 tracking-tight text-slate-950">{currentQuestion.text}</h2>
 
-                  <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                    {engineState === "speaking" && <div className="flex items-center gap-3 text-sm font-bold text-cyan-700"><AudioLines size={19} className="animate-pulse" /> Astra is asking the question in your headphones...</div>}
+                  <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 text-center text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
+                    <div className={`rounded-xl px-2 py-2 ${["voice_preparing", "speaking"].includes(engineState) ? "bg-cyan-50 text-cyan-700" : ""}`}>1 · Astra asks</div>
+                    <div className={`rounded-xl px-2 py-2 ${engineState === "listening" ? "bg-emerald-50 text-emerald-700" : ""}`}>2 · You answer</div>
+                    <div className={`rounded-xl px-2 py-2 ${engineState === "processing" ? "bg-violet-50 text-violet-700" : ""}`}>3 · Astra evaluates</div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    {engineState === "voice_preparing" && (
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3 text-sm font-bold text-cyan-700">
+                          <LoaderCircle size={19} className="shrink-0 animate-spin" />
+                          <span>{slowVoice ? "Voice is taking longer than usual. You can keep waiting or answer from the visible question." : "Preparing Astra's voice… the question is ready on screen."}</span>
+                        </div>
+                        {slowVoice && (
+                          <button
+                            type="button"
+                            onClick={() => startListening(currentQuestion)}
+                            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-cyan-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-800 shadow-sm hover:border-violet-300 hover:text-violet-700"
+                          >
+                            <Mic size={13} /> Answer without voice
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {engineState === "speaking" && <div className="flex items-center gap-3 text-sm font-bold text-cyan-700"><AudioLines size={19} className="animate-pulse" /> Astra is asking the question. Your microphone starts automatically when she finishes.</div>}
                     {engineState === "listening" && (
                       <div>
                         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -386,7 +477,7 @@ function SmartInterviewSessionPage() {
                         {hasSpeech && <p className="mt-3 text-xs text-slate-500">When you finish, a {Math.round(turnConfig.endSilenceMs / 100) / 10}s pause submits automatically — or submit immediately below.</p>}
                       </div>
                     )}
-                    {engineState === "processing" && <div className="flex items-center gap-3 text-sm font-bold text-violet-700"><LoaderCircle size={19} className="animate-spin" /> Gemini is transcribing, evaluating and choosing the next question...</div>}
+                    {engineState === "processing" && <div className="flex items-center gap-3 text-sm font-bold text-violet-700"><LoaderCircle size={19} className="animate-spin" /> Astra is transcribing and evaluating your answer, then choosing the next question…</div>}
                     {engineState === "paused" && <div className="flex items-center gap-3 text-sm font-bold text-amber-700"><TimerReset size={19} /> Interview paused safely. Nothing will be double-charged.</div>}
                   </div>
 
@@ -394,20 +485,25 @@ function SmartInterviewSessionPage() {
                     <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold leading-5 text-rose-700">
                       {audioError || micError || processingError}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {audioError && <><button type="button" onClick={() => playQuestion(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry voice</button><button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-slate-950 px-3 py-2 font-extrabold text-white">Answer from text</button></>}
+                        {audioError && engineState === "paused" && <><button type="button" onClick={() => playQuestion(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry voice</button><button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-slate-950 px-3 py-2 font-extrabold text-white"><Mic size={13} className="mr-1 inline" /> Answer from visible question</button></>}
                         {micError && <button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><Mic size={13} className="mr-1 inline" /> Reconnect microphone</button>}
                         {processingError && retryPayload && <button type="button" onClick={retryProcessing} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry processing</button>}
                       </div>
                     </div>
                   )}
 
-                  <div className="mt-auto flex flex-wrap gap-3 pt-6">
-                    {engineState === "listening" && <>
-                      <button type="button" onClick={manualSubmit} disabled={!hasSpeech} className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#059669,#0d9488)] px-4 py-3 text-sm font-extrabold text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45"><Send size={16} /> Submit answer</button>
-                      <button type="button" onClick={restartAnswer} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-600 hover:border-violet-300 hover:text-violet-700"><RotateCcw size={15} /> Restart answer</button>
-                    </>}
-                    {engineState === "ready" && currentQuestion && <button type="button" onClick={() => playQuestion(currentQuestion)} className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-extrabold text-white"><Volume2 size={16} /> Play question</button>}
-                  </div>
+                  {engineState === "listening" && (
+                    <div className="mt-4">
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/55 p-3">
+                        <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-emerald-700">Your answer controls</p>
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                          <button type="button" onClick={manualSubmit} disabled={!hasSpeech} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#059669,#0d9488)] px-4 py-3 text-sm font-extrabold text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45"><Send size={16} /> {hasSpeech ? "Submit answer now" : "Start speaking to enable submit"}</button>
+                          <button type="button" onClick={restartAnswer} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-600 hover:border-violet-300 hover:text-violet-700"><RotateCcw size={15} /> Restart</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {engineState === "ready" && currentQuestion && <div className="mt-auto pt-6"><button type="button" onClick={() => playQuestion(currentQuestion)} className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-extrabold text-white"><Volume2 size={16} /> Play question</button></div>}
                 </>
               )}
             </div>

@@ -129,6 +129,13 @@ const tutorConversationSchema = new mongoose.Schema(
       default: "",
     },
 
+    sourceInterview: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "InterviewSession",
+      default: null,
+      index: true,
+    },
+
     messageCount: {
       type: Number,
       min: 0,
@@ -186,6 +193,17 @@ tutorConversationSchema.index({
   archivedAt: 1,
   lastMessageAt: -1,
 });
+
+tutorConversationSchema.index(
+  { user: 1, sourceInterview: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      sourceInterview: { $type: "objectId" },
+      archivedAt: null,
+    },
+  },
+);
 
 const TutorConversation = mongoose.model(
   "TutorConversation",

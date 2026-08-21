@@ -2,13 +2,13 @@ import { GoogleGenAI } from "@google/genai";
 
 const DEFAULT_INTERVIEW_MODEL = "gemini-3.6-flash";
 const DEFAULT_INTERVIEW_FALLBACK_MODEL = "gemini-3.5-flash-lite";
-const DEFAULT_TTS_MODEL = "gemini-3.1-flash-tts-preview";
-const DEFAULT_TTS_FALLBACK_MODEL = "gemini-2.5-flash-preview-tts";
+const DEFAULT_TTS_MODEL = "gemini-2.5-flash-preview-tts";
+const DEFAULT_TTS_FALLBACK_MODEL = "gemini-3.1-flash-tts-preview";
 const DEFAULT_TTS_VOICE = "Kore";
 
 const FALLBACK_HTTP_STATUSES = new Set([404, 408, 429, 500, 502, 503, 504]);
 const MODEL_TIMEOUT_MS = Math.max(Number(process.env.INTERVIEW_GEMINI_TIMEOUT_MS || 60000), 8000);
-const TTS_TIMEOUT_MS = Math.max(Number(process.env.INTERVIEW_TTS_TIMEOUT_MS || 45000), 8000);
+const TTS_TIMEOUT_MS = Math.max(Number(process.env.INTERVIEW_TTS_TIMEOUT_MS || 20000), 8000);
 
 const firstQuestionSchema = {
   type: "object",
@@ -601,14 +601,23 @@ export const generateInterviewQuestionAudio = async ({ questionText, voice = DEF
   const primary = String(process.env.INTERVIEW_TTS_MODEL || DEFAULT_TTS_MODEL).trim();
   const fallback = String(process.env.INTERVIEW_TTS_FALLBACK_MODEL || DEFAULT_TTS_FALLBACK_MODEL).trim();
   const selectedVoice = String(process.env.INTERVIEW_TTS_VOICE || voice || DEFAULT_TTS_VOICE).trim() || DEFAULT_TTS_VOICE;
+  const startedAt = Date.now();
 
   try {
     const wav = await callTts({ ai, model: primary, questionText, voice: selectedVoice });
-    return { wav, model: primary, usedFallback: false, voice: selectedVoice };
+    return { wav, model: primary, usedFallback: false, voice: selectedVoice, durationMs: Date.now() - startedAt };
   } catch (error) {
     if (!fallback || fallback === primary || (!shouldFallback(error) && error?.code !== "GEMINI_TTS_EMPTY")) throw error;
+    const fallbackStartedAt = Date.now();
     const wav = await callTts({ ai, model: fallback, questionText, voice: selectedVoice });
-    return { wav, model: fallback, usedFallback: true, voice: selectedVoice };
+    return {
+      wav,
+      model: fallback,
+      usedFallback: true,
+      voice: selectedVoice,
+      durationMs: Date.now() - startedAt,
+      fallbackDurationMs: Date.now() - fallbackStartedAt,
+    };
   }
 };
 

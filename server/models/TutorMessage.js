@@ -27,7 +27,7 @@ const tutorMessageSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      maxlength: 12000,
+      maxlength: 32000,
     },
 
     sequence: {

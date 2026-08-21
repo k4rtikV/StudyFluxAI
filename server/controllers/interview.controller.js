@@ -15,8 +15,19 @@ import {
 } from "../services/interview.service.js";
 import { validateInterviewAnswerInput } from "../utils/interviewTurnValidation.js";
 import { validateInterviewStartInput } from "../utils/interviewValidation.js";
-import { ensureSmartInterviewReport, queueSmartInterviewReport } from "../services/interviewReport.service.js";
+import { queueSmartInterviewReport } from "../services/interviewReport.service.js";
 import { createInterviewReportPdfBuffer, makeInterviewReportFilename } from "../services/interviewReportPdf.service.js";
+import {
+  createInterviewTutorAnalysis,
+  InterviewTutorAnalysisBusyError,
+  InterviewTutorAnalysisGenerationError,
+} from "../services/interviewTutorAnalysis.service.js";
+import {
+  TutorBusyError,
+  TutorDailyLimitError,
+  TutorInsufficientFluxGemsError,
+  TutorRateLimitError,
+} from "../services/tutorUsage.service.js";
 
 const numberSetting = (value, fallback, min, max) => {
   const parsed = Number(value);
@@ -293,6 +304,9 @@ export const streamSmartInterviewQuestionAudio = async (req, res, next) => {
     res.setHeader("Content-Length", generated.wav.length);
     res.setHeader("Cache-Control", "private, max-age=600");
     res.setHeader("X-Interview-Voice", generated.voice);
+    res.setHeader("X-Interview-TTS-Ms", String(Math.max(0, Number(generated.durationMs || 0))));
+    res.setHeader("X-Interview-Audio-Cache", generated.cacheStatus || "unknown");
+    res.setHeader("Server-Timing", `interview-tts;dur=${Math.max(0, Number(generated.durationMs || 0))}`);
     return res.status(200).send(generated.wav);
   } catch (error) {
     if (handleInterviewStateError(error, res)) return;
@@ -339,20 +353,126 @@ export const getSmartInterviewReport = async (req, res, next) => {
 export const retrySmartInterviewReport = async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.interviewId)) return invalidId(res);
-    const interview = await ensureSmartInterviewReport({
-      userId: req.user._id,
-      interviewId: req.params.interviewId,
+    const interview = await InterviewSession.findOne({
+      _id: req.params.interviewId,
+      user: req.user._id,
     });
-    return res.status(200).json({
+    if (!interview) return invalidId(res);
+    if (interview.status !== "completed") {
+      return res.status(409).json({
+        success: false,
+        code: "INTERVIEW_REPORT_NOT_AVAILABLE",
+        message: "Complete the interview before opening its report.",
+      });
+    }
+    if (interview.finalReport?.generatedAt) {
+      return res.status(200).json({
+        success: true,
+        message: "Interview report is ready.",
+        data: { ready: true, ...serializeReport(interview) },
+      });
+    }
+
+    queueSmartInterviewReport({ userId: req.user._id, interviewId: interview._id });
+    return res.status(202).json({
       success: true,
-      message: "Interview report is ready.",
-      data: { ready: true, ...serializeReport(interview) },
+      message: "Astra is retrying your final interview report in the background.",
+      data: { ready: false, phase: "report_generating" },
     });
   } catch (error) {
-    if (Number(error?.status || 0) === 404) return invalidId(res);
-    if (Number(error?.status || 0) === 409) {
-      return res.status(409).json({ success: false, code: error.code, message: error.message });
+    next(error);
+  }
+};
+
+export const exportSmartInterviewQuestionsToTutor = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.interviewId)) return invalidId(res);
+
+    const interview = await InterviewSession.findOne({
+      _id: req.params.interviewId,
+      user: req.user._id,
+    });
+
+    if (!interview) return invalidId(res);
+    if (interview.status !== "completed") {
+      return res.status(409).json({
+        success: false,
+        code: "INTERVIEW_TUTOR_ANALYSIS_NOT_AVAILABLE",
+        message: "Complete the interview before sending its question stack to AI Tutor.",
+      });
     }
+
+    const result = await createInterviewTutorAnalysis({
+      userId: req.user._id,
+      interview,
+      fallbackBalance: Number(req.user.fluxGems || 0),
+    });
+
+    return res.status(result.existing ? 200 : 201).json({
+      success: true,
+      message: result.existing
+        ? "Opening your existing AI Tutor interview deep dive."
+        : "Interview question stack exported and analyzed in AI Tutor.",
+      data: {
+        conversationId: result.conversation?._id || null,
+        existing: Boolean(result.existing),
+        billing: result.billing || null,
+        usage: result.usage || null,
+      },
+    });
+  } catch (error) {
+    if (error instanceof TutorInsufficientFluxGemsError) {
+      return res.status(402).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+        data: { required: error.required, balance: Number(req.user.fluxGems || 0) },
+      });
+    }
+
+    if (error instanceof TutorBusyError || error instanceof InterviewTutorAnalysisBusyError) {
+      return res.status(409).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+      });
+    }
+
+    if (error instanceof TutorRateLimitError) {
+      return res.status(429).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+        data: { retryAfterMs: error.retryAfterMs },
+      });
+    }
+
+    if (error instanceof TutorDailyLimitError) {
+      return res.status(429).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+        data: { limit: error.limit },
+      });
+    }
+
+    if (error instanceof InterviewTutorAnalysisGenerationError) {
+      return res.status(503).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+        data: { refunded: error.refunded, balance: error.balance },
+      });
+    }
+
+    if (error?.code === "INTERVIEW_QUESTION_STACK_EMPTY") {
+      return res.status(409).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+      });
+    }
+
     next(error);
   }
 };

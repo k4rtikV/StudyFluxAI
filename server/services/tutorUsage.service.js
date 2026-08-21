@@ -409,7 +409,10 @@ export const reserveTutorQuestion = async ({
         );
       }
 
-      if (Number(conversation.messageCount || 0) === 0) {
+      if (
+        Number(conversation.messageCount || 0) === 0 &&
+        (!conversation.title || conversation.title === "New tutor chat")
+      ) {
         conversation.title = truncateTitle(question);
         await conversation.save({ session: mongoSession });
       }

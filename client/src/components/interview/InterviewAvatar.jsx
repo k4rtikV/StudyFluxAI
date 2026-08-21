@@ -2,6 +2,7 @@ import { AudioLines, BrainCircuit, Mic, Sparkles } from "lucide-react";
 
 const STATE_META = {
   ready: { label: "Ready", icon: Sparkles },
+  voice_preparing: { label: "Preparing voice", icon: AudioLines },
   speaking: { label: "Speaking", icon: AudioLines },
   listening: { label: "Listening", icon: Mic },
   processing: { label: "Thinking", icon: BrainCircuit },
@@ -19,7 +20,7 @@ function InterviewAvatar({ state = "ready", level = 0, name = "Astra" }) {
       <div className="pointer-events-none absolute left-1/2 top-10 h-48 w-48 -translate-x-1/2 rounded-full bg-violet-400/15 blur-3xl" />
       <div className="pointer-events-none absolute left-[43%] top-20 h-32 w-32 rounded-full bg-cyan-300/18 blur-3xl" />
       <div
-        className={`relative grid h-44 w-44 place-items-center rounded-[44px] border border-white/85 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(238,242,255,0.82),rgba(236,254,255,0.76))] shadow-[0_28px_80px_rgba(76,29,149,0.18)] transition duration-200 ${state === "speaking" || state === "listening" ? "ring-4 ring-cyan-200/45" : "ring-1 ring-violet-200/70"}`}
+        className={`relative grid h-44 w-44 place-items-center rounded-[44px] border border-white/85 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(238,242,255,0.82),rgba(236,254,255,0.76))] shadow-[0_28px_80px_rgba(76,29,149,0.18)] transition duration-200 ${state === "speaking" || state === "voice_preparing" || state === "listening" ? "ring-4 ring-cyan-200/45" : "ring-1 ring-violet-200/70"}`}
         style={{ transform: `scale(${pulseScale})` }}
       >
         <div className="absolute inset-4 rounded-[34px] bg-[conic-gradient(from_210deg,rgba(124,58,237,0.25),rgba(34,211,238,0.26),rgba(16,185,129,0.20),rgba(124,58,237,0.25))] blur-[1px]" />
@@ -45,7 +46,7 @@ function InterviewAvatar({ state = "ready", level = 0, name = "Astra" }) {
       <div className="relative mt-5 text-center">
         <p className="text-lg font-black tracking-tight text-slate-900">{name}</p>
         <p className="mt-0.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">StudyFluxAI interviewer</p>
-        <span className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] ${state === "listening" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : state === "speaking" ? "border-cyan-200 bg-cyan-50 text-cyan-700" : state === "processing" ? "border-violet-200 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-500"}`}>
+        <span className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] ${state === "listening" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : state === "speaking" ? "border-cyan-200 bg-cyan-50 text-cyan-700" : state === "processing" ? "border-violet-200 bg-violet-50 text-violet-700" : state === "voice_preparing" ? "border-cyan-200 bg-cyan-50 text-cyan-700" : "border-slate-200 bg-white text-slate-500"}`}>
           <StateIcon size={12} /> {meta.label}
         </span>
       </div>

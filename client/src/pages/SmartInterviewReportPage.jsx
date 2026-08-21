@@ -25,9 +25,11 @@ import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router";
 
 import LevelKite from "../components/progression/LevelKite";
+import useAuth from "../hooks/useAuth";
 import DashboardLayout from "../layouts/DashboardLayout";
 import {
   downloadInterviewReportPdf,
+  exportInterviewQuestionsToTutor,
   getInterviewReport,
   retryInterviewReport,
 } from "../services/interviewService";
@@ -89,11 +91,13 @@ function MetricBar({ label, value, max = 10 }) {
 function SmartInterviewReportPage() {
   const { interviewId } = useParams();
   const navigate = useNavigate();
+  const { setUser } = useAuth();
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [sendingToTutor, setSendingToTutor] = useState(false);
   const pollRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -180,6 +184,45 @@ function SmartInterviewReportPage() {
       toast.error(errorMessage(requestError, "The report PDF could not be downloaded."));
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const analyzeQuestionsInTutor = async () => {
+    if (sendingToTutor) return;
+    setSendingToTutor(true);
+
+    try {
+      const response = await exportInterviewQuestionsToTutor(interviewId);
+      const data = response?.data || {};
+      const conversationId = data.conversationId;
+      const balance = Number(data.billing?.balance);
+      const charged = Number(data.billing?.charged || 0);
+
+      if (Number.isFinite(balance)) {
+        setUser((current) =>
+          current
+            ? { ...current, fluxGems: balance }
+            : current,
+        );
+      }
+
+      if (!conversationId) {
+        throw new Error("AI Tutor conversation was not returned.");
+      }
+
+      if (data.existing) {
+        toast.success("Opening your existing interview deep dive in AI Tutor.");
+      } else if (charged > 0) {
+        toast.success(`Interview deep dive created · ${charged} FluxGems used.`);
+      } else {
+        toast.success("Interview question stack analyzed in AI Tutor.");
+      }
+
+      navigate(`/ai-tutor?conversation=${conversationId}&source=smart-interview`);
+    } catch (requestError) {
+      toast.error(errorMessage(requestError, "AI Tutor could not analyze this interview yet."));
+    } finally {
+      setSendingToTutor(false);
     }
   };
 
@@ -288,6 +331,22 @@ function SmartInterviewReportPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="mt-5 flex flex-col gap-4 rounded-[26px] border border-violet-200 bg-[linear-gradient(120deg,rgba(245,243,255,0.92),rgba(236,254,255,0.78))] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-3xl">
+          <div className="flex items-center gap-2 text-sm font-extrabold text-violet-900"><BrainCircuit size={17} /> AI Tutor question-stack deep dive</div>
+          <p className="mt-1.5 text-xs leading-5 text-slate-600">One click exports all {questions.length} interview questions into a dedicated Tutor conversation and immediately generates an in-depth explanation plus a strong answer for each. Project questions are handled from a general architectural/contextual view without inventing details about your codebase. This counts as one AI Tutor request, so your normal Tutor free/FluxGem rule applies once.</p>
+        </div>
+        <button
+          type="button"
+          onClick={analyzeQuestionsInTutor}
+          disabled={sendingToTutor}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7c3aed,#0891b2)] px-4 py-3 text-sm font-extrabold text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {sendingToTutor ? <LoaderCircle size={16} className="animate-spin" /> : <Sparkles size={16} />}
+          {sendingToTutor ? "Preparing deep dive..." : "Export + analyze in Tutor"}
+        </button>
       </section>
 
       <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
