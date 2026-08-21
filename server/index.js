@@ -6,6 +6,7 @@ import app from "./app.js";
 import connectDB from "./config/db.js";
 import { closeRedis, connectRedis } from "./config/redis.js";
 import { initializeSocketServer } from "./realtime/socket.js";
+import { startInterviewJobWorker, stopInterviewJobWorker } from "./services/interviewJob.service.js";
 import {
   recoverStaleStudyGenerations,
   startStudyGenerationRecoverySweep,
@@ -24,6 +25,9 @@ const startServer = async () => {
     console.error("Initial study generation recovery failed:", error);
   });
   startStudyGenerationRecoverySweep();
+  startInterviewJobWorker().catch((error) => {
+    console.error("Initial Smart Interview job recovery failed:", error);
+  });
 
   server.listen(PORT, () => {
     console.log(`StudyFluxAI server running on port ${PORT}`);
@@ -38,6 +42,7 @@ const startServer = async () => {
     console.log(`${signal} received. Shutting down gracefully...`);
 
     server.close(async () => {
+      stopInterviewJobWorker();
       await closeRedis();
       console.log("StudyFluxAI server stopped.");
       process.exit(0);

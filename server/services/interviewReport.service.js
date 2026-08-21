@@ -1,4 +1,5 @@
 import InterviewSession from "../models/InterviewSession.js";
+import { enqueueInterviewReportJob } from "./interviewJob.service.js";
 import { generateFinalInterviewReport } from "./interviewGemini.service.js";
 
 const reportFlights = new Map();
@@ -195,10 +196,8 @@ export const ensureSmartInterviewReport = async ({ userId, interviewId }) =>
     return interview;
   });
 
-export const queueSmartInterviewReport = ({ userId, interviewId }) => {
-  setImmediate(() => {
-    ensureSmartInterviewReport({ userId, interviewId }).catch((error) => {
-      console.error("Smart Interview background report generation failed:", error);
-    });
+export const queueSmartInterviewReport = ({ userId, interviewId, force = false }) =>
+  enqueueInterviewReportJob({ userId, interviewId, force }).catch((error) => {
+    console.error("Smart Interview report job could not be queued:", error);
+    return null;
   });
-};

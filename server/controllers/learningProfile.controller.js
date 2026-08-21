@@ -104,7 +104,7 @@ export const saveLearningProfile = async (
               },
             },
             {
-              new: true,
+              returnDocument: "after",
               upsert: true,
               runValidators: true,
               session,

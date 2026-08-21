@@ -8,6 +8,7 @@ import {
   getCurrentUser,
   syncUserTimezone,
 } from "../services/authService";
+import { subscribeToProgressionChanges } from "../utils/progressionEvents";
 
 export const AuthContext = createContext(null);
 
@@ -104,6 +105,23 @@ export function AuthProvider({ children }) {
 
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const unsubscribe = subscribeToProgressionChanges(async () => {
+      try {
+        const response = await getCurrentUser();
+        if (!cancelled) setUser(response.data.user);
+      } catch {
+        // Progress refresh should not sign a valid user out if the network blips.
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
     };
   }, []);
 

@@ -449,7 +449,7 @@ export const persistTutorQuizConversion = async ({
           fluxGems: { $gte: cost },
         },
         { $inc: { fluxGems: -cost } },
-        { new: true, session: mongoSession },
+        { returnDocument: "after", session: mongoSession },
       );
 
       if (!updatedUser) {

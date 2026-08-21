@@ -18,6 +18,8 @@ const TRANSACTION_REASONS = new Set([
   "purchase",
   "reward",
   "daily_challenge_reward",
+  "signup_bonus",
+  "level_reward",
   "smart_interview",
 ]);
 

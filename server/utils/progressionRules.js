@@ -13,6 +13,18 @@ export const LEVEL_THRESHOLDS = Object.freeze([
   9000,
 ]);
 
+export const SIGNUP_FLUXGEM_BONUS = 100;
+
+export const LEVEL_FLUXGEM_REWARDS = Object.freeze(
+  LEVEL_THRESHOLDS.map((_, index) => (index + 1 <= 8 ? 50 : 100)),
+);
+
+export const getLevelFluxGemReward = (levelValue) => {
+  const level = Math.floor(Number(levelValue) || 0);
+  if (level < 1 || level > LEVEL_FLUXGEM_REWARDS.length) return 0;
+  return LEVEL_FLUXGEM_REWARDS[level - 1];
+};
+
 
 export const ACHIEVEMENT_XP = Object.freeze({
   first_step: 50,
@@ -103,6 +115,7 @@ export const getPublicProgressionRules = () => ({
   levels: LEVEL_THRESHOLDS.map((threshold, index) => ({
     level: index + 1,
     threshold,
+    fluxGemReward: getLevelFluxGemReward(index + 1),
   })),
   quizMilestones: [
     {

@@ -127,7 +127,7 @@ const processJob = async (job) => {
           "generationMetrics.finishedAt": completedAt,
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!completedSession) {

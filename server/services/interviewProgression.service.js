@@ -3,12 +3,14 @@ import XPTransaction from "../models/XPTransaction.js";
 import User from "../models/User.js";
 import {
   ACHIEVEMENT_XP,
+  getLevelProgress,
   getLevelTransition,
 } from "../utils/progressionRules.js";
 import {
   normalizeTimeZone,
   toLocalDayNumber,
 } from "../utils/timezone.js";
+import { syncLevelFluxGemRewards } from "./fluxGemReward.service.js";
 import {
   getXpLedgerTotals,
   syncAchievementXpTransactions,
@@ -160,7 +162,12 @@ export const syncSmartInterviewProgression = async ({ userId, interviewId = null
   ]);
 
   const after = await getXpLedgerTotals(userId);
+  const levelProgress = getLevelProgress(after.totalXp);
   const levelUp = getLevelTransition(before.totalXp, after.totalXp);
+  const levelFluxGemRewards = await syncLevelFluxGemRewards({
+    userId,
+    currentLevel: levelProgress.level,
+  });
 
   let currentInterviewXp = 0;
   if (interviewId) {
@@ -180,6 +187,8 @@ export const syncSmartInterviewProgression = async ({ userId, interviewId = null
     achievementXpEarned: Math.max(after.totalXp - before.totalXp - currentInterviewXp, 0),
     totalXp: after.totalXp,
     levelUp,
+    levelFluxGemsEarned: Number(levelFluxGemRewards?.amount || 0),
+    fluxGemsBalance: Number(levelFluxGemRewards?.balance || 0),
     antiFarmingApplied: Boolean(interviewId && currentInterviewXp === 0),
     timeZone,
     achievements,

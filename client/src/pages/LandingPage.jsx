@@ -1,6 +1,8 @@
 import {
   ArrowRight,
   BookOpenCheck,
+  BriefcaseBusiness,
+  CalendarCheck2,
   BrainCircuit,
   CheckCircle2,
   Coins,
@@ -47,6 +49,20 @@ const FEATURES = [
     accent: "violet",
   },
   {
+    icon: CalendarCheck2,
+    title: "Study Planner",
+    description:
+      "Schedule study goals, reschedule work and jump straight into related material from your Study Library.",
+    accent: "emerald",
+  },
+  {
+    icon: BriefcaseBusiness,
+    title: "Smart Interview",
+    description:
+      "Practice adaptive voice interviews with Astra, review detailed reports and send the full question stack to AI Tutor.",
+    accent: "violet",
+  },
+  {
     icon: Trophy,
     title: "Challenges & Leaderboards",
     description:
@@ -76,19 +92,25 @@ const WORKFLOW = [
     step: "01",
     title: "Set your learning profile",
     description:
-      "StudyFluxAI adapts generation to your education level, board or university and stream.",
+      "StudyFluxAI can adapt generation to your education level, board or university and stream while keeping interview profile scope optional.",
   },
   {
     step: "02",
-    title: "Generate what you need",
+    title: "Generate and organize",
     description:
-      "Choose AI Notes, AI Quiz or a combined Study Session based on how you want to learn.",
+      "Create AI Notes, AI Quizzes or combined Study Sessions, then schedule goals in Study Planner and reopen everything from Study Library.",
   },
   {
     step: "03",
-    title: "Learn, test and improve",
+    title: "Learn with an AI Tutor",
     description:
-      "Keep sessions in your library, use the AI Tutor and build progress through continued learning.",
+      "Use persistent Tutor conversations for follow-ups, explanations and deep dives connected to saved learning material.",
+  },
+  {
+    step: "04",
+    title: "Practice and prove progress",
+    description:
+      "Run adaptive Smart Interviews, complete daily challenges and build XP, level rewards and leaderboard progress from real activity.",
   },
 ];
 
@@ -117,7 +139,7 @@ function WorkspacePreview() {
               StudyFluxAI
             </div>
 
-            {["Dashboard", "Generate", "Study Library", "AI Tutor"].map(
+            {["Dashboard", "Generate", "Study Library", "AI Tutor", "Study Planner", "Smart Interview"].map(
               (item, index) => (
                 <div
                   key={item}
@@ -206,6 +228,26 @@ function WorkspacePreview() {
                 </div>
                 <div className="mt-1 text-[10px] font-semibold leading-4 text-slate-500">
                   Persistent explanations and follow-ups
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/65 p-4">
+                <CalendarCheck2 size={18} className="text-emerald-700" />
+                <div className="mt-2 text-xs font-extrabold text-slate-800">
+                  Study Planner
+                </div>
+                <div className="mt-1 text-[10px] font-semibold leading-4 text-slate-500">
+                  Goals, dates and linked study material
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-violet-100 bg-violet-50/65 p-4">
+                <BriefcaseBusiness size={18} className="text-violet-700" />
+                <div className="mt-2 text-xs font-extrabold text-slate-800">
+                  Smart Interview
+                </div>
+                <div className="mt-1 text-[10px] font-semibold leading-4 text-slate-500">
+                  Adaptive voice practice and reports
                 </div>
               </div>
 
@@ -304,7 +346,7 @@ function LandingPage() {
 
             <p className="mt-6 max-w-xl text-base font-medium leading-8 text-slate-600 sm:text-lg">
               StudyFluxAI brings AI notes, quizzes, study sessions, tutoring,
-              challenges and progress into one focused learner workspace.
+              planning, adaptive voice interviews, challenges and progress into one focused learner workspace.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -360,7 +402,7 @@ function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {FEATURES.map((feature) => {
               const Icon = feature.icon;
 
@@ -472,30 +514,28 @@ function LandingPage() {
               </div>
 
               <div className="relative border-t border-white/8 bg-[linear-gradient(145deg,rgba(16,185,129,0.12),rgba(15,23,42,0.2))] p-7 sm:p-10 lg:border-l lg:border-t-0 lg:p-12">
-                <div className="inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-300/10 px-3 py-1.5 text-xs font-extrabold text-violet-200">
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-extrabold text-emerald-200">
                   <GraduationCap size={15} />
-                  Coming next
+                  Available now
                 </div>
-                <h3 className="mt-5 text-2xl font-black text-white">Smart Interview</h3>
+                <h3 className="mt-5 text-2xl font-black text-white">Plan the work. Practice the interview.</h3>
                 <p className="mt-3 max-w-lg text-sm font-medium leading-6 text-slate-300">
-                  A future interview-preparation workspace is already reserved in the
-                  learner experience, without pretending the feature is finished today.
+                  Study Planner keeps learning goals connected to saved material, while Smart Interview turns role preparation into an adaptive voice session with reports and Tutor follow-up.
                 </p>
 
                 <div className="mt-7 space-y-3">
-                  {["Guided interview practice", "Role-focused preparation", "Feedback-oriented sessions"].map(
-                    (item) => (
-                      <div
-                        key={item}
-                        className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/5 px-4 py-3 text-sm font-bold text-slate-200"
-                      >
-                        <span className="grid h-7 w-7 place-items-center rounded-lg bg-violet-400/10 text-violet-300">
-                          <Sparkles size={14} />
-                        </span>
-                        {item}
+                  {[
+                    [CalendarCheck2, "Study Planner", "Schedule, reschedule, complete and reopen linked Study Library material."],
+                    [BriefcaseBusiness, "Smart Interview", "Adaptive Astra questions, voice answers, detailed reports and AI Tutor deep dives."],
+                  ].map(([Icon, title, description]) => (
+                    <div key={title} className="flex gap-3 rounded-2xl border border-white/8 bg-white/5 px-4 py-4">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-400/10 text-violet-300"><Icon size={17} /></span>
+                      <div>
+                        <div className="text-sm font-extrabold text-white">{title}</div>
+                        <div className="mt-1 text-xs font-semibold leading-5 text-slate-400">{description}</div>
                       </div>
-                    ),
-                  )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

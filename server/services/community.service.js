@@ -195,7 +195,7 @@ export const submitDailyChallenge = async ({ userId, challengeId, selectedOption
         const updatedUser = await User.findOneAndUpdate(
           { _id: userId, isActive: true },
           { $inc: { fluxGems: fluxGemsEarned } },
-          { new: true, session: mongoSession },
+          { returnDocument: "after", session: mongoSession },
         );
 
         if (!updatedUser) {
@@ -268,6 +268,10 @@ export const submitDailyChallenge = async ({ userId, challengeId, selectedOption
   const afterProgress = await getProgressOverview(userId);
   const previousTotalXp = Number(beforeProgress?.stats?.totalXp || 0);
   const currentTotalXp = Number(afterProgress?.stats?.totalXp || 0);
+
+  responseData.balance = Number(
+    afterProgress?.progression?.fluxGemsBalance ?? responseData.balance ?? 0,
+  );
 
   responseData.progression = {
     ...afterProgress.progression,

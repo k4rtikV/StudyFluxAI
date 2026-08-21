@@ -65,7 +65,29 @@ function SmartInterviewSessionPage() {
   const audioUrlRef = useRef("");
   const voiceSlowTimerRef = useRef(null);
   const audioRequestTokenRef = useRef(0);
+  const audioContextRef = useRef(null);
   const mountedRef = useRef(true);
+
+  const unlockBrowserAudio = useCallback(() => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+        audioContextRef.current = new AudioContextClass();
+      }
+      const context = audioContextRef.current;
+      context.resume?.().catch(() => {});
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      gain.gain.value = 0;
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.01);
+    } catch {
+      // Browser audio policies vary; the normal HTMLAudio path remains the fallback.
+    }
+  }, []);
 
   const cleanupPlayer = useCallback(() => {
     if (voiceSlowTimerRef.current) {
@@ -112,7 +134,12 @@ function SmartInterviewSessionPage() {
         if (!active) return;
         const value = response?.data?.interview || null;
         setInterview(value);
-        if (value?.status === "completed") setEngineState("complete");
+        if (value?.status === "completed") {
+          setEngineState("complete");
+        } else if (value?.currentQuestion?.id) {
+          setEngineState("paused");
+          setLastTurnNotice("Saved interview recovered. Resume Astra or answer the visible question when you are ready.");
+        }
       })
       .catch((error) => { if (active) toast.error(errorMessage(error, "Interview could not be loaded.")); })
       .finally(() => { if (active) setLoading(false); });
@@ -122,6 +149,8 @@ function SmartInterviewSessionPage() {
       mountedRef.current = false;
       cleanupPlayer();
       cleanupRecorder();
+      try { audioContextRef.current?.close?.(); } catch {}
+      audioContextRef.current = null;
     };
   }, [cleanupPlayer, cleanupRecorder, interviewId]);
 
@@ -344,6 +373,7 @@ function SmartInterviewSessionPage() {
   useEffect(() => { playQuestionRef.current = playQuestion; }, [playQuestion]);
 
   const beginInterview = async () => {
+    unlockBrowserAudio();
     setEngineState("processing");
     setProcessingError("");
     try {
@@ -362,6 +392,18 @@ function SmartInterviewSessionPage() {
       setEngineState("paused");
       setProcessingError(errorMessage(error, "Astra could not prepare the interview question."));
     }
+  };
+
+  const resumeWithVoice = () => {
+    unlockBrowserAudio();
+    setLastTurnNotice("");
+    playQuestion(currentQuestion);
+  };
+
+  const answerVisibleQuestion = () => {
+    unlockBrowserAudio();
+    setLastTurnNotice("");
+    startListening(currentQuestion);
   };
 
   const manualSubmit = () => {
@@ -399,6 +441,16 @@ function SmartInterviewSessionPage() {
     }, retryPayload);
   };
 
+  useEffect(() => {
+    if (!["listening", "processing"].includes(engineState)) return undefined;
+    const warnOnExit = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnOnExit);
+    return () => window.removeEventListener("beforeunload", warnOnExit);
+  }, [engineState]);
+
   if (loading) {
     return <DashboardLayout><div className="flex min-h-[55vh] items-center justify-center text-sm font-bold text-slate-500"><LoaderCircle size={20} className="mr-2 animate-spin" /> Loading interview...</div></DashboardLayout>;
   }
@@ -435,7 +487,7 @@ function SmartInterviewSessionPage() {
               <InterviewAvatar state={engineState === "ready" ? "ready" : engineState} level={level} name={interview.interviewer?.name || "Astra"} />
             </div>
 
-            <div className="flex min-h-[430px] flex-col">
+            <div className="flex min-h-[340px] flex-col sm:min-h-[390px] xl:min-h-[430px]">
               {interview.status === "completed" ? (
                 <div className="my-auto rounded-[26px] border border-emerald-200 bg-emerald-50/65 p-7 text-center">
                   <CheckCircle2 size={34} className="mx-auto text-emerald-600" />
@@ -530,9 +582,9 @@ function SmartInterviewSessionPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {audioError && engineState === "paused" && <>
                           {!voiceQuotaExhausted ? (
-                            <button type="button" onClick={() => playQuestion(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry voice</button>
+                            <button type="button" onClick={resumeWithVoice} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry voice</button>
                           ) : null}
-                          <button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-slate-950 px-3 py-2 font-extrabold text-white"><Mic size={13} className="mr-1 inline" /> Answer from visible question</button>
+                          <button type="button" onClick={answerVisibleQuestion} className="rounded-xl bg-slate-950 px-3 py-2 font-extrabold text-white"><Mic size={13} className="mr-1 inline" /> Answer from visible question</button>
                         </>}
                         {micError && <button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><Mic size={13} className="mr-1 inline" /> Reconnect microphone</button>}
                         {processingError && retryPayload && <button type="button" onClick={retryProcessing} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry processing</button>}
@@ -553,7 +605,16 @@ function SmartInterviewSessionPage() {
                       </div>
                     </div>
                   )}
-                  {engineState === "ready" && currentQuestion && <div className="mt-auto pt-6"><button type="button" onClick={() => playQuestion(currentQuestion)} className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-extrabold text-white"><Volume2 size={16} /> Play question</button></div>}
+                  {["ready", "paused"].includes(engineState) && currentQuestion && !(audioError || micError || processingError) && (
+                    <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50/55 p-4">
+                      <p className="text-xs font-extrabold text-violet-800">{engineState === "paused" ? "Saved turn ready to resume" : "Question ready"}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">Your current question is saved. Resume with Astra's voice or answer directly from the visible prompt.</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={resumeWithVoice} className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-3 py-2.5 text-xs font-extrabold text-white"><Volume2 size={14} /> Resume with Astra</button>
+                        <button type="button" onClick={answerVisibleQuestion} className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-xs font-extrabold text-slate-700"><Mic size={14} /> Answer visible question</button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

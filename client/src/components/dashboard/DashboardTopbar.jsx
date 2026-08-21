@@ -138,7 +138,7 @@ const formatPlannerDuration = (minutes) => {
 function DashboardTopbar({ onOpenSidebar }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, setUser } = useAuth();
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [gemMenuOpen, setGemMenuOpen] = useState(false);
@@ -214,13 +214,18 @@ function DashboardTopbar({ onOpenSidebar }) {
     try {
       if (!quiet) setProgressLoading(true);
       const response = await getProgressOverview();
-      setProgressOverview(response?.data || null);
+      const nextProgress = response?.data || null;
+      setProgressOverview(nextProgress);
+      const rewardBalance = Number(nextProgress?.progression?.fluxGemsBalance);
+      if (Number.isFinite(rewardBalance)) {
+        setUser((current) => current ? { ...current, fluxGems: rewardBalance } : current);
+      }
     } catch {
       // Keep the existing snapshot if a background refresh fails.
     } finally {
       if (!quiet) setProgressLoading(false);
     }
-  }, []);
+  }, [setUser]);
 
   useEffect(() => {
     loadProgress();

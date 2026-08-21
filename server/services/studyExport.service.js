@@ -74,7 +74,7 @@ export const saveGoogleFormsConnection =
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           upsert: true,
           runValidators: true,
         },

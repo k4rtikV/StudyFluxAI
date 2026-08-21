@@ -1,8 +1,10 @@
 import LearningProfile from "../models/LearningProfile.js";
+import InterviewSession from "../models/InterviewSession.js";
 import TutorConversation from "../models/TutorConversation.js";
 import TutorMessage from "../models/TutorMessage.js";
 
 import { queueLeaderboardRefresh } from "./leaderboard.service.js";
+import { enqueueInterviewTutorJob } from "./interviewJob.service.js";
 import { generateTutorReply } from "./tutorGemini.service.js";
 import {
   completeTutorQuestion,
@@ -11,7 +13,6 @@ import {
   reserveTutorQuestion,
 } from "./tutorUsage.service.js";
 
-const analysisFlights = new Map();
 
 const buildProfileSnapshot = (profile) => ({
   educationLevel: profile?.educationLevel || "",
@@ -174,18 +175,69 @@ const runInterviewTutorAnalysis = async ({
   }
 };
 
-const queueInterviewTutorAnalysis = (payload) => {
-  const key = `${payload.userId}:${payload.interview._id}`;
-  if (analysisFlights.has(key)) return analysisFlights.get(key);
+export const runPersistedInterviewTutorAnalysis = async ({
+  userId,
+  interviewId,
+  conversationId,
+  userMessageId,
+}) => {
+  const [interview, conversation, userMessage] = await Promise.all([
+    InterviewSession.findOne({ _id: interviewId, user: userId }).lean(),
+    TutorConversation.findOne({ _id: conversationId, user: userId, archivedAt: null }).lean(),
+    TutorMessage.findOne({
+      _id: userMessageId,
+      user: userId,
+      conversation: conversationId,
+      role: "user",
+    }).lean(),
+  ]);
 
-  const flight = new Promise((resolve) => {
-    setImmediate(resolve);
-  })
-    .then(() => runInterviewTutorAnalysis(payload))
-    .finally(() => analysisFlights.delete(key));
+  if (!interview || !conversation || !userMessage) {
+    const error = new Error("The saved interview Tutor job no longer has the context it needs.");
+    error.code = "INTERVIEW_TUTOR_JOB_CONTEXT_MISSING";
+    error.nonRetryable = true;
+    throw error;
+  }
 
-  analysisFlights.set(key, flight);
-  return flight;
+  if (Number(conversation.successfulQuestionCount || 0) > 0) return conversation;
+  if (userMessage.status === "failed") return conversation;
+
+  const assistantMessage = await TutorMessage.findOne({
+    user: userId,
+    conversation: conversationId,
+    role: "assistant",
+    sequence: Number(userMessage.sequence || 0) + 1,
+    status: "completed",
+  }).lean();
+  if (assistantMessage) return conversation;
+
+  if (userMessage.status !== "processing") {
+    const error = new Error("The interview Tutor request is no longer pending.");
+    error.code = "INTERVIEW_TUTOR_JOB_NOT_PENDING";
+    error.nonRetryable = true;
+    throw error;
+  }
+
+  const reservation = {
+    dayKey: userMessage.billing?.dayKey || "",
+    isFree: Boolean(userMessage.billing?.isFree),
+    cost: Number(userMessage.billing?.cost || 0),
+    balance: null,
+    userMessageId: userMessage._id,
+    userSequence: Number(userMessage.sequence || 0),
+    assistantSequence: Number(userMessage.sequence || 0) + 1,
+  };
+
+  await runInterviewTutorAnalysis({
+    userId,
+    interview,
+    conversationId,
+    academicContext: conversation.academicContext || {},
+    prompt: userMessage.content,
+    reservation,
+  });
+
+  return TutorConversation.findById(conversationId);
 };
 
 export const getInterviewTutorAnalysisStatus = async ({ userId, interviewId }) => {
@@ -304,7 +356,7 @@ export const prepareInterviewTutorAnalysis = async ({
           sourceInterviewUsesLearnerProfile: interview.useLearnerProfile !== false,
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     ) || conversation;
   }
 
@@ -331,13 +383,14 @@ export const prepareInterviewTutorAnalysis = async ({
 
   conversation = await TutorConversation.findById(conversation._id);
 
-  queueInterviewTutorAnalysis({
+  await enqueueInterviewTutorJob({
     userId,
-    interview: interview.toObject ? interview.toObject() : interview,
+    interviewId: interview._id,
     conversationId: conversation._id,
-    academicContext: conversation.academicContext,
-    prompt,
-    reservation,
+    userMessageId: reservation.userMessageId,
+    // A fresh Tutor reservation always needs a fresh durable job, including
+    // retries after a previously completed/failed worker attempt.
+    force: true,
   });
 
   return {

@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import LevelKite from "../components/progression/LevelKite";
 import DashboardLayout from "../layouts/DashboardLayout";
+import useAuth from "../hooks/useAuth";
 import { getProgressOverview } from "../services/progressService";
 
 const ACHIEVEMENT_GROUPS = [
@@ -124,8 +125,10 @@ const ACHIEVEMENT_GROUPS = [
 ];
 
 function AchievementsPage() {
+  const { setUser } = useAuth();
   const [overview, setOverview] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -135,14 +138,23 @@ function AchievementsPage() {
         const response = await getProgressOverview();
 
         if (active) {
-          setOverview(response?.data || null);
+          const nextOverview = response?.data || null;
+          setOverview(nextOverview);
+          setLoadError("");
+          const nextBalance = Number(nextOverview?.progression?.fluxGemsBalance);
+          if (Number.isFinite(nextBalance)) {
+            setUser((current) =>
+              current ? { ...current, fluxGems: nextBalance } : current,
+            );
+          }
         }
       } catch (error) {
         if (active) {
-          toast.error(
+          const message =
             error?.response?.data?.message ||
-              "Your achievement progress could not be loaded.",
-          );
+            "Your achievement progress could not be loaded.";
+          setLoadError(message);
+          toast.error(message);
         }
       } finally {
         if (active) {
@@ -207,6 +219,14 @@ function AchievementsPage() {
             Loading progression...
           </div>
         </div>
+      ) : loadError && !overview ? (
+        <section className="mt-7 grid min-h-[320px] place-items-center rounded-3xl border border-amber-200 bg-amber-50/45 p-8 text-center">
+          <div>
+            <Zap className="mx-auto text-amber-500" size={34} />
+            <h2 className="mt-4 text-xl font-black text-slate-950">Progression temporarily unavailable</h2>
+            <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">{loadError}</p>
+          </div>
+        </section>
       ) : (
         <>
           <section className="mt-6 overflow-hidden rounded-[30px] border border-violet-200/80 bg-gradient-to-br from-violet-100/90 via-white to-cyan-50/80 p-6 shadow-[0_20px_50px_rgba(91,33,182,0.08)] sm:p-7">
@@ -229,7 +249,10 @@ function AchievementsPage() {
                     <span className="text-slate-600">
                       {progression.isMaxLevel
                         ? "Current level cap"
-                        : `Toward Level ${progression.nextLevel}`}
+                        : `Toward Level ${Number(
+                            progression.nextLevel ||
+                              Math.min(level + 1, Number(progression.maxLevel || 12)),
+                          )}`}
                     </span>
                     <span className="text-violet-700">
                       {progression.isMaxLevel

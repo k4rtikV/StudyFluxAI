@@ -121,9 +121,11 @@ function DashboardPage() {
 
   const {
     user,
+    setUser,
   } = useAuth();
 
   const [progress, setProgress] = useState(null);
+  const [progressError, setProgressError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -133,10 +135,24 @@ function DashboardPage() {
         const response = await getProgressOverview();
 
         if (active) {
-          setProgress(response?.data || null);
+          const nextProgress = response?.data || null;
+          setProgress(nextProgress);
+          setProgressError("");
+
+          const nextBalance = Number(nextProgress?.progression?.fluxGemsBalance);
+          if (Number.isFinite(nextBalance)) {
+            setUser((current) =>
+              current ? { ...current, fluxGems: nextBalance } : current,
+            );
+          }
         }
-      } catch {
-        // Keep the dashboard usable if progression data is temporarily unavailable.
+      } catch (error) {
+        if (active) {
+          setProgressError(
+            error?.response?.data?.message ||
+              "Progression is temporarily unavailable.",
+          );
+        }
       }
     };
 
@@ -227,7 +243,7 @@ function DashboardPage() {
           icon={Zap}
           iconClass="bg-amber-50 text-amber-600"
           label="XP"
-          value={`${totalXp} XP`}
+          value={progressError ? "—" : `${totalXp} XP`}
           helper="Earn XP from quiz milestones, achievements and correct Daily Challenge answers."
         />
 
@@ -243,7 +259,7 @@ function DashboardPage() {
           icon={Flame}
           iconClass="bg-emerald-50 text-emerald-600"
           label="Learning streak"
-          value={`${Number(stats.currentStreak || 0)} days`}
+          value={progressError ? "—" : `${Number(stats.currentStreak || 0)} days`}
           helper="Complete learning activity on consecutive days."
         />
       </section>
@@ -451,7 +467,15 @@ function DashboardPage() {
             </div>
           </div>
 
-          {recentActivity.length === 0 ? (
+          {progressError ? (
+            <div className="mt-6 flex min-h-52 flex-col items-center justify-center rounded-2xl border border-amber-200/80 bg-amber-50/45 px-5 text-center backdrop-blur-md">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-amber-500 shadow-sm">
+                <Zap size={22} />
+              </div>
+              <h3 className="mt-4 font-extrabold text-slate-800">Progress temporarily unavailable</h3>
+              <p className="mt-1.5 max-w-md text-sm leading-6 text-slate-500">{progressError}</p>
+            </div>
+          ) : recentActivity.length === 0 ? (
             <div className="mt-6 flex min-h-52 flex-col items-center justify-center rounded-2xl border border-dashed border-white/80 bg-white/40 px-5 text-center backdrop-blur-md">
               <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-slate-400 shadow-sm">
                 <BookOpenCheck size={22} />

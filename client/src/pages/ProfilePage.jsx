@@ -34,6 +34,8 @@ const ACTIVITY_LABELS = {
   purchase: "FluxGem purchase",
   reward: "FluxGem reward",
   daily_challenge_reward: "Daily challenge reward",
+  signup_bonus: "Welcome bonus",
+  level_reward: "Level reward",
   ai_tutor: "AI Tutor question",
   ai_tutor_refund: "AI Tutor question refund",
   ai_tutor_quiz_conversion: "AI Tutor quiz conversion",
@@ -165,12 +167,13 @@ function ProfilePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sectionScrollKeyRef = useRef(null);
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [progressOverview, setProgressOverview] = useState(null);
   const [progressLoading, setProgressLoading] = useState(true);
+  const [progressError, setProgressError] = useState("");
   const [gemActivity, setGemActivity] = useState([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityPage, setActivityPage] = useState(1);
@@ -266,14 +269,23 @@ function ProfilePage() {
       try {
         const response = await getProgressOverview();
         if (active) {
-          setProgressOverview(response?.data || null);
+          const nextOverview = response?.data || null;
+          setProgressOverview(nextOverview);
+          setProgressError("");
+          const nextBalance = Number(nextOverview?.progression?.fluxGemsBalance);
+          if (Number.isFinite(nextBalance)) {
+            setUser((current) =>
+              current ? { ...current, fluxGems: nextBalance } : current,
+            );
+          }
         }
       } catch (error) {
         if (active) {
-          toast.error(
+          const message =
             error?.response?.data?.message ||
-              "Your progression could not be loaded.",
-          );
+            "Your progression could not be loaded.";
+          setProgressError(message);
+          toast.error(message);
         }
       } finally {
         if (active) {
@@ -449,6 +461,14 @@ function ProfilePage() {
               Loading progression...
             </div>
           </div>
+        ) : progressError && !progressOverview ? (
+          <div className="flex min-h-[240px] items-center justify-center p-6 text-center">
+            <div>
+              <Trophy className="mx-auto text-amber-500" size={30} />
+              <h2 className="mt-3 text-lg font-black text-slate-950">Progression temporarily unavailable</h2>
+              <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">{progressError}</p>
+            </div>
+          </div>
         ) : (
           <div className="p-6 sm:p-7">
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-center">
@@ -554,6 +574,9 @@ function ProfilePage() {
                         <p className="mt-1 text-[10px] font-semibold text-slate-500">
                           {Number(item.threshold || 0).toLocaleString()} XP
                         </p>
+                        <p className={`mt-1 text-[9px] font-extrabold ${reached ? "text-emerald-600" : "text-violet-500"}`}>
+                          +{Number(item.fluxGemReward || 0)} FG
+                        </p>
                       </div>
                     );
                   })}
@@ -562,7 +585,7 @@ function ProfilePage() {
             ) : null}
 
             <p className="mt-4 text-[11px] leading-5 text-slate-500">
-              XP is earned progression and cannot be purchased. FluxGems remain your separate spendable AI currency.
+              XP is earned progression and cannot be purchased. Reaching each level grants its one-time FluxGem reward; FluxGems remain your separate spendable AI currency.
             </p>
           </div>
         )}

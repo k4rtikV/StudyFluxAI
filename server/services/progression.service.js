@@ -19,6 +19,10 @@ import {
 } from "./xpLedger.service.js";
 import { buildInterviewAchievements } from "./interviewProgression.service.js";
 import {
+  ensureSignupFluxGemBonus,
+  syncLevelFluxGemRewards,
+} from "./fluxGemReward.service.js";
+import {
   getLocalTodayDayNumber,
   normalizeTimeZone,
   toLocalDayNumber,
@@ -132,7 +136,7 @@ const achievement = ({ key, current, target, earnedAt = null }) => ({
 
 export const getProgressOverview = async (userId) => {
   const user = await User.findById(userId)
-    .select("timezone")
+    .select("timezone role isEmailVerified")
     .lean();
 
   const timeZone = normalizeTimeZone(user?.timezone);
@@ -284,6 +288,18 @@ export const getProgressOverview = async (userId) => {
   const xpTotals = await getXpLedgerTotals(userId);
   const levelProgress = getLevelProgress(xpTotals.totalXp);
 
+  // Reward rollout/backfill stays idempotent through FluxGemTransaction.rewardKey.
+  // This also lets already-verified learners receive the welcome bonus after
+  // upgrading to the reward system without requiring a logout/login cycle.
+  if (user?.role === "student" && user?.isEmailVerified === true) {
+    await ensureSignupFluxGemBonus(userId);
+  }
+
+  const levelFluxGemRewards = await syncLevelFluxGemRewards({
+    userId,
+    currentLevel: levelProgress.level,
+  });
+
   const rewardTotals = await FluxGemTransaction.aggregate([
     {
       $match: {
@@ -352,6 +368,8 @@ export const getProgressOverview = async (userId) => {
     progression: {
       ...levelProgress,
       ...getPublicProgressionRules(),
+      levelFluxGemsEarned: Number(levelFluxGemRewards?.amount || 0),
+      fluxGemsBalance: Number(levelFluxGemRewards?.balance || 0),
     },
     recentSessions: recentSessions.map((session) => ({
       id: session._id,

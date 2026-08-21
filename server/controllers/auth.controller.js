@@ -3,6 +3,7 @@ import VerificationCode from "../models/VerificationCode.js";
 
 import { sendVerificationEmail } from "../services/email.service.js";
 import { verifyGoogleCredential } from "../services/googleAuth.service.js";
+import { ensureSignupFluxGemBonus } from "../services/fluxGemReward.service.js";
 
 import {
   createVerificationCode,
@@ -49,6 +50,13 @@ const applyReportedTimeZone = (user, reportedTimeZone) => {
   user.timezone = candidate;
   user.timezoneUpdatedAt = new Date();
   return true;
+};
+
+const applyWelcomeFluxGemBonus = async (user) => {
+  if (!user?._id || user.role !== "student" || user.isEmailVerified !== true) return user;
+  const reward = await ensureSignupFluxGemBonus(user._id);
+  user.fluxGems = Number(reward?.balance ?? user.fluxGems ?? 0);
+  return user;
 };
 
 const serializeAuthUser = (user) => ({
@@ -286,6 +294,7 @@ export const login = async (req, res, next) => {
     applyReportedTimeZone(user, req.body.timezone);
     user.lastLoginAt = new Date();
     await user.save();
+    await applyWelcomeFluxGemBonus(user);
 
     const token = generateAuthToken(user);
 
@@ -492,6 +501,8 @@ export const googleAuth = async (
       }
     }
 
+    await applyWelcomeFluxGemBonus(user);
+
     const token =
       generateAuthToken(user);
 
@@ -664,6 +675,7 @@ export const verifyEmail = async (req, res, next) => {
     user.lastLoginAt = now;
 
     await user.save();
+    await applyWelcomeFluxGemBonus(user);
 
     const token = generateAuthToken(user);
 
@@ -802,13 +814,19 @@ export const resendVerificationCode = async (
   }
 };
 
-export const getMe = async (req, res) => {
-  return res.status(200).json({
-    success: true,
-    data: {
-      user: serializeAuthUser(req.user),
-    },
-  });
+export const getMe = async (req, res, next) => {
+  try {
+    await applyWelcomeFluxGemBonus(req.user);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user: serializeAuthUser(req.user),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const syncTimezone = async (req, res, next) => {

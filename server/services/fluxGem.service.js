@@ -37,7 +37,7 @@ export const beginPaidStudyGeneration = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       );
@@ -128,7 +128,7 @@ export const refundFailedStudyGeneration = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       );
@@ -148,7 +148,7 @@ export const refundFailedStudyGeneration = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       );

@@ -223,6 +223,7 @@ function LeaderboardPage() {
   const [board, setBoard] = useState("overall");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const refreshTimer = useRef(null);
 
   const load = useCallback(
@@ -231,8 +232,11 @@ function LeaderboardPage() {
       try {
         const response = await getLeaderboard({ board, limit: 50 });
         setData(response?.data || null);
+        setLoadError("");
       } catch (error) {
-        toast.error(error?.response?.data?.message || "We couldn't load the leaderboard.");
+        const message = error?.response?.data?.message || "We couldn't load the leaderboard.";
+        setLoadError(message);
+        toast.error(message);
       } finally {
         if (!quiet) setLoading(false);
       }
@@ -336,6 +340,15 @@ function LeaderboardPage() {
           <div className="text-center">
             <Sparkles className="mx-auto animate-pulse text-violet-500" />
             <p className="mt-3 text-sm font-bold text-slate-600">Building live rankings…</p>
+          </div>
+        </section>
+      ) : loadError && !data ? (
+        <section className="mt-5 grid min-h-[360px] place-items-center rounded-[30px] border border-amber-200 bg-amber-50/45 p-8 text-center">
+          <div>
+            <Trophy className="mx-auto text-amber-500" size={36} />
+            <h3 className="mt-4 text-xl font-black text-slate-950">Leaderboard temporarily unavailable</h3>
+            <p className="mt-2 max-w-lg text-sm leading-6 text-slate-600">{loadError}</p>
+            <button type="button" onClick={() => load()} className="mt-5 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-violet-700">Retry</button>
           </div>
         </section>
       ) : entries.length === 0 ? (

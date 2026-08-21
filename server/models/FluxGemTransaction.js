@@ -49,6 +49,8 @@ const fluxGemTransactionSchema = new mongoose.Schema(
         "purchase",
         "reward",
         "daily_challenge_reward",
+        "signup_bonus",
+        "level_reward",
         "smart_interview",
       ],
       required: true,
@@ -84,6 +86,13 @@ const fluxGemTransactionSchema = new mongoose.Schema(
       index: true,
     },
 
+    rewardKey: {
+      type: String,
+      default: null,
+      trim: true,
+      maxlength: 160,
+    },
+
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
@@ -95,6 +104,10 @@ const fluxGemTransactionSchema = new mongoose.Schema(
 );
 
 fluxGemTransactionSchema.index({ user: 1, createdAt: -1 });
+fluxGemTransactionSchema.index(
+  { user: 1, rewardKey: 1 },
+  { unique: true, partialFilterExpression: { rewardKey: { $type: "string" } } },
+);
 
 const FluxGemTransaction = mongoose.model(
   "FluxGemTransaction",

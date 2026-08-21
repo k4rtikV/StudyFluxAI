@@ -374,7 +374,7 @@ export const retrySmartInterviewReport = async (req, res, next) => {
       });
     }
 
-    queueSmartInterviewReport({ userId: req.user._id, interviewId: interview._id });
+    queueSmartInterviewReport({ userId: req.user._id, interviewId: interview._id, force: true });
     return res.status(202).json({
       success: true,
       message: "Astra is retrying your final interview report in the background.",

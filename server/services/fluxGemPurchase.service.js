@@ -150,7 +150,7 @@ export const creditCapturedPurchase = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       );
@@ -183,7 +183,7 @@ export const creditCapturedPurchase = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       ).select("fluxGems fullName email");
@@ -264,5 +264,5 @@ export const markPurchaseFailed = async ({
         ...(webhookEventId ? { lastWebhookEventId: webhookEventId } : {}),
       },
     },
-    { new: true },
+    { returnDocument: "after" },
   );

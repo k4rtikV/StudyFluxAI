@@ -32,7 +32,7 @@ try {
       },
     },
     {
-      new: true,
+      returnDocument: "after",
     },
   );
 

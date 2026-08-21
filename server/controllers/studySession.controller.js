@@ -335,7 +335,7 @@ export const listStudySessions = async (req, res, next) => {
     const requestedLimit = Number(req.query.limit || 30);
     const limit = Math.min(
       Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 30, 1),
-      50,
+      100,
     );
 
     const includePending = req.query.includePending === "true";
@@ -482,7 +482,7 @@ export const submitStudyQuiz = async (req, res, next) => {
             status: "completed",
           },
           { $set: { quizProgress: nextQuizProgress } },
-          { new: true, session: mongoSession },
+          { returnDocument: "after", session: mongoSession },
         );
 
         if (!updated) {
@@ -538,6 +538,7 @@ export const submitStudyQuiz = async (req, res, next) => {
           percentage,
         },
         quizProgress: serializeQuizProgress(studySession),
+        balance: Number(afterProgress?.progression?.fluxGemsBalance || 0),
         progression: {
           ...afterProgress.progression,
           xpEarned,

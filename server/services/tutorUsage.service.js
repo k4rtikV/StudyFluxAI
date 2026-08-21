@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
+import InterviewJob from "../models/InterviewJob.js";
 import TutorConversation from "../models/TutorConversation.js";
 import TutorDailyUsage from "../models/TutorDailyUsage.js";
 import TutorMessage from "../models/TutorMessage.js";
@@ -108,7 +109,7 @@ const ensureDailyUsage = async (userId, dayKey) => {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: "after",
       },
     );
   } catch (error) {
@@ -177,6 +178,32 @@ export const recoverStaleTutorReservation = async (userId, providedTimeZone = nu
     return {
       recovered: false,
     };
+  }
+
+  const conversation = await TutorConversation.findOne({
+    _id: staleMessage.conversation,
+    user: userId,
+    sourceInterview: { $ne: null },
+    archivedAt: null,
+  })
+    .select("sourceInterview")
+    .lean();
+
+  if (conversation?.sourceInterview) {
+    const activeInterviewJob = await InterviewJob.findOne({
+      interview: conversation.sourceInterview,
+      type: "tutor_analysis",
+      status: { $in: ["queued", "processing"] },
+    })
+      .select("_id status leaseUntil")
+      .lean();
+
+    if (activeInterviewJob) {
+      return {
+        recovered: false,
+        durableInterviewJobActive: true,
+      };
+    }
   }
 
   const reservation = {
@@ -299,7 +326,7 @@ export const reserveTutorQuestion = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       );
@@ -337,7 +364,7 @@ export const reserveTutorQuestion = async ({
             },
           },
           {
-            new: true,
+            returnDocument: "after",
             session: mongoSession,
           },
         );
@@ -469,7 +496,7 @@ export const completeTutorQuestion = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       );
@@ -577,7 +604,7 @@ export const failTutorQuestion = async ({
           },
         },
         {
-          new: true,
+          returnDocument: "after",
           session: mongoSession,
         },
       );
@@ -656,7 +683,7 @@ export const failTutorQuestion = async ({
             },
           },
           {
-            new: true,
+            returnDocument: "after",
             session: mongoSession,
           },
         );

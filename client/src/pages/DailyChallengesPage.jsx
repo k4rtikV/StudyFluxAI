@@ -53,7 +53,7 @@ function ResultBadge({ correct }) {
   );
 }
 
-function PollCard({ poll, onVote, voting }) {
+function PollCard({ poll, onSelectVote, voting }) {
   const hasVoted = Boolean(poll.userVoteOptionId);
   const totalVotes = Number(poll.results?.totalVotes || 0);
 
@@ -88,7 +88,7 @@ function PollCard({ poll, onVote, voting }) {
               key={option.id}
               type="button"
               disabled={hasVoted || voting}
-              onClick={() => onVote(poll.id, option.id)}
+              onClick={() => onSelectVote(poll, option)}
               className={`relative w-full overflow-hidden rounded-2xl border p-4 text-left transition ${
                 selected
                   ? "border-violet-400 bg-violet-50"
@@ -105,8 +105,13 @@ function PollCard({ poll, onVote, voting }) {
               )}
 
               <span className="relative flex items-center justify-between gap-4">
-                <span className="text-sm font-bold text-slate-800">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-800">
                   {option.text}
+                  {selected && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-600 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white">
+                      <Check size={10} /> Your vote
+                    </span>
+                  )}
                 </span>
 
                 {hasVoted && (
@@ -137,6 +142,7 @@ function DailyChallengesPage() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [votingPollId, setVotingPollId] = useState(null);
+  const [pendingVote, setPendingVote] = useState(null);
 
   const load = async () => {
     try {
@@ -244,6 +250,16 @@ function DailyChallengesPage() {
     }
   };
 
+  const requestVote = (poll, option) => {
+    if (!poll?.id || !option?.id || poll.userVoteOptionId) return;
+    setPendingVote({
+      pollId: poll.id,
+      question: poll.question,
+      optionId: option.id,
+      optionText: option.text,
+    });
+  };
+
   const vote = async (pollId, optionId) => {
     setVotingPollId(pollId);
     try {
@@ -261,11 +277,19 @@ function DailyChallengesPage() {
         ),
       );
       toast.success("Vote recorded.");
+      return true;
     } catch (error) {
       toast.error(extractError(error, "We couldn't record your vote."));
+      return false;
     } finally {
       setVotingPollId(null);
     }
+  };
+
+  const confirmVote = async () => {
+    if (!pendingVote) return;
+    const saved = await vote(pendingVote.pollId, pendingVote.optionId);
+    if (saved) setPendingVote(null);
   };
 
   return (
@@ -420,7 +444,7 @@ function DailyChallengesPage() {
                     key={poll.id}
                     poll={poll}
                     voting={votingPollId === poll.id}
-                    onVote={vote}
+                    onSelectVote={requestVote}
                   />
                 ))}
               </div>
@@ -431,6 +455,34 @@ function DailyChallengesPage() {
             )}
           </section>
         </>
+      )}
+
+      {pendingVote && (
+        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="poll-vote-title">
+          <div className="w-full max-w-md rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,0.28)] sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600">Confirm your vote</p>
+                <h2 id="poll-vote-title" className="mt-2 text-xl font-extrabold tracking-tight text-slate-950">Lock in this poll choice?</h2>
+              </div>
+              <button type="button" onClick={() => setPendingVote(null)} disabled={Boolean(votingPollId)} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-50" aria-label="Close vote confirmation"><X size={17} /></button>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-slate-500">{pendingVote.question}</p>
+            <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50/80 p-4">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-violet-500">Your choice</p>
+              <p className="mt-1 text-sm font-extrabold text-slate-900">{pendingVote.optionText}</p>
+            </div>
+            <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">Poll votes are final after confirmation. Live results appear immediately after your vote is saved.</p>
+
+            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+              <button type="button" disabled={Boolean(votingPollId)} onClick={() => setPendingVote(null)} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-600 hover:border-slate-300 disabled:opacity-50">Go back</button>
+              <button type="button" disabled={Boolean(votingPollId)} onClick={confirmVote} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-sm font-extrabold text-white shadow-sm disabled:opacity-60">
+                {votingPollId ? <LoaderCircle size={16} className="animate-spin" /> : <Check size={16} />} Confirm vote
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </DashboardLayout>
   );
