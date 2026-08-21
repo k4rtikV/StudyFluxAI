@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { getRedisClient } from "../config/redis.js";
+import { consumeRedisFixedWindow } from "../utils/fixedWindowRateLimit.js";
 
 const fallbackBuckets = new Map();
 
@@ -35,16 +36,6 @@ const consumeFallback = ({ key, limit, windowMs, now }) => {
   };
 };
 
-const consumeRedis = async ({ client, key, limit, windowSeconds }) => {
-  const count = await client.incr(key);
-  if (count === 1) await client.expire(key, windowSeconds);
-  const ttl = Math.max(1, Number(await client.ttl(key)) || windowSeconds);
-  return {
-    allowed: count <= limit,
-    remaining: Math.max(0, limit - count),
-    retryAfterSeconds: count <= limit ? 0 : ttl,
-  };
-};
 
 export const purchaseRateLimit = ({
   bucket,
@@ -60,7 +51,7 @@ export const purchaseRateLimit = ({
   try {
     const client = getRedisClient();
     result = client
-      ? await consumeRedis({
+      ? await consumeRedisFixedWindow({
           client,
           key,
           limit,

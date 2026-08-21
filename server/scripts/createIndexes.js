@@ -22,6 +22,37 @@ const run = async () => {
     await import(pathToFileURL(path.join(modelsDir, file)).href);
   }
 
+  const studyExportModel = mongoose.models.StudyExport;
+  if (studyExportModel) {
+    try {
+      await studyExportModel.collection.updateMany(
+        { exportMode: { $exists: false } },
+        { $set: { exportMode: "standard" } },
+      );
+      await studyExportModel.collection.updateMany(
+        { status: { $exists: false }, externalId: { $nin: [null, ""] } },
+        { $set: { status: "created" } },
+      );
+
+      const indexes = await studyExportModel.collection.listIndexes().toArray();
+      for (const index of indexes) {
+        const key = index?.key || {};
+        const isLegacyStudyExportUnique =
+          index.unique === true &&
+          key.studySession === 1 &&
+          key.exportType === 1 &&
+          Object.keys(key).length === 2;
+
+        if (isLegacyStudyExportUnique) {
+          await studyExportModel.collection.dropIndex(index.name);
+          console.log(`[indexes] dropped legacy StudyExport index ${index.name}`);
+        }
+      }
+    } catch (error) {
+      if (error?.codeName !== "NamespaceNotFound" && error?.code !== 26) throw error;
+    }
+  }
+
   const names = mongoose.modelNames().sort();
   for (const name of names) {
     const model = mongoose.model(name);

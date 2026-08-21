@@ -6,7 +6,7 @@ import LearningProfile from "../models/LearningProfile.js";
 import PollVote from "../models/PollVote.js";
 import StudySession from "../models/StudySession.js";
 import User from "../models/User.js";
-import { emitLeaderboardChanged } from "../realtime/socket.js";
+import { disconnectUserSockets, emitLeaderboardChanged } from "../realtime/socket.js";
 import { queueLeaderboardRefresh, removeUserFromLeaderboard } from "./leaderboard.service.js";
 import { getProgressOverview } from "./progression.service.js";
 
@@ -229,6 +229,7 @@ export const updateAdminUserStatus = async ({ userId, isActive }) => {
     user.authVersion = Number(user.authVersion || 0) + 1;
     user.authMethodsUpdatedAt = new Date();
     await user.save();
+    disconnectUserSockets(user._id);
   }
 
   if (isActive) {

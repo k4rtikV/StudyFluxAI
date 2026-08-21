@@ -14,13 +14,11 @@ import {
 } from "./razorpay.service.js";
 import { sendFluxGemPurchaseReceipt } from "./email.service.js";
 import { createUserNotification } from "./notification.service.js";
-import {
-  acquireDistributedLock,
-  waitForCondition,
-} from "../utils/distributedLock.js";
+import { waitForCondition } from "../utils/distributedLock.js";
 
 const orderCreationFlights = new Map();
 const RECEIPT_CLAIM_STALE_MS = 5 * 60 * 1000;
+const ORDER_CREATION_LEASE_MS = 5 * 60 * 1000;
 
 const hasProviderOrder = (purchase) =>
   Boolean(purchase?.razorpayOrderId && !String(purchase.razorpayOrderId).startsWith("pending:"));
@@ -160,6 +158,35 @@ const reservePurchase = async ({ userId, packageDetails, clientRequestId }) => {
   }
 };
 
+const claimPurchaseOrderCreation = async (purchase) => {
+  const now = new Date();
+  const leaseToken = randomUUID();
+  const claimed = await FluxGemPurchase.findOneAndUpdate(
+    {
+      _id: purchase._id,
+      creditedAt: null,
+      razorpayOrderId: purchase.razorpayOrderId,
+      $or: [
+        { orderCreationLeaseExpiresAt: null },
+        { orderCreationLeaseExpiresAt: { $exists: false } },
+        { orderCreationLeaseExpiresAt: { $lte: now } },
+      ],
+    },
+    {
+      $set: {
+        status: "creating",
+        failureReason: "",
+        failedAt: null,
+        orderCreationLeaseToken: leaseToken,
+        orderCreationLeaseExpiresAt: new Date(now.getTime() + ORDER_CREATION_LEASE_MS),
+      },
+    },
+    { returnDocument: "after" },
+  ).select("+orderCreationLeaseToken +orderCreationLeaseExpiresAt");
+
+  return claimed ? { purchase: claimed, leaseToken } : null;
+};
+
 export const createFluxGemPurchase = async ({ userId, packageId, clientRequestId }) => {
   const packageDetails = getFluxGemPackage(packageId);
 
@@ -187,9 +214,8 @@ export const createFluxGemPurchase = async ({ userId, packageId, clientRequestId
       };
     }
 
-    const lock = await acquireDistributedLock(`purchase-order:${flightKey}`, 45000);
-
-    if (!lock.acquired) {
+    const claim = await claimPurchaseOrderCreation(purchase);
+    if (!claim) {
       const ready = await waitForCondition(
         async () => {
           const candidate = await FluxGemPurchase.findById(purchase._id).lean();
@@ -216,82 +242,72 @@ export const createFluxGemPurchase = async ({ userId, packageId, clientRequestId
       };
     }
 
+    purchase = claim.purchase;
+
+    let order;
     try {
-      purchase = await FluxGemPurchase.findById(purchase._id);
-      if (hasProviderOrder(purchase)) {
-        return {
-          purchase,
-          packageDetails,
-          order: buildLocalOrder(purchase),
-          keyId: getRazorpayPublicKey(),
-          reused: true,
-        };
-      }
-
+      order = await createRazorpayOrder({
+        packageDetails,
+        userId,
+        purchaseId: purchase._id,
+      });
+    } catch (error) {
       await FluxGemPurchase.updateOne(
-        { _id: purchase._id, creditedAt: null },
         {
-          $set: { status: "creating", failureReason: "", failedAt: null },
+          _id: purchase._id,
+          orderCreationLeaseToken: claim.leaseToken,
+          creditedAt: null,
         },
-      );
-
-      let order;
-      try {
-        order = await createRazorpayOrder({
-          packageDetails,
-          userId,
-          purchaseId: purchase._id,
-        });
-      } catch (error) {
-        await FluxGemPurchase.updateOne(
-          { _id: purchase._id, razorpayOrderId: purchase.razorpayOrderId, creditedAt: null },
-          {
-            $set: {
-              status: "failed",
-              failedAt: new Date(),
-              failureReason: String(error?.message || "Razorpay order creation failed.").slice(0, 500),
-            },
-          },
-        );
-        throw error;
-      }
-
-      purchase = await FluxGemPurchase.findOneAndUpdate(
-        { _id: purchase._id, razorpayOrderId: purchase.razorpayOrderId },
         {
           $set: {
-            razorpayOrderId: order.id,
-            status: "created",
-            providerOrderStatus: String(order.status || "created"),
-            failureReason: "",
-            failedAt: null,
+            status: "failed",
+            failedAt: new Date(),
+            failureReason: String(error?.message || "Razorpay order creation failed.").slice(0, 500),
           },
+          $unset: { orderCreationLeaseToken: "", orderCreationLeaseExpiresAt: "" },
         },
-        { returnDocument: "after" },
       );
-
-      if (!purchase) {
-        purchase = await FluxGemPurchase.findOne({ user: userId, clientRequestId: requestId });
-      }
-
-      if (!hasProviderOrder(purchase)) {
-        throw httpError(
-          "FluxGem checkout could not be finalized safely. Please retry.",
-          409,
-          "PURCHASE_ORDER_FINALIZE_FAILED",
-        );
-      }
-
-      return {
-        purchase,
-        packageDetails,
-        order: purchase.razorpayOrderId === order.id ? order : buildLocalOrder(purchase),
-        keyId: getRazorpayPublicKey(),
-        reused: purchase.razorpayOrderId !== order.id,
-      };
-    } finally {
-      await lock.release();
+      throw error;
     }
+
+    purchase = await FluxGemPurchase.findOneAndUpdate(
+      {
+        _id: purchase._id,
+        razorpayOrderId: purchase.razorpayOrderId,
+        orderCreationLeaseToken: claim.leaseToken,
+      },
+      {
+        $set: {
+          razorpayOrderId: order.id,
+          status: "created",
+          providerOrderStatus: String(order.status || "created"),
+          failureReason: "",
+          failedAt: null,
+        },
+        $unset: { orderCreationLeaseToken: "", orderCreationLeaseExpiresAt: "" },
+      },
+      { returnDocument: "after" },
+    );
+
+    if (!purchase) {
+      purchase = await FluxGemPurchase.findOne({ user: userId, clientRequestId: requestId });
+    }
+
+    if (!hasProviderOrder(purchase)) {
+      throw httpError(
+        "FluxGem checkout could not be finalized safely. Please retry.",
+        409,
+        "PURCHASE_ORDER_FINALIZE_FAILED",
+      );
+    }
+
+    return {
+      purchase,
+      packageDetails,
+      order: purchase.razorpayOrderId === order.id ? order : buildLocalOrder(purchase),
+      keyId: getRazorpayPublicKey(),
+      reused: purchase.razorpayOrderId !== order.id,
+    };
   });
 };
 

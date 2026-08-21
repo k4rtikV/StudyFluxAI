@@ -15,11 +15,24 @@ const MAX_QUEUE_DEPTH = Math.max(
   getNumberEnv("STUDY_GENERATION_QUEUE_MAX", 50),
   CONCURRENCY,
 );
+const MAX_RETAINED_BYTES = getNumberEnv(
+  "STUDY_GENERATION_QUEUE_MAX_BYTES",
+  64 * 1024 * 1024,
+  { min: 10 * 1024 * 1024, max: 512 * 1024 * 1024 },
+);
 
 const pendingJobs = [];
 const trackedSessionIds = new Set();
 let activeJobs = 0;
+let retainedBytes = 0;
 let recoveryTimer = null;
+
+const getJobRetainedBytes = (job) =>
+  Math.max(
+    Number(job?.generationInput?.sourceFile?.buffer?.length || 0),
+    Number(job?.generationInput?.sourceFile?.size || 0),
+    0,
+  );
 
 const emitStatus = (studySessionId, payload) => {
   emitStudySessionChanged(studySessionId, payload);
@@ -230,6 +243,7 @@ const drainQueue = () => {
         await processJob(job);
       } finally {
         activeJobs -= 1;
+        retainedBytes = Math.max(0, retainedBytes - getJobRetainedBytes(job));
         trackedSessionIds.delete(String(job.studySessionId));
         drainQueue();
       }
@@ -238,7 +252,11 @@ const drainQueue = () => {
 };
 
 export const enqueueStudyGeneration = (job) => {
-  if (activeJobs + pendingJobs.length >= MAX_QUEUE_DEPTH) {
+  const jobBytes = getJobRetainedBytes(job);
+  if (
+    activeJobs + pendingJobs.length >= MAX_QUEUE_DEPTH ||
+    retainedBytes + jobBytes > MAX_RETAINED_BYTES
+  ) {
     const error = new Error("Study generation is temporarily at capacity. Please retry shortly.");
     error.code = "STUDY_GENERATION_QUEUE_FULL";
     error.statusCode = 503;
@@ -246,6 +264,7 @@ export const enqueueStudyGeneration = (job) => {
   }
 
   trackedSessionIds.add(String(job.studySessionId));
+  retainedBytes += jobBytes;
   pendingJobs.push(job);
   emitStatus(job.studySessionId, {
     status: "generating",
@@ -325,5 +344,7 @@ export const getStudyGenerationWorkerStatus = () => ({
   pending: pendingJobs.length,
   tracked: trackedSessionIds.size,
   capacity: MAX_QUEUE_DEPTH,
+  retainedBytes,
+  retainedByteCapacity: MAX_RETAINED_BYTES,
   idle: activeJobs === 0 && pendingJobs.length === 0,
 });

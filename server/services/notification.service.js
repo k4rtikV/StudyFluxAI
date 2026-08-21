@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import { sendNotificationEmail } from "./email.service.js";
@@ -35,17 +37,65 @@ const normalizePayload = (payload) => ({
   metadata: payload.metadata || {},
 });
 
+const EMAIL_LEASE_MS = 5 * 60 * 1000;
+
+const claimNotificationEmail = async (notificationId) => {
+  const now = new Date();
+  const leaseId = randomUUID();
+  const claimed = await Notification.findOneAndUpdate(
+    {
+      _id: notificationId,
+      "channels.email": true,
+      emailSentAt: null,
+      $or: [
+        { emailDeliveryStatus: { $in: ["pending", "failed"] } },
+        { emailDeliveryStatus: { $exists: false } },
+        {
+          emailDeliveryStatus: "processing",
+          emailLeaseExpiresAt: { $lte: now },
+        },
+      ],
+    },
+    {
+      $set: {
+        emailDeliveryStatus: "processing",
+        emailLeaseId: leaseId,
+        emailLeaseExpiresAt: new Date(now.getTime() + EMAIL_LEASE_MS),
+      },
+    },
+    { returnDocument: "after" },
+  )
+    .select("+emailLeaseId +emailLeaseExpiresAt")
+    .populate("user", "fullName email");
+
+  return claimed ? { notification: claimed, leaseId } : null;
+};
+
 const sendPendingEmails = async (notifications) => {
-  const pending = notifications.filter(
+  const candidates = notifications.filter(
     (item) => item.channels?.email && !item.emailSentAt,
   );
 
-  for (let index = 0; index < pending.length; index += 10) {
-    const chunk = pending.slice(index, index + 10);
+  for (let index = 0; index < candidates.length; index += 10) {
+    const chunk = candidates.slice(index, index + 10);
     await Promise.allSettled(
-      chunk.map(async (notification) => {
+      chunk.map(async (candidate) => {
+        const claim = await claimNotificationEmail(candidate._id);
+        if (!claim) return;
+
+        const { notification, leaseId } = claim;
         const user = notification.user;
-        if (!user?.email) return;
+        if (!user?.email) {
+          await Notification.updateOne(
+            { _id: notification._id, emailLeaseId: leaseId },
+            {
+              $set: { emailDeliveryStatus: "failed", emailFailedAt: new Date() },
+              $unset: { emailLeaseId: "", emailLeaseExpiresAt: "" },
+            },
+          );
+          return;
+        }
+
         try {
           await sendNotificationEmail({
             email: user.email,
@@ -56,13 +106,23 @@ const sendPendingEmails = async (notifications) => {
             actionLabel: notification.actionLabel,
           });
           await Notification.updateOne(
-            { _id: notification._id, emailSentAt: null },
-            { $set: { emailSentAt: new Date(), emailFailedAt: null } },
+            { _id: notification._id, emailLeaseId: leaseId, emailSentAt: null },
+            {
+              $set: {
+                emailSentAt: new Date(),
+                emailFailedAt: null,
+                emailDeliveryStatus: "sent",
+              },
+              $unset: { emailLeaseId: "", emailLeaseExpiresAt: "" },
+            },
           );
         } catch (error) {
           await Notification.updateOne(
-            { _id: notification._id, emailSentAt: null },
-            { $set: { emailFailedAt: new Date() } },
+            { _id: notification._id, emailLeaseId: leaseId, emailSentAt: null },
+            {
+              $set: { emailFailedAt: new Date(), emailDeliveryStatus: "failed" },
+              $unset: { emailLeaseId: "", emailLeaseExpiresAt: "" },
+            },
           );
           console.warn("Notification email delivery failed:", error.message);
         }

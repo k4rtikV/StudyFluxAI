@@ -252,7 +252,7 @@ export const generateStudySession = async (req, res, next) => {
   const sourceFile =
     generationSettings.sourceMode === "source" && req.file
       ? {
-          buffer: Buffer.from(req.file.buffer),
+          buffer: req.file.buffer,
           mimetype: req.file.mimetype,
           originalname: req.file.originalname,
           size: req.file.size,

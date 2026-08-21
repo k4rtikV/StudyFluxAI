@@ -29,27 +29,54 @@ const studyExportSchema = new mongoose.Schema(
       default: "standard",
     },
 
+    status: {
+      type: String,
+      enum: ["creating", "created", "failed"],
+      default: "creating",
+      index: true,
+    },
+
     externalId: {
       type: String,
       trim: true,
-      required: true,
+      default: "",
     },
 
     editUrl: {
       type: String,
       trim: true,
-      required: true,
+      default: "",
     },
 
     responderUrl: {
       type: String,
       trim: true,
-      required: true,
+      default: "",
+    },
+
+    leaseToken: {
+      type: String,
+      trim: true,
+      default: "",
+      select: false,
+    },
+
+    leaseExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
+    lastError: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: "",
     },
 
     exportedAt: {
       type: Date,
-      default: Date.now,
+      default: null,
     },
   },
   {
@@ -61,6 +88,7 @@ studyExportSchema.index(
   {
     studySession: 1,
     exportType: 1,
+    exportMode: 1,
   },
   {
     unique: true,

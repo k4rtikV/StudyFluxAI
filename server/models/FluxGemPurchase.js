@@ -105,6 +105,18 @@ const fluxGemPurchaseSchema = new mongoose.Schema(
       maxlength: 500,
     },
 
+    orderCreationLeaseToken: {
+      type: String,
+      default: "",
+      select: false,
+    },
+
+    orderCreationLeaseExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
     lastWebhookEventId: {
       type: String,
       default: "",

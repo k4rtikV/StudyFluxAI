@@ -18,6 +18,7 @@ const NUMERIC_ENV_RULES = Object.freeze({
   STUDY_GENERATION_CONCURRENCY: { min: 1, max: 32, integer: true },
   STUDY_GENERATION_STALE_MS: { min: 120000, max: 3600000, integer: true },
   STUDY_GENERATION_QUEUE_MAX: { min: 1, max: 1000, integer: true },
+  STUDY_GENERATION_QUEUE_MAX_BYTES: { min: 10485760, max: 536870912, integer: true },
   STUDY_GENERATION_RATE_LIMIT_PER_HOUR: { min: 1, max: 1000, integer: true },
   GENERATION_FLUXGEM_COST: { min: 0, max: 1000000, integer: true },
   AI_NOTES_FLUXGEM_COST: { min: 0, max: 1000000, integer: true },

@@ -67,6 +67,22 @@ const notificationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    emailDeliveryStatus: {
+      type: String,
+      enum: ["pending", "processing", "sent", "failed"],
+      default: "pending",
+      index: true,
+    },
+    emailLeaseId: {
+      type: String,
+      default: "",
+      select: false,
+    },
+    emailLeaseExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

@@ -1,4 +1,5 @@
 import { getRedisClient } from "../config/redis.js";
+import { consumeRedisFixedWindow } from "../utils/fixedWindowRateLimit.js";
 
 const fallbackBuckets = new Map();
 
@@ -30,16 +31,6 @@ const consumeFallback = ({ key, limit, windowMs, now }) => {
   };
 };
 
-const consumeRedis = async ({ client, key, limit, windowSeconds }) => {
-  const count = await client.incr(key);
-  if (count === 1) await client.expire(key, windowSeconds);
-  const ttl = Math.max(1, Number(await client.ttl(key)) || windowSeconds);
-  return {
-    allowed: count <= limit,
-    remaining: Math.max(0, limit - count),
-    retryAfterSeconds: count <= limit ? 0 : ttl,
-  };
-};
 
 export const interviewRateLimit = ({ bucket, limit, windowMs = 60000 }) => async (req, res, next) => {
   const userId = String(req.user?._id || "anonymous");
@@ -50,7 +41,7 @@ export const interviewRateLimit = ({ bucket, limit, windowMs = 60000 }) => async
   try {
     const client = getRedisClient();
     result = client
-      ? await consumeRedis({ client, key, limit, windowSeconds: Math.max(1, Math.ceil(windowMs / 1000)) })
+      ? await consumeRedisFixedWindow({ client, key, limit, windowSeconds: Math.max(1, Math.ceil(windowMs / 1000)) })
       : consumeFallback({ key, limit, windowMs, now });
   } catch {
     result = consumeFallback({ key, limit, windowMs, now });

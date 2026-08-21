@@ -1,6 +1,8 @@
+import crypto from "node:crypto";
 import mongoose from "mongoose";
 
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
+import PromotionalRewardClaim from "../models/PromotionalRewardClaim.js";
 import User from "../models/User.js";
 import { notifyFluxGemRewards } from "./notification.service.js";
 import {
@@ -11,6 +13,48 @@ import {
 
 const SIGNUP_REWARD_KEY = "signup:welcome:v1";
 const levelRewardKey = (level) => `level:${level}:v1`;
+
+const canonicalizePromotionalEmail = (value) => {
+  const email = String(value || "").trim().toLowerCase();
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return email;
+
+  let local = email.slice(0, at);
+  let domain = email.slice(at + 1);
+  if (domain === "googlemail.com") domain = "gmail.com";
+
+  // Gmail ignores dots in the local part and routes +tags to the same inbox.
+  // Apply this only to Gmail-family addresses; other providers have different rules.
+  if (domain === "gmail.com") {
+    local = local.split("+", 1)[0].replaceAll(".", "");
+  }
+
+  return `${local}@${domain}`;
+};
+
+const promotionalIdentityHash = (email) =>
+  crypto.createHash("sha256").update(canonicalizePromotionalEmail(email)).digest("hex");
+
+const claimSignupRewardIdentity = async (user) => {
+  const identityHash = promotionalIdentityHash(user?.email);
+  if (!identityHash) return true;
+
+  try {
+    await PromotionalRewardClaim.create({
+      rewardKey: SIGNUP_REWARD_KEY,
+      identityHash,
+      user: user._id,
+    });
+    return true;
+  } catch (error) {
+    if (error?.code !== 11000) throw error;
+    const existing = await PromotionalRewardClaim.findOne({
+      rewardKey: SIGNUP_REWARD_KEY,
+      identityHash,
+    }).lean();
+    return String(existing?.user || "") === String(user._id);
+  }
+};
 
 const grantMissingRewards = async ({ userId, rewards, retryOnConflict = true }) => {
   const normalized = rewards
@@ -108,8 +152,21 @@ const grantMissingRewards = async ({ userId, rewards, retryOnConflict = true }) 
   }
 };
 
-export const ensureSignupFluxGemBonus = async (userId) =>
-  grantMissingRewards({
+export const ensureSignupFluxGemBonus = async (userId) => {
+  const user = await User.findById(userId)
+    .select("email fluxGems role isEmailVerified")
+    .lean();
+
+  if (!user || user.role !== "student" || user.isEmailVerified !== true) {
+    return { granted: [], amount: 0, balance: Number(user?.fluxGems || 0) };
+  }
+
+  const identityAvailable = await claimSignupRewardIdentity(user);
+  if (!identityAvailable) {
+    return { granted: [], amount: 0, balance: Number(user.fluxGems || 0) };
+  }
+
+  return grantMissingRewards({
     userId,
     rewards: [
       {
@@ -123,6 +180,7 @@ export const ensureSignupFluxGemBonus = async (userId) =>
       },
     ],
   });
+};
 
 export const syncLevelFluxGemRewards = async ({ userId, currentLevel }) => {
   const cappedLevel = Math.min(Math.max(Math.floor(Number(currentLevel) || 1), 1), MAX_LEVEL);

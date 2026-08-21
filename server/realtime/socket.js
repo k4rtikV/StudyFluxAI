@@ -42,11 +42,28 @@ const authenticateSocket = async (socket, next) => {
 
     socket.data.userId = String(user._id);
     socket.data.role = user.role;
+    socket.data.authVersion = Number(user.authVersion || 0);
     socket.join(`user:${String(user._id)}`);
     return next();
   } catch {
     return next(new Error("INVALID_SESSION"));
   }
+};
+
+const revalidateSocketSession = async (socket) => {
+  const user = await User.findById(socket.data.userId)
+    .select("_id isActive isEmailVerified authVersion")
+    .lean();
+
+  const valid = Boolean(
+    user &&
+      user.isActive &&
+      user.isEmailVerified === true &&
+      Number(user.authVersion || 0) === Number(socket.data.authVersion || 0),
+  );
+
+  if (!valid) socket.disconnect(true);
+  return valid;
 };
 
 export const initializeSocketServer = (httpServer) => {
@@ -71,9 +88,18 @@ export const initializeSocketServer = (httpServer) => {
   io.use(authenticateSocket);
 
   io.on("connection", (socket) => {
-    socket.on("community:join-poll", (pollId) => {
-      if (typeof pollId === "string" && /^[a-f0-9]{24}$/i.test(pollId)) {
-        socket.join(`poll:${pollId}`);
+    const authRefreshTimer = setInterval(() => {
+      revalidateSocketSession(socket).catch(() => socket.disconnect(true));
+    }, 60 * 1000);
+    authRefreshTimer.unref?.();
+    socket.once("disconnect", () => clearInterval(authRefreshTimer));
+
+    socket.on("community:join-poll", async (pollId) => {
+      if (typeof pollId !== "string" || !/^[a-f0-9]{24}$/i.test(pollId)) return;
+      try {
+        if (await revalidateSocketSession(socket)) socket.join(`poll:${pollId}`);
+      } catch {
+        socket.disconnect(true);
       }
     });
 
@@ -83,20 +109,27 @@ export const initializeSocketServer = (httpServer) => {
       }
     });
 
-    socket.on("leaderboard:join", () => socket.join("leaderboard"));
+    socket.on("leaderboard:join", async () => {
+      try {
+        if (await revalidateSocketSession(socket)) socket.join("leaderboard");
+      } catch {
+        socket.disconnect(true);
+      }
+    });
     socket.on("leaderboard:leave", () => socket.leave("leaderboard"));
 
     socket.on("study-session:join", async (sessionId) => {
       if (typeof sessionId !== "string" || !/^[a-f0-9]{24}$/i.test(sessionId)) return;
 
       try {
+        if (!(await revalidateSocketSession(socket))) return;
         const owned = await StudySession.exists({
           _id: sessionId,
           user: socket.data.userId,
         });
         if (owned) socket.join(`study-session:${sessionId}`);
       } catch {
-        // Room joins are best-effort. The HTTP API remains the authoritative path.
+        socket.disconnect(true);
       }
     });
 
@@ -108,6 +141,11 @@ export const initializeSocketServer = (httpServer) => {
   });
 
   return io;
+};
+
+export const disconnectUserSockets = (userId) => {
+  if (!io || !userId) return;
+  io.in(`user:${String(userId)}`).disconnectSockets(true);
 };
 
 export const closeSocketServer = async () => {

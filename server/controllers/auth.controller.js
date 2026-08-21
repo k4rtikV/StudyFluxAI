@@ -36,6 +36,7 @@ import {
 } from "../utils/jwt.js";
 import { OTP_RESEND_COOLDOWN_SECONDS } from "../utils/otp.js";
 import { isValidTimeZone, normalizeTimeZone } from "../utils/timezone.js";
+import { disconnectUserSockets } from "../realtime/socket.js";
 
 const DEFAULT_PENDING_REGISTRATION_MINUTES = 30;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync("StudyFluxAI timing equalizer only", 12);
@@ -171,23 +172,49 @@ export const register = async (req, res, next) => {
       await deleteLegacyUnverifiedLocalUser(normalizedEmail);
     }
 
+    const now = new Date();
+    const activePending = await PendingRegistration.findOne({
+      email: normalizedEmail,
+      expiresAt: { $gt: now },
+    }).select("_id expiresAt").lean();
+
+    if (activePending) {
+      return res.status(409).json({
+        success: false,
+        code: "REGISTRATION_ALREADY_PENDING",
+        message: "A verification session is already active for this email. Use the existing verification screen or wait for it to expire before starting over.",
+      });
+    }
+
+    // TTL cleanup is asynchronous, so remove an expired row explicitly before
+    // creating a fresh pending registration for this email.
+    await PendingRegistration.deleteMany({
+      email: normalizedEmail,
+      expiresAt: { $lte: now },
+    });
+
     const passwordHash = await bcrypt.hash(password, 12);
     const registrationToken = createClaimToken();
     const expiresAt = new Date(Date.now() + pendingRegistrationMinutes() * 60 * 1000);
 
-    await PendingRegistration.findOneAndUpdate(
-      { email: normalizedEmail },
-      {
-        $set: {
-          email: normalizedEmail,
-          fullName: normalizedName,
-          passwordHash,
-          claimTokenHash: hashClaimToken(registrationToken),
-          expiresAt,
-        },
-      },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
-    );
+    try {
+      await PendingRegistration.create({
+        email: normalizedEmail,
+        fullName: normalizedName,
+        passwordHash,
+        claimTokenHash: hashClaimToken(registrationToken),
+        expiresAt,
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          code: "REGISTRATION_ALREADY_PENDING",
+          message: "A verification session is already active for this email. Use the existing verification screen or wait for it to expire before starting over.",
+        });
+      }
+      throw error;
+    }
 
     await invalidateOtherVerificationCodes({
       email: normalizedEmail,
@@ -341,6 +368,7 @@ export const googleAuth = async (req, res, next) => {
           user.lastLoginAt = new Date();
           if (!user.avatar && avatar) user.avatar = avatar;
           await user.save();
+          disconnectUserSockets(user._id);
           await cleanupPendingRegistration(email);
         } else if (!user.googleId) {
           return res.status(409).json({
@@ -562,6 +590,7 @@ export const resetPassword = async (req, res, next) => {
     user.passwordUpdatedAt = now;
     user.authMethodsUpdatedAt = now;
     await user.save();
+    disconnectUserSockets(user._id);
     clearAuthCookie(res);
 
     sendSecurityAlertEmail({
@@ -602,6 +631,7 @@ export const changePassword = async (req, res, next) => {
     user.passwordUpdatedAt = now;
     user.authMethodsUpdatedAt = now;
     await user.save();
+    disconnectUserSockets(user._id);
 
     const token = generateAuthToken(user);
     setAuthCookie(res, token);
@@ -666,6 +696,7 @@ export const linkGoogle = async (req, res, next) => {
       user.authVersion = Number(user.authVersion || 0) + 1;
       user.authMethodsUpdatedAt = new Date();
       await user.save();
+      disconnectUserSockets(user._id);
     }
 
     const token = generateAuthToken(user);
