@@ -201,7 +201,7 @@ function InterviewAudioPreflight({ onChange }) {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-white/90 bg-white/86 p-4 shadow-sm">
+        <div id="smart-interview-mic-test" tabIndex={-1} className="scroll-mt-28 rounded-2xl border border-white/90 bg-white/86 p-4 shadow-sm outline-none transition focus:ring-4 focus:ring-violet-100">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${audioReady ? "bg-emerald-50 text-emerald-700" : "bg-violet-50 text-violet-700"}`}><Mic size={18} /></span>
@@ -238,7 +238,7 @@ function InterviewAudioPreflight({ onChange }) {
           )}
         </div>
 
-        <div className="rounded-2xl border border-white/90 bg-white/86 p-4 shadow-sm">
+        <div id="smart-interview-connection-test" tabIndex={-1} className="scroll-mt-28 rounded-2xl border border-white/90 bg-white/86 p-4 shadow-sm outline-none transition focus:ring-4 focus:ring-cyan-100">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${networkReady ? "bg-emerald-50 text-emerald-700" : "bg-cyan-50 text-cyan-700"}`}><Gauge size={18} /></span>

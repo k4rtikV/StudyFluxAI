@@ -18,9 +18,8 @@ import { validateInterviewStartInput } from "../utils/interviewValidation.js";
 import { queueSmartInterviewReport } from "../services/interviewReport.service.js";
 import { createInterviewReportPdfBuffer, makeInterviewReportFilename } from "../services/interviewReportPdf.service.js";
 import {
-  createInterviewTutorAnalysis,
-  InterviewTutorAnalysisBusyError,
-  InterviewTutorAnalysisGenerationError,
+  getInterviewTutorAnalysisStatus,
+  prepareInterviewTutorAnalysis,
 } from "../services/interviewTutorAnalysis.service.js";
 import {
   TutorBusyError,
@@ -36,7 +35,7 @@ const numberSetting = (value, fallback, min, max) => {
 
 const turnConfig = {
   noSpeechTimeoutMs: numberSetting(process.env.INTERVIEW_NO_SPEECH_TIMEOUT_MS, 15000, 5000, 45000),
-  endSilenceMs: numberSetting(process.env.INTERVIEW_END_SILENCE_MS, 3000, 1200, 10000),
+  endSilenceMs: numberSetting(process.env.INTERVIEW_END_SILENCE_MS, 7000, 1200, 15000),
   maxAnswerSeconds: numberSetting(process.env.INTERVIEW_MAX_ANSWER_SECONDS, 120, 30, 300),
   warningSeconds: 5,
 };
@@ -71,6 +70,7 @@ const serializeInterview = (interview) => ({
   status: interview.status,
   phase: interview.phase,
   cost: Number(interview.cost || INTERVIEW_COST),
+  useLearnerProfile: interview.useLearnerProfile !== false,
   questionCount: Number(interview.questionCount || 0),
   maxQuestions: Number(interview.maxQuestions || INTERVIEW_QUESTION_COUNT),
   currentQuestion: serializeQuestion(interview.currentQuestion),
@@ -130,6 +130,7 @@ const serializeReport = (interview) => ({
     targetRole: interview.targetRole,
     experienceLevel: interview.experienceLevel,
     interviewType: interview.interviewType,
+    useLearnerProfile: interview.useLearnerProfile !== false,
     startedAt: interview.startedAt,
     completedAt: interview.completedAt,
     profileSnapshot: interview.profileSnapshot || {},
@@ -384,6 +385,42 @@ export const retrySmartInterviewReport = async (req, res, next) => {
   }
 };
 
+export const getSmartInterviewTutorAnalysisStatus = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.interviewId)) return invalidId(res);
+
+    const interview = await InterviewSession.findOne({
+      _id: req.params.interviewId,
+      user: req.user._id,
+    }).select("_id status");
+
+    if (!interview) return invalidId(res);
+    if (interview.status !== "completed") {
+      return res.status(409).json({
+        success: false,
+        code: "INTERVIEW_TUTOR_ANALYSIS_NOT_AVAILABLE",
+        message: "Complete the interview before sending its question stack to AI Tutor.",
+      });
+    }
+
+    const result = await getInterviewTutorAnalysisStatus({
+      userId: req.user._id,
+      interviewId: interview._id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        status: result.status,
+        conversationId: result.conversation?._id || null,
+        failure: result.failure || null,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const exportSmartInterviewQuestionsToTutor = async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.interviewId)) return invalidId(res);
@@ -402,18 +439,21 @@ export const exportSmartInterviewQuestionsToTutor = async (req, res, next) => {
       });
     }
 
-    const result = await createInterviewTutorAnalysis({
+    const result = await prepareInterviewTutorAnalysis({
       userId: req.user._id,
       interview,
       fallbackBalance: Number(req.user.fluxGems || 0),
     });
 
-    return res.status(result.existing ? 200 : 201).json({
+    return res.status(result.status === "ready" ? 200 : 202).json({
       success: true,
-      message: result.existing
+      message: result.status === "ready"
         ? "Opening your existing AI Tutor interview deep dive."
-        : "Interview question stack exported and analyzed in AI Tutor.",
+        : result.existing
+          ? "Your interview deep dive is already generating in AI Tutor."
+          : "Interview question stack exported. AI Tutor is generating the deep dive in the background.",
       data: {
+        status: result.status,
         conversationId: result.conversation?._id || null,
         existing: Boolean(result.existing),
         billing: result.billing || null,
@@ -430,7 +470,7 @@ export const exportSmartInterviewQuestionsToTutor = async (req, res, next) => {
       });
     }
 
-    if (error instanceof TutorBusyError || error instanceof InterviewTutorAnalysisBusyError) {
+    if (error instanceof TutorBusyError) {
       return res.status(409).json({
         success: false,
         code: error.code,
@@ -453,15 +493,6 @@ export const exportSmartInterviewQuestionsToTutor = async (req, res, next) => {
         code: error.code,
         message: error.message,
         data: { limit: error.limit },
-      });
-    }
-
-    if (error instanceof InterviewTutorAnalysisGenerationError) {
-      return res.status(503).json({
-        success: false,
-        code: error.code,
-        message: error.message,
-        data: { refunded: error.refunded, balance: error.balance },
       });
     }
 

@@ -36,6 +36,9 @@ import { emitProgressionChanged } from "../utils/progressionEvents";
 const createId = () => globalThis.crypto?.randomUUID?.() || `answer-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const formatDuration = (ms) => `${Math.max(0, Math.floor(Number(ms || 0) / 1000))}s`;
 const errorMessage = (error, fallback) => error?.response?.data?.message || error?.message || fallback;
+const errorCode = (error) => error?.response?.data?.code || error?.code || "";
+const MAX_RESTARTS_PER_QUESTION = 2;
+const restartStorageKey = (interviewId, questionId) => `smart-interview:${interviewId}:${questionId}:restarts`;
 
 function SmartInterviewSessionPage() {
   const { interviewId } = useParams();
@@ -48,12 +51,14 @@ function SmartInterviewSessionPage() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [noSpeechRemainingMs, setNoSpeechRemainingMs] = useState(null);
   const [audioError, setAudioError] = useState("");
+  const [audioErrorCode, setAudioErrorCode] = useState("");
   const [micError, setMicError] = useState("");
   const [processingError, setProcessingError] = useState("");
   const [retryPayload, setRetryPayload] = useState(null);
   const [lastTurnNotice, setLastTurnNotice] = useState("");
   const [slowVoice, setSlowVoice] = useState(false);
   const [voiceLatencyMs, setVoiceLatencyMs] = useState(null);
+  const [restartCount, setRestartCount] = useState(0);
 
   const recorderRef = useRef(null);
   const playerRef = useRef(null);
@@ -122,12 +127,27 @@ function SmartInterviewSessionPage() {
 
   const turnConfig = interview?.turnConfig || {
     noSpeechTimeoutMs: 15000,
-    endSilenceMs: 3000,
+    endSilenceMs: 7000,
     maxAnswerSeconds: 120,
     warningSeconds: 5,
   };
 
   const currentQuestion = interview?.currentQuestion || null;
+  const voiceQuotaExhausted = audioErrorCode === "GEMINI_TTS_QUOTA_EXHAUSTED";
+
+  useEffect(() => {
+    if (!currentQuestion?.id) {
+      setRestartCount(0);
+      return;
+    }
+    try {
+      const stored = Number(sessionStorage.getItem(restartStorageKey(interviewId, currentQuestion.id)) || 0);
+      setRestartCount(Math.max(0, Math.min(MAX_RESTARTS_PER_QUESTION, stored)));
+    } catch {
+      setRestartCount(0);
+    }
+  }, [currentQuestion?.id, interviewId]);
+
   const questionProgress = currentQuestion?.sequence || interview?.questionCount || 0;
   const recentTurns = useMemo(() => (interview?.transcript || []).slice(-4).reverse(), [interview]);
 
@@ -137,6 +157,7 @@ function SmartInterviewSessionPage() {
     setLevel(0);
     setProcessingError("");
     setAudioError("");
+    setAudioErrorCode("");
     setMicError("");
 
     const payload = existingPayload || {
@@ -155,6 +176,11 @@ function SmartInterviewSessionPage() {
       const nextInterview = response?.data?.interview || null;
       setInterview(nextInterview);
       setRetryPayload(null);
+      try {
+        sessionStorage.removeItem(restartStorageKey(interviewId, question.id));
+      } catch {
+        // Ignore storage cleanup failures.
+      }
       setLastTurnNotice(
         result.reason === "no_speech"
           ? "No speech was detected, so Astra moved on."
@@ -238,6 +264,7 @@ function SmartInterviewSessionPage() {
     setSlowVoice(false);
     setVoiceLatencyMs(null);
     setAudioError("");
+    setAudioErrorCode("");
     setMicError("");
     setProcessingError("");
     setLevel(0.12);
@@ -278,6 +305,7 @@ function SmartInterviewSessionPage() {
         if (!mountedRef.current || audioRequestTokenRef.current !== requestToken) return;
         setSlowVoice(false);
         setAudioError("");
+        setAudioErrorCode("");
         setEngineState("speaking");
         setLevel(0.22);
         console.info("[smart-interview] question_audio_playing", {
@@ -297,6 +325,7 @@ function SmartInterviewSessionPage() {
         if (!mountedRef.current) return;
         setLevel(0);
         setEngineState("paused");
+        setAudioErrorCode("AUDIO_PLAYBACK_FAILED");
         setAudioError("Question audio could not be played. Retry Astra's voice or start answering from the visible question.");
       };
       await player.play();
@@ -306,6 +335,7 @@ function SmartInterviewSessionPage() {
       setLevel(0);
       setSlowVoice(false);
       setEngineState("paused");
+      setAudioErrorCode(errorCode(error));
       setAudioError(errorMessage(error, "Astra's voice could not be generated. Retry the voice or start answering from the visible question."));
     }
   }, [cleanupPlayer, cleanupRecorder, interviewId, startListening]);
@@ -341,6 +371,19 @@ function SmartInterviewSessionPage() {
 
   const restartAnswer = async () => {
     if (!currentQuestion?.id) return;
+    if (restartCount >= MAX_RESTARTS_PER_QUESTION) {
+      toast.error(`Restart limit reached for this question (${MAX_RESTARTS_PER_QUESTION}). Continue this attempt or let Astra move on.`);
+      return;
+    }
+
+    const nextCount = restartCount + 1;
+    setRestartCount(nextCount);
+    try {
+      sessionStorage.setItem(restartStorageKey(interviewId, currentQuestion.id), String(nextCount));
+    } catch {
+      // Session storage is a UX guard only; recording can still continue without it.
+    }
+
     await cleanupRecorder();
     setLastTurnNotice("");
     setSlowVoice(false);
@@ -376,7 +419,7 @@ function SmartInterviewSessionPage() {
           <div>
             <p className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600"><Sparkles size={15} /> Voice Smart Interview</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{interview.targetRole}</h1>
-            <p className="mt-2 text-sm text-slate-600">Astra adapts each question to your role, learner profile, resume context and the answers you give during this interview.</p>
+            <p className="mt-2 text-sm text-slate-600">Astra adapts each question to your role, {interview.useLearnerProfile !== false ? "learner profile, " : ""}resume context and the answers you give during this interview.</p>
           </div>
           <div className="flex flex-wrap gap-2 self-start">
             <span className="rounded-full border border-white/90 bg-white/80 px-3 py-2 text-xs font-extrabold text-slate-700">Q {Math.min(questionProgress || 1, interview.maxQuestions)} / {interview.maxQuestions}</span>
@@ -485,9 +528,15 @@ function SmartInterviewSessionPage() {
                     <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold leading-5 text-rose-700">
                       {audioError || micError || processingError}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {audioError && engineState === "paused" && <><button type="button" onClick={() => playQuestion(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry voice</button><button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-slate-950 px-3 py-2 font-extrabold text-white"><Mic size={13} className="mr-1 inline" /> Answer from visible question</button></>}
+                        {audioError && engineState === "paused" && <>
+                          {!voiceQuotaExhausted ? (
+                            <button type="button" onClick={() => playQuestion(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry voice</button>
+                          ) : null}
+                          <button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-slate-950 px-3 py-2 font-extrabold text-white"><Mic size={13} className="mr-1 inline" /> Answer from visible question</button>
+                        </>}
                         {micError && <button type="button" onClick={() => startListening(currentQuestion)} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><Mic size={13} className="mr-1 inline" /> Reconnect microphone</button>}
                         {processingError && retryPayload && <button type="button" onClick={retryProcessing} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry processing</button>}
+                        {processingError && !retryPayload && !currentQuestion?.id && <button type="button" onClick={beginInterview} className="rounded-xl bg-white px-3 py-2 font-extrabold text-violet-700 ring-1 ring-violet-200"><RefreshCcw size={13} className="mr-1 inline" /> Retry Astra</button>}
                       </div>
                     </div>
                   )}
@@ -498,8 +547,9 @@ function SmartInterviewSessionPage() {
                         <p className="mb-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-emerald-700">Your answer controls</p>
                         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                           <button type="button" onClick={manualSubmit} disabled={!hasSpeech} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[linear-gradient(135deg,#059669,#0d9488)] px-4 py-3 text-sm font-extrabold text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45"><Send size={16} /> {hasSpeech ? "Submit answer now" : "Start speaking to enable submit"}</button>
-                          <button type="button" onClick={restartAnswer} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-600 hover:border-violet-300 hover:text-violet-700"><RotateCcw size={15} /> Restart</button>
+                          <button type="button" onClick={restartAnswer} disabled={restartCount >= MAX_RESTARTS_PER_QUESTION} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-600 hover:border-violet-300 hover:text-violet-700 disabled:cursor-not-allowed disabled:opacity-45"><RotateCcw size={15} /> {restartCount >= MAX_RESTARTS_PER_QUESTION ? "Restart limit reached" : "Restart"}</button>
                         </div>
+                        <p className="mt-2 text-[10px] font-semibold text-slate-500">Restarts are limited to {MAX_RESTARTS_PER_QUESTION} per question so restarting cannot keep a turn open indefinitely. Used: {restartCount}/{MAX_RESTARTS_PER_QUESTION}.</p>
                       </div>
                     </div>
                   )}
@@ -524,7 +574,8 @@ function SmartInterviewSessionPage() {
           <section className="rounded-[26px] border border-slate-200 bg-white/90 p-5">
             <div className="flex items-center gap-2 text-sm font-extrabold text-slate-800"><FileText size={16} /> Candidate context</div>
             <p className="mt-2 text-xs leading-5 text-slate-500">{interview.resume?.fileName || "No resume attached"}</p>
-            <p className="mt-2 text-[11px] leading-5 text-slate-400">Profile + role + resume context remain active across every question. Later turns also use your previous answers.</p>
+            <p className={`mt-2 text-[11px] font-bold ${interview.useLearnerProfile !== false ? "text-emerald-600" : "text-slate-500"}`}>Learner profile: {interview.useLearnerProfile !== false ? "Included" : "Excluded from interview scope"}</p>
+            <p className="mt-1 text-[11px] leading-5 text-slate-400">Role + resume context remain active across every question. Later turns also use your previous answers.</p>
           </section>
 
           <section className="rounded-[26px] border border-slate-200 bg-white/90 p-5">

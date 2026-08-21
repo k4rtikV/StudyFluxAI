@@ -205,10 +205,18 @@ function ConversationList({
                     </p>
 
                     <div className="mt-1 flex items-center gap-2 text-[11px] font-semibold text-slate-400">
-                      <span>
-                        {conversation.successfulQuestionCount} question
-                        {conversation.successfulQuestionCount === 1 ? "" : "s"}
-                      </span>
+                      {conversation.isGenerating ? (
+                        <span className="inline-flex items-center gap-1 font-extrabold text-cyan-600"><LoaderCircle size={11} className="animate-spin" /> Generating</span>
+                      ) : conversation.sourceInterviewId && Number(conversation.successfulQuestionCount || 0) === 0 ? (
+                        <span className="font-extrabold text-amber-600">Deep dive pending</span>
+                      ) : conversation.sourceInterviewId ? (
+                        <span className="inline-flex items-center gap-1 font-extrabold text-emerald-600"><CheckCircle2 size={11} /> Ready</span>
+                      ) : (
+                        <span>
+                          {conversation.successfulQuestionCount} question
+                          {conversation.successfulQuestionCount === 1 ? "" : "s"}
+                        </span>
+                      )}
                       <span>·</span>
                       <span>
                         {formatConversationTime(
@@ -259,10 +267,26 @@ function AITutorPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [conversionTarget, setConversionTarget] = useState(null);
   const [convertingMessageId, setConvertingMessageId] = useState("");
+  const [generationFailure, setGenerationFailure] = useState(null);
 
   const bottomRef = useRef(null);
 
   const activeConversationId = activeConversation?.id || "";
+
+  const syncConversationSummary = (conversation) => {
+    if (!conversation?.id) return;
+
+    setConversations((current) => {
+      const existingIndex = current.findIndex((item) => item.id === conversation.id);
+      if (existingIndex === -1) {
+        return [conversation, ...current];
+      }
+
+      return current.map((item) =>
+        item.id === conversation.id ? { ...item, ...conversation } : item,
+      );
+    });
+  };
 
   const selectedStudySession = useMemo(
     () =>
@@ -286,7 +310,9 @@ function AITutorPage() {
       const data = response?.data || {};
 
       setActiveConversation(data.conversation || null);
+      syncConversationSummary(data.conversation);
       setMessages(data.messages || []);
+      setGenerationFailure(data.generationFailure || null);
       setSelectedStudySessionId(
         data.conversation?.contextStudySession?.id || "",
       );
@@ -346,14 +372,13 @@ function AITutorPage() {
           window.location.search,
         ).get("conversation");
 
-        const initialConversation =
-          items.find(
-            (conversation) =>
-              conversation.id === requestedConversationId,
-          ) || items[0];
-
-        if (initialConversation?.id) {
-          await loadConversation(initialConversation.id);
+        if (requestedConversationId) {
+          // A Smart Interview deep-dive conversation can exist before its first
+          // completed Tutor message. Load the URL target directly instead of
+          // requiring it to already be present in the completed-history list.
+          await loadConversation(requestedConversationId);
+        } else if (items[0]?.id) {
+          await loadConversation(items[0].id);
         }
       } catch (error) {
         if (active) {
@@ -374,6 +399,47 @@ function AITutorPage() {
   }, []);
 
   useEffect(() => {
+    if (!activeConversationId || !activeConversation?.sourceInterviewId || !activeConversation?.isGenerating) {
+      return undefined;
+    }
+
+    let active = true;
+    let timer = null;
+
+    const pollInterviewDeepDive = async () => {
+      try {
+        const response = await getTutorConversation(activeConversationId);
+        if (!active) return;
+        const data = response?.data || {};
+        setActiveConversation(data.conversation || null);
+        syncConversationSummary(data.conversation);
+        setMessages(data.messages || []);
+        setGenerationFailure(data.generationFailure || null);
+
+        if (data.conversation?.isGenerating) {
+          timer = window.setTimeout(pollInterviewDeepDive, 2000);
+          return;
+        }
+
+        try {
+          const refreshed = await listTutorConversations();
+          if (active) setConversations(refreshed?.data?.conversations || []);
+        } catch {
+          // The completed deep dive is already visible in the active chat.
+        }
+      } catch {
+        if (active) timer = window.setTimeout(pollInterviewDeepDive, 2500);
+      }
+    };
+
+    timer = window.setTimeout(pollInterviewDeepDive, 1200);
+    return () => {
+      active = false;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [activeConversationId, activeConversation?.isGenerating, activeConversation?.sourceInterviewId]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({
       behavior: messages.length > 2 ? "smooth" : "auto",
       block: "end",
@@ -384,6 +450,7 @@ function AITutorPage() {
     setSearchParams({}, { replace: true });
     setActiveConversation(null);
     setMessages([]);
+    setGenerationFailure(null);
     setSelectedStudySessionId("");
     setInput("");
   };
@@ -744,8 +811,22 @@ function AITutorPage() {
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
                   <span className="inline-flex items-center gap-1">
                     <GraduationCap size={13} />
-                    {profileSummary || "Learning profile"}
+                    {activeConversation?.sourceInterviewId
+                      ? activeConversation.sourceInterviewUsesLearnerProfile === false
+                        ? "Learner profile excluded from interview scope"
+                        : "Interview learner-profile context included"
+                      : profileSummary || "Learning profile"}
                   </span>
+
+                  {activeConversation?.sourceInterviewId && (
+                    <>
+                      <span>·</span>
+                      <span className={`inline-flex items-center gap-1 font-extrabold ${activeConversation.isGenerating ? "text-cyan-700" : "text-violet-700"}`}>
+                        {activeConversation.isGenerating ? <LoaderCircle size={12} className="animate-spin" /> : <BrainCircuit size={12} />}
+                        {activeConversation.isGenerating ? "Interview deep dive generating" : "Smart Interview deep dive"}
+                      </span>
+                    </>
+                  )}
 
                   {activeConversation?.contextStudySession && (
                     <>
@@ -761,14 +842,16 @@ function AITutorPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => navigate("/profile/edit")}
-                className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-indigo-200 bg-white/80 px-3 py-2 text-xs font-extrabold text-indigo-700 transition hover:bg-white"
-              >
-                <UserRound size={14} />
-                Edit learner profile
-              </button>
+              {!activeConversation?.sourceInterviewId && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/profile/edit")}
+                  className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-indigo-200 bg-white/80 px-3 py-2 text-xs font-extrabold text-indigo-700 transition hover:bg-white"
+                >
+                  <UserRound size={14} />
+                  Edit learner profile
+                </button>
+              )}
             </div>
 
             {!activeConversationId && (
@@ -827,6 +910,31 @@ function AITutorPage() {
                     Loading your Tutor workspace...
                   </p>
                 </div>
+              </div>
+            ) : messages.length === 0 && activeConversation?.sourceInterviewId && activeConversation?.isGenerating ? (
+              <div className="mx-auto flex min-h-[430px] max-w-3xl flex-col items-center justify-center text-center">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-3xl bg-cyan-300/35 blur-2xl" />
+                  <div className="relative grid h-16 w-16 place-items-center rounded-3xl bg-gradient-to-br from-cyan-500 via-indigo-500 to-violet-600 text-white shadow-xl">
+                    <LoaderCircle size={29} className="animate-spin" />
+                  </div>
+                </div>
+                <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.14em] text-cyan-700">Question stack exported</p>
+                <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">Building your interview deep dive…</h2>
+                <p className="mt-2 max-w-xl leading-7 text-slate-500">Tutor is preparing one detailed brief across every interview question. Project questions are handled contextually without inventing implementation details.</p>
+                <div className="mt-6 grid w-full max-w-2xl gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4"><CheckCircle2 size={18} className="mx-auto text-emerald-600" /><p className="mt-2 text-xs font-extrabold text-emerald-800">1 · Questions exported</p></div>
+                  <div className="rounded-2xl border border-cyan-200 bg-cyan-50/70 p-4"><LoaderCircle size={18} className="mx-auto animate-spin text-cyan-600" /><p className="mt-2 text-xs font-extrabold text-cyan-800">2 · Deep analysis</p></div>
+                  <div className="rounded-2xl border border-slate-200 bg-white/80 p-4"><BrainCircuit size={18} className="mx-auto text-slate-400" /><p className="mt-2 text-xs font-extrabold text-slate-500">3 · Brief appears here</p></div>
+                </div>
+                <p className="mt-5 text-xs font-semibold text-slate-400">This conversation refreshes automatically while generation is running.</p>
+              </div>
+            ) : messages.length === 0 && activeConversation?.sourceInterviewId && generationFailure ? (
+              <div className="mx-auto flex min-h-[430px] max-w-2xl flex-col items-center justify-center text-center">
+                <BrainCircuit size={34} className="text-rose-500" />
+                <h2 className="mt-4 text-2xl font-extrabold text-slate-950">Interview deep dive needs another try.</h2>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{generationFailure.message || "Tutor could not finish this interview brief."}</p>
+                <button type="button" onClick={() => navigate(`/interview/${activeConversation.sourceInterviewId}/report`)} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-extrabold text-white"><ArrowRight size={15} /> Return to interview report</button>
               </div>
             ) : messages.length === 0 ? (
               <div className="mx-auto flex min-h-[430px] max-w-3xl flex-col items-center justify-center text-center">

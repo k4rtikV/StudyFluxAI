@@ -207,12 +207,15 @@ export const beginSmartInterview = async ({ userId, input, resumeFile }) => {
               name: "Astra",
               voice: String(process.env.INTERVIEW_TTS_VOICE || "Kore").trim() || "Kore",
             },
-            profileSnapshot: {
-              educationLevel: profile.educationLevel || "",
-              institutionName: profile.institutionName || "",
-              program: profile.program || "",
-              stream: profile.stream || "",
-            },
+            useLearnerProfile: input.useLearnerProfile !== false,
+            profileSnapshot: input.useLearnerProfile !== false
+              ? {
+                  educationLevel: profile.educationLevel || "",
+                  institutionName: profile.institutionName || "",
+                  program: profile.program || "",
+                  stream: profile.stream || "",
+                }
+              : {},
             readinessSnapshot: {
               microphoneVerified: true,
               testRecordingConfirmed: true,
@@ -242,6 +245,7 @@ export const beginSmartInterview = async ({ userId, input, resumeFile }) => {
               targetRole: input.targetRole,
               interviewType: input.interviewType,
               experienceLevel: input.experienceLevel,
+              useLearnerProfile: input.useLearnerProfile !== false,
             },
           },
         ],

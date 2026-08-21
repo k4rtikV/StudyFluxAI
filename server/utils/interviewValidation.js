@@ -1,7 +1,26 @@
 const EXPERIENCE_LEVELS = new Set(["fresher", "entry", "junior", "mid", "senior"]);
 const INTERVIEW_TYPES = new Set(["behavioral", "technical", "coding", "mixed"]);
 
-const cleanText = (value, maxLength) => String(value || "").trim().slice(0, maxLength);
+const cleanText = (value, maxLength) =>
+  String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, maxLength);
+
+const meaningfulTargetRole = (value) => {
+  const role = cleanText(value, 100);
+  const letters = Array.from(role.toLowerCase()).filter((char) => /\p{L}/u.test(char));
+
+  if (role.length < 2 || letters.length < 2) return false;
+
+  // Reject obvious placeholder/gibberish values such as "ggggggg" while
+  // preserving short legitimate titles/acronyms such as QA, HR, SDE, C++ dev.
+  const compactLetters = letters.join("");
+  if (/(.)\1{3,}/u.test(compactLetters)) return false;
+  if (letters.length >= 5 && new Set(letters).size < 3) return false;
+
+  return true;
+};
 
 export const validateInterviewStartInput = (body = {}) => {
   const values = {
@@ -9,6 +28,7 @@ export const validateInterviewStartInput = (body = {}) => {
     experienceLevel: cleanText(body.experienceLevel, 30).toLowerCase(),
     interviewType: cleanText(body.interviewType, 30).toLowerCase(),
     startRequestId: cleanText(body.startRequestId, 120),
+    useLearnerProfile: String(body.useLearnerProfile ?? "true").toLowerCase() !== "false",
     audioReady: String(body.audioReady || "").toLowerCase() === "true",
     networkReady: String(body.networkReady || "").toLowerCase() === "true",
     averageLatencyMs: Math.max(0, Math.min(60_000, Number(body.averageLatencyMs || 0))),
@@ -17,7 +37,7 @@ export const validateInterviewStartInput = (body = {}) => {
   };
   const errors = {};
 
-  if (values.targetRole.length < 2) errors.targetRole = "Enter a target role.";
+  if (!meaningfulTargetRole(values.targetRole)) errors.targetRole = "Enter a real target role, for example Web Developer, QA Engineer or Game Developer.";
   if (!EXPERIENCE_LEVELS.has(values.experienceLevel)) {
     errors.experienceLevel = "Choose a valid experience level.";
   }

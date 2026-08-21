@@ -1,5 +1,22 @@
 import api from "./authService";
 
+const normalizeBlobApiError = async (error) => {
+  const payload = error?.response?.data;
+  if (!(payload instanceof Blob)) throw error;
+
+  try {
+    const text = await payload.text();
+    const parsed = JSON.parse(text);
+    const normalized = new Error(parsed?.message || error?.message || "Request failed.");
+    normalized.code = parsed?.code || "";
+    normalized.response = { ...error.response, data: parsed };
+    throw normalized;
+  } catch (parseError) {
+    if (parseError?.response?.data && !(parseError.response.data instanceof Blob)) throw parseError;
+    throw error;
+  }
+};
+
 export const getInterviewEligibility = async () => {
   const response = await api.get("/interviews/eligibility");
   return response.data;
@@ -21,16 +38,20 @@ export const initializeInterview = async (interviewId) => {
 };
 
 export const getInterviewQuestionAudio = async (interviewId, questionId) => {
-  const response = await api.get(`/interviews/${interviewId}/question-audio`, {
-    params: { questionId },
-    responseType: "blob",
-  });
-  return {
-    blob: response.data,
-    serverTtsMs: Math.max(0, Number(response.headers?.["x-interview-tts-ms"] || 0)),
-    cacheStatus: response.headers?.["x-interview-audio-cache"] || "unknown",
-    voice: response.headers?.["x-interview-voice"] || "",
-  };
+  try {
+    const response = await api.get(`/interviews/${interviewId}/question-audio`, {
+      params: { questionId },
+      responseType: "blob",
+    });
+    return {
+      blob: response.data,
+      serverTtsMs: Math.max(0, Number(response.headers?.["x-interview-tts-ms"] || 0)),
+      cacheStatus: response.headers?.["x-interview-audio-cache"] || "unknown",
+      voice: response.headers?.["x-interview-voice"] || "",
+    };
+  } catch (error) {
+    return normalizeBlobApiError(error);
+  }
 };
 
 export const submitInterviewAnswer = async ({
@@ -83,6 +104,7 @@ export const startInterview = async ({ setup, resume, readiness }) => {
   form.append("targetRole", setup.targetRole);
   form.append("experienceLevel", setup.experienceLevel);
   form.append("interviewType", setup.interviewType);
+  form.append("useLearnerProfile", setup.useLearnerProfile === false ? "false" : "true");
   form.append("startRequestId", setup.startRequestId);
   form.append("audioReady", readiness?.audioReady ? "true" : "false");
   form.append("networkReady", readiness?.networkReady ? "true" : "false");
@@ -117,7 +139,14 @@ export const downloadInterviewReportPdf = async (interviewId) => {
   };
 };
 
+export const getInterviewTutorAnalysisStatus = async (interviewId) => {
+  const response = await api.get(`/interviews/${interviewId}/tutor-analysis`);
+  return response.data;
+};
+
 export const exportInterviewQuestionsToTutor = async (interviewId) => {
-  const response = await api.post(`/interviews/${interviewId}/tutor-analysis`);
+  const response = await api.post(`/interviews/${interviewId}/tutor-analysis`, null, {
+    validateStatus: (status) => (status >= 200 && status < 300) || status === 202,
+  });
   return response.data;
 };

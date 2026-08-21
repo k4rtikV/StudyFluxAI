@@ -31,6 +31,7 @@ import {
   downloadInterviewReportPdf,
   exportInterviewQuestionsToTutor,
   getInterviewReport,
+  getInterviewTutorAnalysisStatus,
   retryInterviewReport,
 } from "../services/interviewService";
 
@@ -98,6 +99,7 @@ function SmartInterviewReportPage() {
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
   const [sendingToTutor, setSendingToTutor] = useState(false);
+  const [tutorAnalysis, setTutorAnalysis] = useState({ status: "loading", conversationId: null, failure: null });
   const pollRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -147,6 +149,40 @@ function SmartInterviewReportPage() {
     };
   }, [loadReport, stopPolling]);
 
+  useEffect(() => {
+    if (!payload?.report) return undefined;
+
+    let active = true;
+    let timer = null;
+
+    const pollTutorStatus = async () => {
+      try {
+        const response = await getInterviewTutorAnalysisStatus(interviewId);
+        if (!active) return;
+        const data = response?.data || {};
+        setTutorAnalysis({
+          status: data.status || "not_started",
+          conversationId: data.conversationId || null,
+          failure: data.failure || null,
+        });
+
+        if (data.status === "generating") {
+          timer = window.setTimeout(pollTutorStatus, 2200);
+        }
+      } catch {
+        if (active) {
+          setTutorAnalysis((current) => current.status === "loading" ? { status: "not_started", conversationId: null, failure: null } : current);
+        }
+      }
+    };
+
+    pollTutorStatus();
+    return () => {
+      active = false;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [interviewId, payload?.report?.generatedAt]);
+
   const retryReport = async () => {
     setError("");
     setGenerating(true);
@@ -189,6 +225,12 @@ function SmartInterviewReportPage() {
 
   const analyzeQuestionsInTutor = async () => {
     if (sendingToTutor) return;
+
+    if (["generating", "ready"].includes(tutorAnalysis.status) && tutorAnalysis.conversationId) {
+      navigate(`/ai-tutor?conversation=${tutorAnalysis.conversationId}&source=smart-interview`);
+      return;
+    }
+
     setSendingToTutor(true);
 
     try {
@@ -197,6 +239,7 @@ function SmartInterviewReportPage() {
       const conversationId = data.conversationId;
       const balance = Number(data.billing?.balance);
       const charged = Number(data.billing?.charged || 0);
+      const status = data.status || "generating";
 
       if (Number.isFinite(balance)) {
         setUser((current) =>
@@ -210,17 +253,19 @@ function SmartInterviewReportPage() {
         throw new Error("AI Tutor conversation was not returned.");
       }
 
-      if (data.existing) {
-        toast.success("Opening your existing interview deep dive in AI Tutor.");
+      setTutorAnalysis({ status, conversationId, failure: null });
+
+      if (status === "ready") {
+        toast.success("Opening your completed interview deep dive in AI Tutor.");
       } else if (charged > 0) {
-        toast.success(`Interview deep dive created · ${charged} FluxGems used.`);
+        toast.success(`Question stack exported · Tutor is generating the brief · ${charged} FluxGems used.`);
       } else {
-        toast.success("Interview question stack analyzed in AI Tutor.");
+        toast.success("Question stack exported. Tutor is generating the deep dive now.");
       }
 
       navigate(`/ai-tutor?conversation=${conversationId}&source=smart-interview`);
     } catch (requestError) {
-      toast.error(errorMessage(requestError, "AI Tutor could not analyze this interview yet."));
+      toast.error(errorMessage(requestError, "AI Tutor could not start this interview deep dive yet."));
     } finally {
       setSendingToTutor(false);
     }
@@ -291,6 +336,16 @@ function SmartInterviewReportPage() {
   const rubric = report?.rubric || {};
   const xpEarned = Number(progressionReward?.xpEarned || 0);
   const levelUp = progressionReward?.levelUp || null;
+  const tutorStatus = tutorAnalysis.status;
+  const tutorButtonLabel = sendingToTutor
+    ? "Starting Tutor deep dive..."
+    : tutorStatus === "generating"
+      ? "Open generation in Tutor"
+      : tutorStatus === "ready"
+        ? "Open deep dive in Tutor"
+        : tutorStatus === "failed"
+          ? "Retry deep dive in Tutor"
+          : "Export + analyze in Tutor";
 
   return (
     <DashboardLayout>
@@ -317,6 +372,7 @@ function SmartInterviewReportPage() {
               <span className="rounded-xl border border-slate-200 bg-white px-3 py-2">{interview?.targetRole}</span>
               <span className="rounded-xl border border-slate-200 bg-white px-3 py-2">{pretty(interview?.interviewType)}</span>
               <span className="rounded-xl border border-slate-200 bg-white px-3 py-2">{pretty(interview?.experienceLevel)}</span>
+              <span className={`rounded-xl border px-3 py-2 ${interview?.useLearnerProfile !== false ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>Learner profile {interview?.useLearnerProfile !== false ? "included" : "excluded"}</span>
               <span className="rounded-xl border border-slate-200 bg-white px-3 py-2">Completed {formatDate(interview?.completedAt)}</span>
             </div>
           </div>
@@ -336,7 +392,10 @@ function SmartInterviewReportPage() {
       <section className="mt-5 flex flex-col gap-4 rounded-[26px] border border-violet-200 bg-[linear-gradient(120deg,rgba(245,243,255,0.92),rgba(236,254,255,0.78))] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 text-sm font-extrabold text-violet-900"><BrainCircuit size={17} /> AI Tutor question-stack deep dive</div>
-          <p className="mt-1.5 text-xs leading-5 text-slate-600">One click exports all {questions.length} interview questions into a dedicated Tutor conversation and immediately generates an in-depth explanation plus a strong answer for each. Project questions are handled from a general architectural/contextual view without inventing details about your codebase. This counts as one AI Tutor request, so your normal Tutor free/FluxGem rule applies once.</p>
+          <p className="mt-1.5 text-xs leading-5 text-slate-600">One click exports all {questions.length} interview questions into a dedicated Tutor conversation and generates an in-depth explanation plus a strong answer for each. Project questions use a general architectural/contextual view without inventing codebase details. This counts as one AI Tutor request.</p>
+          {tutorStatus === "generating" && <p className="mt-2 inline-flex items-center gap-2 text-xs font-extrabold text-cyan-700"><LoaderCircle size={13} className="animate-spin" /> Question stack exported · Tutor is generating the brief. Open Tutor to watch it finish automatically.</p>}
+          {tutorStatus === "ready" && <p className="mt-2 inline-flex items-center gap-2 text-xs font-extrabold text-emerald-700"><CheckCircle2 size={13} /> Deep dive ready in AI Tutor.</p>}
+          {tutorStatus === "failed" && <p className="mt-2 text-xs font-bold text-rose-700">{tutorAnalysis.failure?.message || "The Tutor deep dive did not finish. Retry is safe; failed Tutor usage is rolled back by the existing billing flow."}</p>}
         </div>
         <button
           type="button"
@@ -344,8 +403,8 @@ function SmartInterviewReportPage() {
           disabled={sendingToTutor}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#7c3aed,#0891b2)] px-4 py-3 text-sm font-extrabold text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {sendingToTutor ? <LoaderCircle size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {sendingToTutor ? "Preparing deep dive..." : "Export + analyze in Tutor"}
+          {(sendingToTutor || tutorStatus === "generating") ? <LoaderCircle size={16} className="animate-spin" /> : tutorStatus === "ready" ? <CheckCircle2 size={16} /> : tutorStatus === "failed" ? <RefreshCcw size={16} /> : <Sparkles size={16} />}
+          {tutorButtonLabel}
         </button>
       </section>
 

@@ -89,6 +89,10 @@ const interviewSessionSchema = new mongoose.Schema(
       min: 0,
       default: 100,
     },
+    useLearnerProfile: {
+      type: Boolean,
+      default: true,
+    },
     profileSnapshot: {
       type: profileSnapshotSchema,
       default: () => ({}),

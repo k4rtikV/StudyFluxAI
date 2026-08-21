@@ -136,6 +136,11 @@ const tutorConversationSchema = new mongoose.Schema(
       index: true,
     },
 
+    sourceInterviewUsesLearnerProfile: {
+      type: Boolean,
+      default: null,
+    },
+
     messageCount: {
       type: Number,
       min: 0,

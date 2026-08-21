@@ -67,7 +67,7 @@ const rms = (samples) => {
 
 export const startInterviewAudioRecorder = async ({
   noSpeechTimeoutMs = 15000,
-  endSilenceMs = 3000,
+  endSilenceMs = 7000,
   maxAnswerSeconds = 120,
   onLevel,
   onState,

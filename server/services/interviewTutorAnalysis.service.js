@@ -1,5 +1,6 @@
 import LearningProfile from "../models/LearningProfile.js";
 import TutorConversation from "../models/TutorConversation.js";
+import TutorMessage from "../models/TutorMessage.js";
 
 import { queueLeaderboardRefresh } from "./leaderboard.service.js";
 import { generateTutorReply } from "./tutorGemini.service.js";
@@ -9,6 +10,8 @@ import {
   getTutorUsageStatus,
   reserveTutorQuestion,
 } from "./tutorUsage.service.js";
+
+const analysisFlights = new Map();
 
 const buildProfileSnapshot = (profile) => ({
   educationLevel: profile?.educationLevel || "",
@@ -57,7 +60,7 @@ const buildAnalysisPrompt = (interview, questions) => {
     )
     .join("\n");
 
-  return `I completed a StudyFluxAI Smart Interview and want a deep study brief for the full question stack.\n\nINTERVIEW CONTEXT\nTarget role: ${clampText(interview.targetRole, 120)}\nExperience level: ${clampText(interview.experienceLevel, 40)}\nInterview type: ${clampText(interview.interviewType, 40)}\n\nQUESTION STACK\n${stack}\n\nCreate a detailed, interview-preparation brief for EVERY question above. Preserve the question numbering and cover all questions in one response. For each question include:\n- What the interviewer is testing and the concepts behind it.\n- A strong, in-depth answer a well-prepared candidate could give.\n- Important trade-offs, edge cases, common mistakes, or follow-up angles where relevant.\n- A short memory hook / key points to revise.\n\nFor project-related questions, use a GENERAL CONTEXTUAL and architectural view based only on the technologies or scenario named in the question. Do not invent exact details about my implementation, codebase, metrics, or decisions that were not supplied. Clearly frame project-specific examples as examples a candidate could adapt to their real project.\n\nFocus on learning the questions and strong answers rather than grading my recorded responses. Keep the result detailed but compact enough that every question receives useful coverage.`;
+  return `I completed a StudyFluxAI Smart Interview and want a deep study brief for the full question stack.\n\nINTERVIEW CONTEXT\nTarget role: ${clampText(interview.targetRole, 120)}\nExperience level: ${clampText(interview.experienceLevel, 40)}\nInterview type: ${clampText(interview.interviewType, 40)}\nLearner profile scope: ${interview.useLearnerProfile === false ? "EXCLUDED. Do not infer or use education, institution, program, stream, or other learner-profile details." : "Included as captured interview context."}\n\nQUESTION STACK\n${stack}\n\nCreate a detailed, interview-preparation brief for EVERY question above. Preserve the question numbering and cover all questions in one response. For each question include:\n- What the interviewer is testing and the concepts behind it.\n- A strong, in-depth answer a well-prepared candidate could give.\n- Important trade-offs, edge cases, common mistakes, or follow-up angles where relevant.\n- A short memory hook / key points to revise.\n\nFor project-related questions, use a GENERAL CONTEXTUAL and architectural view based only on the technologies or scenario named in the question. Do not invent exact details about my implementation, codebase, metrics, or decisions that were not supplied. Clearly frame project-specific examples as examples a candidate could adapt to their real project.\n\nFocus on learning the questions and strong answers rather than grading my recorded responses. Keep the result detailed but compact enough that every question receives useful coverage.`;
 };
 
 const findExistingAnalysisConversation = (userId, interviewId) =>
@@ -77,6 +80,7 @@ const createAnalysisConversation = async ({ userId, interview, academicContext }
       academicContext,
       contextTitle: `Smart Interview · ${clampText(interview.targetRole, 140)}`,
       sourceInterview: interview._id,
+      sourceInterviewUsesLearnerProfile: interview.useLearnerProfile !== false,
     });
   } catch (error) {
     if (error?.code === 11000) {
@@ -87,26 +91,157 @@ const createAnalysisConversation = async ({ userId, interview, academicContext }
   }
 };
 
-export class InterviewTutorAnalysisBusyError extends Error {
-  constructor() {
-    super("This interview is already being prepared in AI Tutor.");
-    this.name = "InterviewTutorAnalysisBusyError";
-    this.code = "INTERVIEW_TUTOR_ANALYSIS_BUSY";
+const generationFailureMessage = ({ reservation, failure }) => {
+  if (reservation.isFree) {
+    return "AI Tutor could not prepare the interview deep dive, so your free Tutor request was restored. Please retry from the interview report.";
   }
-}
-
-export class InterviewTutorAnalysisGenerationError extends Error {
-  constructor({ message, refunded = false, balance = null, causeCode = "" } = {}) {
-    super(message || "AI Tutor could not prepare the interview deep dive.");
-    this.name = "InterviewTutorAnalysisGenerationError";
-    this.code = "INTERVIEW_TUTOR_ANALYSIS_FAILED";
-    this.causeCode = causeCode;
-    this.refunded = Boolean(refunded);
-    this.balance = balance;
+  if (failure.refunded) {
+    return `AI Tutor could not prepare the interview deep dive, so your ${reservation.cost} FluxGems were returned. Please retry from the interview report.`;
   }
-}
+  return "AI Tutor could not prepare the interview deep dive. Please retry from the interview report.";
+};
 
-export const createInterviewTutorAnalysis = async ({
+const runInterviewTutorAnalysis = async ({
+  userId,
+  interview,
+  conversationId,
+  academicContext,
+  prompt,
+  reservation,
+}) => {
+  try {
+    const generation = await generateTutorReply({
+      academicContext,
+      studySession: null,
+      history: [],
+      question: prompt,
+    });
+
+    await completeTutorQuestion({
+      userId,
+      conversationId,
+      reservation,
+      reply: generation.text,
+      modelUsed: generation.modelUsed,
+      fallbackUsed: generation.fallbackUsed,
+    });
+
+    const title = `Interview deep dive · ${clampText(interview.targetRole, 72)}`.slice(0, 100);
+    await TutorConversation.findOneAndUpdate(
+      { _id: conversationId, user: userId },
+      {
+        $set: {
+          title,
+          contextTitle: `Smart Interview · ${clampText(interview.targetRole, 140)}`,
+        },
+      },
+    );
+
+    queueLeaderboardRefresh(userId);
+  } catch (generationError) {
+    let failure = {
+      refunded: false,
+      balance: reservation.balance,
+    };
+
+    try {
+      failure = await failTutorQuestion({
+        userId,
+        conversationId,
+        reservation,
+        failureCode: generationError.code || "INTERVIEW_TUTOR_ANALYSIS_GENERATION_FAILED",
+        failureMessage: generationError.message || "Interview Tutor analysis failed.",
+      });
+
+      await TutorMessage.findOneAndUpdate(
+        {
+          _id: reservation.userMessageId,
+          user: userId,
+          conversation: conversationId,
+          status: "failed",
+        },
+        {
+          $set: {
+            failureMessage: generationFailureMessage({ reservation, failure }),
+          },
+        },
+      );
+    } catch (rollbackError) {
+      console.error("CRITICAL: Interview Tutor analysis rollback/refund failed:", rollbackError);
+    }
+
+    console.error("Smart Interview Tutor deep-dive generation failed:", generationError?.message || generationError);
+  }
+};
+
+const queueInterviewTutorAnalysis = (payload) => {
+  const key = `${payload.userId}:${payload.interview._id}`;
+  if (analysisFlights.has(key)) return analysisFlights.get(key);
+
+  const flight = new Promise((resolve) => {
+    setImmediate(resolve);
+  })
+    .then(() => runInterviewTutorAnalysis(payload))
+    .finally(() => analysisFlights.delete(key));
+
+  analysisFlights.set(key, flight);
+  return flight;
+};
+
+export const getInterviewTutorAnalysisStatus = async ({ userId, interviewId }) => {
+  const conversation = await findExistingAnalysisConversation(userId, interviewId);
+  if (!conversation) {
+    return {
+      status: "not_started",
+      conversation: null,
+      failure: null,
+    };
+  }
+
+  if (Number(conversation.successfulQuestionCount || 0) > 0) {
+    return {
+      status: "ready",
+      conversation,
+      failure: null,
+    };
+  }
+
+  if (conversation.isGenerating) {
+    return {
+      status: "generating",
+      conversation,
+      failure: null,
+    };
+  }
+
+  const failedMessage = await TutorMessage.findOne({
+    user: userId,
+    conversation: conversation._id,
+    role: "user",
+    status: "failed",
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (failedMessage) {
+    return {
+      status: "failed",
+      conversation,
+      failure: {
+        code: failedMessage.failureCode || "INTERVIEW_TUTOR_ANALYSIS_FAILED",
+        message: failedMessage.failureMessage || "The interview deep dive could not be generated.",
+      },
+    };
+  }
+
+  return {
+    status: "not_started",
+    conversation,
+    failure: null,
+  };
+};
+
+export const prepareInterviewTutorAnalysis = async ({
   userId,
   interview,
   fallbackBalance = 0,
@@ -120,8 +255,9 @@ export const createInterviewTutorAnalysis = async ({
 
   let conversation = await findExistingAnalysisConversation(userId, interview._id);
 
-  if (conversation?.successfulQuestionCount > 0) {
+  if (Number(conversation?.successfulQuestionCount || 0) > 0) {
     return {
+      status: "ready",
       existing: true,
       conversation,
       billing: {
@@ -134,11 +270,24 @@ export const createInterviewTutorAnalysis = async ({
   }
 
   if (conversation?.isGenerating) {
-    throw new InterviewTutorAnalysisBusyError();
+    return {
+      status: "generating",
+      existing: true,
+      conversation,
+      billing: {
+        isFree: null,
+        charged: 0,
+        balance: Number(fallbackBalance || 0),
+      },
+      usage: await getTutorUsageStatus(userId),
+    };
   }
 
-  const profile = await LearningProfile.findOne({ user: userId }).lean();
-  const academicContext = buildProfileSnapshot(profile || interview.profileSnapshot || {});
+  let academicContext = buildProfileSnapshot({});
+  if (interview.useLearnerProfile !== false) {
+    const profile = await LearningProfile.findOne({ user: userId }).lean();
+    academicContext = buildProfileSnapshot(profile || interview.profileSnapshot || {});
+  }
 
   if (!conversation) {
     conversation = await createAnalysisConversation({
@@ -146,89 +295,63 @@ export const createInterviewTutorAnalysis = async ({
       interview,
       academicContext,
     });
+  } else {
+    conversation = await TutorConversation.findOneAndUpdate(
+      { _id: conversation._id, user: userId, archivedAt: null, isGenerating: false },
+      {
+        $set: {
+          academicContext,
+          sourceInterviewUsesLearnerProfile: interview.useLearnerProfile !== false,
+        },
+      },
+      { new: true },
+    ) || conversation;
   }
 
   if (conversation.isGenerating) {
-    throw new InterviewTutorAnalysisBusyError();
+    return {
+      status: "generating",
+      existing: true,
+      conversation,
+      billing: {
+        isFree: null,
+        charged: 0,
+        balance: Number(fallbackBalance || 0),
+      },
+      usage: await getTutorUsageStatus(userId),
+    };
   }
 
   const prompt = buildAnalysisPrompt(interview, questions);
-  let reservation;
-
-  reservation = await reserveTutorQuestion({
+  const reservation = await reserveTutorQuestion({
     userId,
     conversationId: conversation._id,
     question: prompt,
   });
 
-  try {
-    const generation = await generateTutorReply({
-      academicContext: conversation.academicContext,
-      studySession: null,
-      history: [],
-      question: prompt,
-    });
+  conversation = await TutorConversation.findById(conversation._id);
 
-    const assistantMessage = await completeTutorQuestion({
-      userId,
-      conversationId: conversation._id,
-      reservation,
-      reply: generation.text,
-      modelUsed: generation.modelUsed,
-      fallbackUsed: generation.fallbackUsed,
-    });
+  queueInterviewTutorAnalysis({
+    userId,
+    interview: interview.toObject ? interview.toObject() : interview,
+    conversationId: conversation._id,
+    academicContext: conversation.academicContext,
+    prompt,
+    reservation,
+  });
 
-    const title = `Interview deep dive · ${clampText(interview.targetRole, 72)}`.slice(0, 100);
-    conversation = await TutorConversation.findOneAndUpdate(
-      { _id: conversation._id, user: userId },
-      { $set: { title, contextTitle: `Smart Interview · ${clampText(interview.targetRole, 140)}` } },
-      { new: true },
-    );
-
-    const usage = await getTutorUsageStatus(userId);
-    queueLeaderboardRefresh(userId);
-
-    return {
-      existing: false,
-      conversation,
-      assistantMessage,
-      billing: {
-        isFree: reservation.isFree,
-        charged: Number(reservation.cost || 0),
-        balance:
-          reservation.balance == null
-            ? Number(fallbackBalance || 0)
-            : Number(reservation.balance || 0),
-      },
-      usage,
-    };
-  } catch (generationError) {
-    let failure = {
-      refunded: false,
-      balance: reservation.balance,
-    };
-
-    try {
-      failure = await failTutorQuestion({
-        userId,
-        conversationId: conversation._id,
-        reservation,
-        failureCode: generationError.code || "INTERVIEW_TUTOR_ANALYSIS_GENERATION_FAILED",
-        failureMessage: generationError.message || "Interview Tutor analysis failed.",
-      });
-    } catch (rollbackError) {
-      console.error("CRITICAL: Interview Tutor analysis rollback/refund failed:", rollbackError);
-    }
-
-    throw new InterviewTutorAnalysisGenerationError({
-      message: reservation.isFree
-        ? "AI Tutor could not prepare the interview deep dive, so your free Tutor request was restored. Please try again."
-        : failure.refunded
-          ? `AI Tutor could not prepare the interview deep dive, so your ${reservation.cost} FluxGems were returned. Please try again.`
-          : "AI Tutor could not prepare the interview deep dive. Please try again.",
-      refunded: failure.refunded,
-      balance: failure.balance,
-      causeCode: generationError.code || "",
-    });
-  }
+  return {
+    status: "generating",
+    existing: false,
+    conversation,
+    billing: {
+      isFree: reservation.isFree,
+      charged: Number(reservation.cost || 0),
+      balance:
+        reservation.balance == null
+          ? Number(fallbackBalance || 0)
+          : Number(reservation.balance || 0),
+    },
+    usage: await getTutorUsageStatus(userId),
+  };
 };

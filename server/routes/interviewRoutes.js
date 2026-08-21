@@ -4,6 +4,7 @@ import {
   getSmartInterview,
   getSmartInterviewEligibility,
   getSmartInterviewReport,
+  getSmartInterviewTutorAnalysisStatus,
   retrySmartInterviewReport,
   downloadSmartInterviewReportPdf,
   initializeSmartInterviewSession,
@@ -31,6 +32,7 @@ router.post("/:interviewId/initialize", interviewRateLimit({ bucket: "initialize
 router.get("/:interviewId/report", getSmartInterviewReport);
 router.post("/:interviewId/report/retry", interviewRateLimit({ bucket: "report-retry", limit: 5 }), retrySmartInterviewReport);
 router.get("/:interviewId/report/pdf", downloadSmartInterviewReportPdf);
+router.get("/:interviewId/tutor-analysis", getSmartInterviewTutorAnalysisStatus);
 router.post("/:interviewId/tutor-analysis", interviewRateLimit({ bucket: "tutor-analysis", limit: 4 }), exportSmartInterviewQuestionsToTutor);
 router.get("/:interviewId/question-audio", interviewRateLimit({ bucket: "question-audio", limit: 16 }), streamSmartInterviewQuestionAudio);
 router.post("/:interviewId/answer", interviewRateLimit({ bucket: "answer", limit: 20 }), uploadInterviewAnswer, submitSmartInterviewAnswerController);

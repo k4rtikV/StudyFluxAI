@@ -115,6 +115,10 @@ const serializeConversation = (conversation) => ({
       }
     : null,
   contextTitle: conversation.contextTitle || "",
+  sourceInterviewId: conversation.sourceInterview?._id || conversation.sourceInterview || null,
+  sourceInterviewUsesLearnerProfile: conversation.sourceInterview
+    ? conversation.sourceInterviewUsesLearnerProfile !== false
+    : null,
   messageCount: Number(conversation.messageCount || 0),
   successfulQuestionCount: Number(
     conversation.successfulQuestionCount || 0,
@@ -164,7 +168,11 @@ export const listTutorConversations = async (req, res, next) => {
     const conversations = await TutorConversation.find({
       user: req.user._id,
       archivedAt: null,
-      messageCount: { $gt: 0 },
+      $or: [
+        { messageCount: { $gt: 0 } },
+        { isGenerating: true },
+        { sourceInterview: { $ne: null } },
+      ],
     })
       .populate({
         path: "contextStudySession",
@@ -299,11 +307,31 @@ export const getTutorConversation = async (req, res, next) => {
       .sort({ sequence: 1 })
       .lean();
 
+    let generationFailure = null;
+    if (conversation.sourceInterview && !conversation.isGenerating && Number(conversation.successfulQuestionCount || 0) === 0) {
+      const failedMessage = await TutorMessage.findOne({
+        user: req.user._id,
+        conversation: conversation._id,
+        role: "user",
+        status: "failed",
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (failedMessage) {
+        generationFailure = {
+          code: failedMessage.failureCode || "INTERVIEW_TUTOR_ANALYSIS_FAILED",
+          message: failedMessage.failureMessage || "The interview deep dive could not be generated.",
+        };
+      }
+    }
+
     return res.status(200).json({
       success: true,
       data: {
         conversation: serializeConversation(conversation),
         messages: messages.map(serializeMessage),
+        generationFailure,
       },
     });
   } catch (error) {

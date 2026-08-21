@@ -127,12 +127,76 @@ const finalReportSchema = {
 };
 
 class InterviewGeminiError extends Error {
-  constructor(message, code = "INTERVIEW_GEMINI_FAILED") {
+  constructor(message, code = "INTERVIEW_GEMINI_FAILED", statusCode = 502) {
     super(message);
     this.name = "InterviewGeminiError";
     this.code = code;
+    this.status = statusCode;
+    this.statusCode = statusCode;
   }
 }
+
+const geminiStatus = (error) =>
+  Number(
+    error?.status ||
+    error?.statusCode ||
+    error?.response?.status ||
+    error?.cause?.status ||
+    0,
+  );
+
+const isQuotaError = (error) => {
+  const status = geminiStatus(error);
+  const message = String(error?.message || error?.cause?.message || "");
+  return status === 429 || /RESOURCE_EXHAUSTED|quota|rate[ -]?limit|too many requests/i.test(message);
+};
+
+const normalizeGeminiError = (error, operation = "interview") => {
+  if (error instanceof InterviewGeminiError) return error;
+
+  if (isQuotaError(error)) {
+    if (operation === "tts") {
+      return new InterviewGeminiError(
+        "Astra's voice quota is temporarily exhausted. You can continue from the visible question, or retry voice after the Gemini quota resets.",
+        "GEMINI_TTS_QUOTA_EXHAUSTED",
+        429,
+      );
+    }
+
+    return new InterviewGeminiError(
+      "Gemini's interview-generation quota is temporarily exhausted. Your interview is saved; retry this step after the quota resets.",
+      "GEMINI_QUOTA_EXHAUSTED",
+      429,
+    );
+  }
+
+  const status = geminiStatus(error);
+  if (status === 401 || status === 403) {
+    return new InterviewGeminiError(
+      "Gemini could not authenticate the interview request. Check the server API key and model access.",
+      "GEMINI_AUTH_FAILED",
+      502,
+    );
+  }
+
+  if (status === 404) {
+    return new InterviewGeminiError(
+      "The configured Gemini interview model is unavailable. Check the interview model settings.",
+      "GEMINI_MODEL_UNAVAILABLE",
+      502,
+    );
+  }
+
+  if (status >= 500) {
+    return new InterviewGeminiError(
+      "Gemini is temporarily unavailable for Smart Interview. Your interview state is saved; try again shortly.",
+      "GEMINI_TEMPORARILY_UNAVAILABLE",
+      503,
+    );
+  }
+
+  return error;
+};
 
 const getClient = () => {
   const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
@@ -154,8 +218,8 @@ const runWithTimeout = (operation, timeoutMs, label) =>
       const error = new InterviewGeminiError(
         `${label} did not respond within ${Math.round(timeoutMs / 1000)} seconds.`,
         "GEMINI_MODEL_TIMEOUT",
+        504,
       );
-      error.status = 504;
       reject(error);
     }, timeoutMs);
 
@@ -283,6 +347,11 @@ const formatProfile = (profile = {}) => [
   `Stream / specialization: ${profile.stream || "not provided"}`,
 ].join("\n");
 
+const learnerProfileForPrompt = (interview) =>
+  interview?.useLearnerProfile === false
+    ? "Learner profile excluded from interview scope by the candidate. Do not infer or use education, institution, program, or stream details."
+    : formatProfile(interview?.profileSnapshot || {});
+
 const resumeTextForPrompt = (interview) => {
   if (!interview.resume?.content) return "No resume was attached.";
   const mime = String(interview.resume.mimeType || "").toLowerCase();
@@ -304,14 +373,14 @@ Experience calibration: ${experienceGuidance[interview.experienceLevel] || inter
 Interview type: ${interview.interviewType}
 Interview-type guidance: ${typeGuidance[interview.interviewType] || typeGuidance.mixed}
 
-LEARNER PROFILE
-${formatProfile(interview.profileSnapshot)}
+LEARNER PROFILE SCOPE
+${learnerProfileForPrompt(interview)}
 
 RESUME
 ${resumeTextForPrompt(interview)}
 
 RULES
-1. The first question must be personalized from the role + learner profile + relevant resume/project context when available.
+1. Personalize from the target role, experience level, permitted learner-profile context, and relevant resume/project context when available. If learner profile scope is excluded, do not use or infer it.
 2. Do not make every question sound like "I saw on your resume". This is only the opening turn.
 3. Keep the spoken question concise: usually 1-3 sentences and under 90 words.
 4. Do not ask for sensitive personal data.
@@ -342,7 +411,7 @@ Target role: ${interview.targetRole}
 Experience calibration: ${experienceGuidance[interview.experienceLevel] || interview.experienceLevel}
 Interview type: ${interview.interviewType}
 Interview-type guidance: ${typeGuidance[interview.interviewType] || typeGuidance.mixed}
-Learner profile:\n${formatProfile(interview.profileSnapshot)}
+Learner profile scope:\n${learnerProfileForPrompt(interview)}
 Resume context: ${interview.resumeContext || "No resume context available."}
 
 CURRENT QUESTION ${questionNumber} OF ${interview.maxQuestions}
@@ -365,7 +434,7 @@ EVALUATION RULES
 8. If completionReason is no_speech, transcript must be "" and the evaluation should reflect that no answer was provided.
 
 ADAPTIVE NEXT-QUESTION RULES
-1. Every next question must still fit the target role, experience level, learner profile and relevant resume context.
+1. Every next question must fit the target role, experience level, permitted learner-profile context, and relevant resume context. If learner profile scope is excluded, do not use or infer it.
 2. Also adapt to what the learner has actually said so far. Strong answers can deepen; weak answers can probe or step back.
 3. Avoid repeats and trivial rephrasings of previous questions.
 4. Mix resume/project-grounded and general role-relevant questions naturally; do not make the resume dominate every turn.
@@ -408,10 +477,17 @@ const runStructuredWithFallback = async ({ contents, schema }) => {
   try {
     const output = await callStructured({ ai, model: primary, contents, schema });
     return { output, model: primary, usedFallback: false };
-  } catch (error) {
-    if (!fallback || fallback === primary || (!shouldFallback(error) && error?.code !== "GEMINI_INVALID_OUTPUT")) throw error;
-    const output = await callStructured({ ai, model: fallback, contents, schema });
-    return { output, model: fallback, usedFallback: true };
+  } catch (primaryError) {
+    if (!fallback || fallback === primary || (!shouldFallback(primaryError) && primaryError?.code !== "GEMINI_INVALID_OUTPUT")) {
+      throw normalizeGeminiError(primaryError, "interview");
+    }
+
+    try {
+      const output = await callStructured({ ai, model: fallback, contents, schema });
+      return { output, model: fallback, usedFallback: true };
+    } catch (fallbackError) {
+      throw normalizeGeminiError(fallbackError, "interview");
+    }
   }
 };
 
@@ -513,8 +589,8 @@ INTERVIEW CONTEXT
 Target role: ${interview.targetRole}
 Experience calibration: ${experienceGuidance[interview.experienceLevel] || interview.experienceLevel}
 Interview type: ${interview.interviewType}
-Learner profile:
-${formatProfile(interview.profileSnapshot)}
+Learner profile scope:
+${learnerProfileForPrompt(interview)}
 Resume context: ${interview.resumeContext || "No resume context available."}
 
 DETERMINISTIC METRICS
@@ -606,18 +682,25 @@ export const generateInterviewQuestionAudio = async ({ questionText, voice = DEF
   try {
     const wav = await callTts({ ai, model: primary, questionText, voice: selectedVoice });
     return { wav, model: primary, usedFallback: false, voice: selectedVoice, durationMs: Date.now() - startedAt };
-  } catch (error) {
-    if (!fallback || fallback === primary || (!shouldFallback(error) && error?.code !== "GEMINI_TTS_EMPTY")) throw error;
+  } catch (primaryError) {
+    if (!fallback || fallback === primary || (!shouldFallback(primaryError) && primaryError?.code !== "GEMINI_TTS_EMPTY")) {
+      throw normalizeGeminiError(primaryError, "tts");
+    }
+
     const fallbackStartedAt = Date.now();
-    const wav = await callTts({ ai, model: fallback, questionText, voice: selectedVoice });
-    return {
-      wav,
-      model: fallback,
-      usedFallback: true,
-      voice: selectedVoice,
-      durationMs: Date.now() - startedAt,
-      fallbackDurationMs: Date.now() - fallbackStartedAt,
-    };
+    try {
+      const wav = await callTts({ ai, model: fallback, questionText, voice: selectedVoice });
+      return {
+        wav,
+        model: fallback,
+        usedFallback: true,
+        voice: selectedVoice,
+        durationMs: Date.now() - startedAt,
+        fallbackDurationMs: Date.now() - fallbackStartedAt,
+      };
+    } catch (fallbackError) {
+      throw normalizeGeminiError(fallbackError, "tts");
+    }
   }
 };
 

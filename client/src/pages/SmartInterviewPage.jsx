@@ -91,6 +91,17 @@ const formatDate = (value) =>
 
 const errorMessage = (error, fallback) => error?.response?.data?.message || fallback;
 
+const meaningfulTargetRole = (value) => {
+  const role = String(value || "").trim().replace(/\s+/g, " ");
+  const letters = Array.from(role.toLowerCase()).filter((char) => /\p{L}/u.test(char));
+  if (role.length < 2 || letters.length < 2) return false;
+
+  const compactLetters = letters.join("");
+  if (/(.)\1{3,}/u.test(compactLetters)) return false;
+  if (letters.length >= 5 && new Set(letters).size < 3) return false;
+  return true;
+};
+
 const createStartRequestId = () =>
   globalThis.crypto?.randomUUID?.() ||
   `interview-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -115,6 +126,7 @@ function SmartInterviewPage() {
     targetRole: "",
     experienceLevel: "fresher",
     interviewType: "mixed",
+    useLearnerProfile: true,
   });
 
   useEffect(() => {
@@ -139,7 +151,9 @@ function SmartInterviewPage() {
   const cost = Number(eligibility?.cost || 100);
   const balance = Number(user?.fluxGems ?? eligibility?.balance ?? 0);
   const canAfford = balance >= cost;
-  const validSetup = form.targetRole.trim().length >= 2 && form.experienceLevel && form.interviewType;
+  const targetRoleValid = meaningfulTargetRole(form.targetRole);
+  const targetRoleTouched = form.targetRole.trim().length > 0;
+  const validSetup = targetRoleValid && form.experienceLevel && form.interviewType;
   const readyToStart = validSetup && readiness.ready;
 
   const selectedType = useMemo(
@@ -150,6 +164,14 @@ function SmartInterviewPage() {
   const updateForm = (updates) => {
     startRequestIdRef.current = null;
     setForm((current) => ({ ...current, ...updates }));
+  };
+
+  const scrollToPreflightTest = (targetId) => {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => target.focus({ preventScroll: true }), 350);
   };
 
   const chooseResume = (file) => {
@@ -169,7 +191,7 @@ function SmartInterviewPage() {
 
   const requestStart = () => {
     if (!validSetup) {
-      toast.error("Enter a target role and complete the interview setup.");
+      toast.error(targetRoleValid ? "Complete the interview setup." : "Enter a real target role, for example Web Developer, QA Engineer or Game Developer.");
       return;
     }
     if (!readiness.audioReady) {
@@ -291,7 +313,25 @@ function SmartInterviewPage() {
             <div className="mt-7 grid gap-5 sm:grid-cols-2">
               <label className="sm:col-span-2">
                 <span className="text-sm font-extrabold text-slate-700">Target role</span>
-                <input value={form.targetRole} onChange={(event) => updateForm({ targetRole: event.target.value })} maxLength={100} placeholder="e.g. MERN Stack Developer" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-violet-400 focus:ring-4 focus:ring-violet-100" />
+                <input
+                  value={form.targetRole}
+                  onChange={(event) => updateForm({ targetRole: event.target.value })}
+                  maxLength={100}
+                  placeholder="e.g. MERN Stack Developer"
+                  aria-invalid={targetRoleTouched && !targetRoleValid}
+                  className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3.5 text-sm font-semibold text-slate-900 outline-none transition focus:ring-4 ${
+                    targetRoleTouched && !targetRoleValid
+                      ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
+                      : "border-slate-200 focus:border-violet-400 focus:ring-violet-100"
+                  }`}
+                />
+                {targetRoleTouched && !targetRoleValid ? (
+                  <p className="mt-1.5 text-xs font-semibold text-rose-600">
+                    Enter a real job/role title, for example Web Developer, QA Engineer or Game Developer.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-[11px] text-slate-400">Use the role you actually want Astra to interview you for.</p>
+                )}
               </label>
 
               <label>
@@ -302,10 +342,27 @@ function SmartInterviewPage() {
               </label>
 
               <div>
-                <span className="text-sm font-extrabold text-slate-700">Learning profile</span>
-                <div className="mt-2 flex min-h-[50px] items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm font-bold text-emerald-800">
-                  <GraduationCap size={18} /> {EDUCATION_LABELS[eligibility.educationLevel]}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-extrabold text-slate-700">Learner profile scope</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={form.useLearnerProfile}
+                    onClick={() => updateForm({ useLearnerProfile: !form.useLearnerProfile })}
+                    className={`relative h-7 w-12 shrink-0 rounded-full border transition ${form.useLearnerProfile ? "border-emerald-300 bg-emerald-500" : "border-slate-300 bg-slate-200"}`}
+                    title={form.useLearnerProfile ? "Learner profile included" : "Learner profile excluded"}
+                  >
+                    <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${form.useLearnerProfile ? "translate-x-5" : "translate-x-0"}`} />
+                  </button>
                 </div>
+                <div className={`mt-2 flex min-h-[64px] items-center gap-3 rounded-2xl border px-4 py-3 ${form.useLearnerProfile ? "border-emerald-200 bg-emerald-50/70 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}>
+                  <GraduationCap size={18} className="shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold">{EDUCATION_LABELS[eligibility.educationLevel]}</p>
+                    <p className="mt-0.5 text-[11px] font-semibold leading-4">{form.useLearnerProfile ? "Included as Astra interview context." : "Excluded from Astra's questions, evaluation and interview-linked Tutor deep dive."}</p>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-[10px] leading-4 text-slate-400">Your profile is still checked by the server only to verify Smart Interview eligibility.</p>
               </div>
             </div>
 
@@ -346,11 +403,24 @@ function SmartInterviewPage() {
             <section className="rounded-[28px] border border-violet-200/80 bg-white/90 p-5 shadow-sm">
               <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-700"><ShieldCheck size={19} /></span><div><p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-violet-600">Ready check</p><h3 className="font-black text-slate-900">Review before charging</h3></div></div>
               <div className="mt-5 space-y-3 text-sm">
-                <div className="flex justify-between gap-4"><span className="text-slate-500">Role</span><strong className="text-right text-slate-800">{form.targetRole.trim() || "Not set"}</strong></div>
+                <div className="flex justify-between gap-4"><span className="text-slate-500">Role</span><strong className={`text-right ${targetRoleTouched && !targetRoleValid ? "text-rose-600" : "text-slate-800"}`}>{form.targetRole.trim() || "Not set"}</strong></div>
                 <div className="flex justify-between gap-4"><span className="text-slate-500">Type</span><strong className="text-right text-slate-800">{selectedType?.label}</strong></div>
+                <div className="flex justify-between gap-4"><span className="text-slate-500">Learner profile</span><strong className={form.useLearnerProfile ? "text-emerald-700" : "text-slate-600"}>{form.useLearnerProfile ? "Included" : "Excluded"}</strong></div>
                 <div className="flex justify-between gap-4"><span className="text-slate-500">Resume</span><strong className="max-w-[170px] truncate text-right text-slate-800">{resume?.name || "None"}</strong></div>
-                <div className="flex justify-between gap-4"><span className="text-slate-500">Microphone</span><strong className={readiness.audioReady ? "text-emerald-700" : "text-amber-700"}>{readiness.audioReady ? "Ready" : "Test required"}</strong></div>
-                <div className="flex justify-between gap-4"><span className="text-slate-500">Connection</span><strong className={readiness.networkReady ? "text-emerald-700" : "text-amber-700"}>{readiness.networkReady ? "Ready" : "Check required"}</strong></div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-500">Microphone</span>
+                  <div className="flex items-center gap-2">
+                    <strong className={readiness.audioReady ? "text-emerald-700" : "text-amber-700"}>{readiness.audioReady ? "Ready" : "Test required"}</strong>
+                    <button type="button" onClick={() => scrollToPreflightTest("smart-interview-mic-test")} className="rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-[10px] font-extrabold text-violet-700 transition hover:bg-violet-100">Test now</button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-500">Internet</span>
+                  <div className="flex items-center gap-2">
+                    <strong className={readiness.networkReady ? "text-emerald-700" : "text-amber-700"}>{readiness.networkReady ? "Ready" : "Check required"}</strong>
+                    <button type="button" onClick={() => scrollToPreflightTest("smart-interview-connection-test")} className="rounded-lg border border-cyan-200 bg-cyan-50 px-2 py-1 text-[10px] font-extrabold text-cyan-800 transition hover:bg-cyan-100">Test now</button>
+                  </div>
+                </div>
                 <div className="h-px bg-slate-100" />
                 <div className="flex items-center justify-between"><span className="font-bold text-slate-600">Start cost</span><span className="inline-flex items-center gap-2 text-lg font-black text-violet-700"><FluxGemMark size={22} /> {cost} FG</span></div>
               </div>
@@ -410,7 +480,7 @@ function SmartInterviewPage() {
         <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !starting) setConfirmOpen(false); }}>
           <div className="w-full max-w-md rounded-[28px] border border-white/70 bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600">Final confirmation</p><h3 className="mt-2 text-2xl font-black text-slate-900">Start this mock interview?</h3></div><button type="button" disabled={starting} onClick={() => setConfirmOpen(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"><X size={17} /></button></div>
-            <div className="mt-5 rounded-2xl border border-violet-200 bg-violet-50/60 p-4"><p className="font-extrabold text-slate-900">{form.targetRole.trim()}</p><p className="mt-1 text-sm text-slate-600">{selectedType?.label} · {EXPERIENCE_OPTIONS.find(([value]) => value === form.experienceLevel)?.[1]}</p></div>
+            <div className="mt-5 rounded-2xl border border-violet-200 bg-violet-50/60 p-4"><p className="font-extrabold text-slate-900">{form.targetRole.trim()}</p><p className="mt-1 text-sm text-slate-600">{selectedType?.label} · {EXPERIENCE_OPTIONS.find(([value]) => value === form.experienceLevel)?.[1]}</p><p className="mt-2 text-xs font-bold text-violet-700">Learner profile: {form.useLearnerProfile ? "included in interview scope" : "excluded from interview scope"}</p></div>
             <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs font-bold text-emerald-800">Microphone and connection checks passed. Your short microphone test remains local and is not uploaded.</div>
             <div className="mt-4 flex items-center justify-between"><span className="text-sm font-bold text-slate-600">Charged once on start</span><span className="inline-flex items-center gap-2 text-lg font-black text-violet-700"><Gem size={18} /> {cost} FluxGems</span></div>
             <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" disabled={starting} onClick={() => setConfirmOpen(false)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50">Cancel</button><button type="button" disabled={starting} onClick={confirmStart} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-sm font-extrabold text-white disabled:opacity-60">{starting ? <><LoaderCircle size={16} className="animate-spin" /> Starting...</> : <>Confirm & start <ArrowRight size={16} /></>}</button></div>
