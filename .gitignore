@@ -18,3 +18,11 @@ npm-debug.log*
 # OS / editor
 .DS_Store
 Thumbs.db
+# Security-sensitive local artifacts
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+coverage/
+.nyc_output/

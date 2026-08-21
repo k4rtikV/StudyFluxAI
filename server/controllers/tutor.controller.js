@@ -1,3 +1,4 @@
+import { safeErrorDetails } from "../utils/safeError.js";
 import mongoose from "mongoose";
 
 import LearningProfile from "../models/LearningProfile.js";
@@ -733,7 +734,7 @@ export const sendTutorMessage = async (req, res, next) => {
     } catch (refundError) {
       console.error(
         "CRITICAL: Tutor usage rollback/refund failed:",
-        refundError,
+        safeErrorDetails(refundError),
       );
     }
 

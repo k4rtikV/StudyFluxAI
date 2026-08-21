@@ -2,9 +2,15 @@ import axios from "axios";
 
 import { getBrowserTimeZone } from "../utils/timezone";
 
+const API_ORIGIN = String(import.meta.env.VITE_API_ORIGIN || "").replace(/\/+$/, "");
+
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: `${API_ORIGIN}/api`,
   withCredentials: true,
+  timeout: 180000,
+  maxContentLength: 20 * 1024 * 1024,
+  maxBodyLength: 20 * 1024 * 1024,
+  allowAbsoluteUrls: false,
 });
 
 api.interceptors.response.use(

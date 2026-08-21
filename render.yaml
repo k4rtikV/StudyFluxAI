@@ -1,0 +1,73 @@
+services:
+  - type: web
+    name: studyfluxai
+    runtime: node
+    plan: starter
+    buildCommand: npm --prefix server ci --omit=dev && npm --prefix client ci --include=dev && npm --prefix client run build
+    preDeployCommand: npm --prefix server run db:indexes
+    startCommand: npm --prefix server start
+    healthCheckPath: /api/health/ready
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_CLIENT_BUILD
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: MONGO_AUTO_INDEX
+        value: "false"
+      - key: REDIS_REQUIRED
+        value: "true"
+      - key: INTERVIEW_TIMING_LOGS
+        value: "false"
+      - key: SLOW_REQUEST_LOG_MS
+        value: "2000"
+      - key: SHUTDOWN_GRACE_MS
+        value: "45000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OTP_SECRET
+        generateValue: true
+      - key: GOOGLE_OAUTH_STATE_SECRET
+        generateValue: true
+      - key: GOOGLE_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: StudyFluxAI
+      - key: SUPPORT_INBOX_EMAIL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_FORMS_CLIENT_ID
+        sync: false
+      - key: GOOGLE_FORMS_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_FORMS_REDIRECT_URI
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: ADMIN_SEED_EMAIL
+        sync: false
+      - key: ADMIN_SEED_NAME
+        value: StudyFluxAI Admin
+      - key: ADMIN_SEED_PASSWORD
+        sync: false

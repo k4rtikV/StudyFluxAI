@@ -1,5 +1,7 @@
 import { BrevoClient } from "@getbrevo/brevo";
 
+import { getPrimaryClientUrl } from "../config/env.js";
+
 const getBrevoClient = () => {
   if (!process.env.BREVO_API_KEY) {
     throw new Error("BREVO_API_KEY is missing.");
@@ -29,7 +31,7 @@ const escapeHtml = (value) =>
 
 const paragraphHtml = (value) => escapeHtml(value).replace(/\r?\n/g, "<br />");
 
-const getClientBase = () => String(process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+const getClientBase = () => getPrimaryClientUrl();
 
 const safeClientHref = (path = "") => {
   const safePath = String(path || "").startsWith("/") ? path : "";

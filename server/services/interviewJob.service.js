@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import InterviewJob from "../models/InterviewJob.js";
+import { safeErrorDetails } from "../utils/safeError.js";
 import { createUserNotification } from "./notification.service.js";
 
 const POLL_MS = Math.max(Number(process.env.INTERVIEW_JOB_POLL_MS || 1500), 500);
@@ -198,7 +199,7 @@ const processClaimedJob = async (job) => {
     InterviewJob.updateOne(
       { _id: job._id, workerToken: job.workerToken, status: "processing" },
       { $set: { leaseUntil: new Date(Date.now() + LEASE_MS) } },
-    ).catch((error) => console.warn("Smart Interview job lease heartbeat failed:", error?.message || error));
+    ).catch((error) => console.warn("Smart Interview job lease heartbeat failed:", safeErrorDetails(error)));
   }, heartbeatMs);
   heartbeat.unref?.();
 
@@ -224,7 +225,7 @@ const processClaimedJob = async (job) => {
       metadata: { interviewId: String(job.interview), jobType: job.type },
     }).catch((error) => console.warn("Interview completion notification failed:", error.message));
   } catch (error) {
-    console.error(`Interview background job ${job.type} failed:`, error?.message || error);
+    console.error(`Interview background job ${job.type} failed:`, safeErrorDetails(error));
     await failOrRetryJob(job, error);
   } finally {
     clearInterval(heartbeat);
@@ -239,7 +240,7 @@ const drain = async () => {
     if (!job) break;
     active += 1;
     processClaimedJob(job)
-      .catch((error) => console.error("Interview job worker failure:", error))
+      .catch((error) => console.error("Interview job worker failure:", safeErrorDetails(error)))
       .finally(() => {
         active -= 1;
         scheduleSoon();
@@ -295,3 +296,9 @@ export const stopInterviewJobWorker = () => {
   if (timer) clearTimeout(timer);
   timer = null;
 };
+
+export const getInterviewJobWorkerStatus = () => ({
+  active,
+  stopping,
+  idle: active === 0,
+});

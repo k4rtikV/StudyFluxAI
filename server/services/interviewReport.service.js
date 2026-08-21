@@ -1,3 +1,4 @@
+import { safeErrorDetails } from "../utils/safeError.js";
 import InterviewSession from "../models/InterviewSession.js";
 import { enqueueInterviewReportJob } from "./interviewJob.service.js";
 import { generateFinalInterviewReport } from "./interviewGemini.service.js";
@@ -169,7 +170,7 @@ export const ensureSmartInterviewReport = async ({ userId, interviewId }) =>
         usedFallback: Boolean(generated.usedFallback),
       };
     } catch (error) {
-      console.error("Smart Interview final report Gemini synthesis failed; using saved-evaluation fallback:", error);
+      console.error("Smart Interview final report Gemini synthesis failed; using saved-evaluation fallback:", safeErrorDetails(error));
       narrative = deterministic;
       generation = {
         mode: "saved_evaluation_fallback",
@@ -198,6 +199,6 @@ export const ensureSmartInterviewReport = async ({ userId, interviewId }) =>
 
 export const queueSmartInterviewReport = ({ userId, interviewId, force = false }) =>
   enqueueInterviewReportJob({ userId, interviewId, force }).catch((error) => {
-    console.error("Smart Interview report job could not be queued:", error);
+    console.error("Smart Interview report job could not be queued:", safeErrorDetails(error));
     return null;
   });

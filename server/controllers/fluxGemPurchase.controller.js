@@ -1,3 +1,4 @@
+import { safeErrorDetails } from "../utils/safeError.js";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 
@@ -408,7 +409,7 @@ export const handleRazorpayWebhook = async (req, res) => {
     if (eventDoc?._id) {
       await completeWebhookEvent({ eventDoc, status: "failed", error }).catch(() => {});
     }
-    console.error("Razorpay webhook processing failed:", error);
+    console.error("Razorpay webhook processing failed:", safeErrorDetails(error));
     return res.status(500).json({
       success: false,
       message: "Razorpay webhook processing failed.",

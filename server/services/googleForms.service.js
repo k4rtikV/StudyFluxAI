@@ -73,12 +73,14 @@ const getStateSecret = () => {
 
 export const createGoogleFormsOauthState = ({
   userId,
+  authVersion = 0,
   sessionId = "",
   exportMode = GOOGLE_FORMS_EXPORT_MODES.STANDARD,
 }) =>
   jwt.sign(
     {
       purpose: "google_forms_connect",
+      av: Number(authVersion || 0),
       sessionId: String(sessionId || ""),
       exportMode: normalizeGoogleFormsExportMode(exportMode),
     },
@@ -107,6 +109,7 @@ export const verifyGoogleFormsOauthState = (state) => {
 
   return {
     userId: payload.sub,
+    authVersion: Number(payload.av || 0),
     sessionId: String(payload.sessionId || ""),
     exportMode: normalizeGoogleFormsExportMode(payload.exportMode),
   };

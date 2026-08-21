@@ -1,4 +1,5 @@
 import StudyPlan from "../models/StudyPlan.js";
+import { safeErrorDetails } from "../utils/safeError.js";
 import User from "../models/User.js";
 import { sendStudyPlanReminderEmail } from "./email.service.js";
 import { getPlatformSettings } from "./platformSettings.service.js";
@@ -312,7 +313,7 @@ const processReminder = async (claimed) => {
         },
       },
     );
-    console.warn("Study Planner 7-day reminder email failed:", error?.message || error);
+    console.warn("Study Planner 7-day reminder email failed:", safeErrorDetails(error));
   }
 };
 
@@ -337,7 +338,7 @@ const scheduleNext = (delay = POLL_MS) => {
     try {
       await runSweep();
     } catch (error) {
-      console.error("Study Planner reminder worker sweep failed:", error);
+      console.error("Study Planner reminder worker sweep failed:", safeErrorDetails(error));
     } finally {
       scheduleNext();
     }
@@ -353,7 +354,7 @@ export const startStudyPlanReminderWorker = async () => {
       console.log(`Study Planner reminder worker armed ${backfilled} existing plan(s).`);
     }
   } catch (error) {
-    console.error("Study Planner reminder backfill failed:", error);
+    console.error("Study Planner reminder backfill failed:", safeErrorDetails(error));
   }
 
   await runSweep();
@@ -365,3 +366,9 @@ export const stopStudyPlanReminderWorker = () => {
   if (timer) clearTimeout(timer);
   timer = null;
 };
+
+export const getStudyPlanReminderWorkerStatus = () => ({
+  running,
+  stopping,
+  idle: !running,
+});

@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 
+import { getPrimaryClientUrl } from "../config/env.js";
+import { safeErrorDetails } from "../utils/safeError.js";
+
 import StudySession from "../models/StudySession.js";
+import User from "../models/User.js";
 import {
   createGoogleFormsOauthState,
   exchangeGoogleFormsAuthorizationCode,
@@ -18,11 +22,7 @@ import {
   serializeStudyExport,
 } from "../services/studyExport.service.js";
 
-const getClientUrl = () =>
-  String(
-    process.env.CLIENT_URL ||
-      "http://localhost:5173",
-  ).replace(/\/+$/, "");
+const getClientUrl = () => getPrimaryClientUrl();
 
 const getStudyReturnUrl = (
   sessionId,
@@ -243,6 +243,7 @@ export const connectGoogleForms = async (
     const state =
       createGoogleFormsOauthState({
         userId: req.user._id,
+        authVersion: Number(req.user.authVersion || 0),
         sessionId,
         exportMode,
       });
@@ -291,6 +292,22 @@ export const googleFormsCallback = async (
       );
     }
 
+    const callbackUser = await User.findById(stateData.userId)
+      .select("_id role isActive isEmailVerified authVersion")
+      .lean();
+
+    if (
+      !callbackUser ||
+      callbackUser.role !== "student" ||
+      callbackUser.isActive !== true ||
+      callbackUser.isEmailVerified !== true ||
+      Number(callbackUser.authVersion || 0) !== Number(stateData.authVersion || 0)
+    ) {
+      return res.redirect(
+        getGoogleFormsErrorReturnUrl(stateData.sessionId),
+      );
+    }
+
     const {
       refreshToken,
       scopes,
@@ -336,7 +353,7 @@ export const googleFormsCallback = async (
   } catch (error) {
     console.error(
       "Google Forms OAuth callback failed:",
-      error,
+      safeErrorDetails(error),
     );
 
     return res.redirect(
@@ -514,7 +531,7 @@ export const exportQuizToGoogleForms =
 
       console.error(
         "Google Forms export failed:",
-        error,
+        safeErrorDetails(error),
       );
 
       return res.status(502).json({

@@ -1,4 +1,5 @@
 import StudySession from "../models/StudySession.js";
+import { safeErrorDetails } from "../utils/safeError.js";
 import { emitStudySessionChanged } from "../realtime/socket.js";
 import { refundFailedStudyGeneration } from "./fluxGem.service.js";
 import { generateLearningSession } from "./gemini.service.js";
@@ -12,6 +13,10 @@ const CONCURRENCY = Math.max(
 const STALE_GENERATION_MS = Math.max(
   Number(process.env.STUDY_GENERATION_STALE_MS || 5 * 60 * 1000),
   2 * 60 * 1000,
+);
+const MAX_QUEUE_DEPTH = Math.max(
+  Number(process.env.STUDY_GENERATION_QUEUE_MAX || 50),
+  CONCURRENCY,
 );
 
 const pendingJobs = [];
@@ -207,7 +212,7 @@ const processJob = async (job) => {
     } catch (refundError) {
       console.error(
         "CRITICAL: FluxGem refund failed after background AI generation error:",
-        refundError,
+        safeErrorDetails(refundError),
       );
       emitStatus(studySessionId, {
         status: "failed",
@@ -236,6 +241,13 @@ const drainQueue = () => {
 };
 
 export const enqueueStudyGeneration = (job) => {
+  if (activeJobs + pendingJobs.length >= MAX_QUEUE_DEPTH) {
+    const error = new Error("Study generation is temporarily at capacity. Please retry shortly.");
+    error.code = "STUDY_GENERATION_QUEUE_FULL";
+    error.statusCode = 503;
+    throw error;
+  }
+
   trackedSessionIds.add(String(job.studySessionId));
   pendingJobs.push(job);
   emitStatus(job.studySessionId, {
@@ -282,7 +294,7 @@ export const recoverStaleStudyGenerations = async () => {
     } catch (error) {
       console.error(
         `Failed to recover stale study session ${session._id}:`,
-        error,
+        safeErrorDetails(error),
       );
     }
   }
@@ -299,9 +311,22 @@ export const startStudyGenerationRecoverySweep = () => {
 
   recoveryTimer = setInterval(() => {
     recoverStaleStudyGenerations().catch((error) => {
-      console.error("Study generation recovery sweep failed:", error);
+      console.error("Study generation recovery sweep failed:", safeErrorDetails(error));
     });
   }, 60 * 1000);
 
   recoveryTimer.unref?.();
 };
+
+export const stopStudyGenerationRecoverySweep = () => {
+  if (recoveryTimer) clearInterval(recoveryTimer);
+  recoveryTimer = null;
+};
+
+export const getStudyGenerationWorkerStatus = () => ({
+  active: activeJobs,
+  pending: pendingJobs.length,
+  tracked: trackedSessionIds.size,
+  capacity: MAX_QUEUE_DEPTH,
+  idle: activeJobs === 0 && pendingJobs.length === 0,
+});

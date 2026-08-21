@@ -24,9 +24,14 @@ const router = express.Router();
 router.use(protect);
 
 router.get("/eligibility", getSmartInterviewEligibility);
-router.post("/preflight", runSmartInterviewPreflight);
+router.post("/preflight", interviewRateLimit({ bucket: "preflight", limit: 30 }), runSmartInterviewPreflight);
 router.get("/", listSmartInterviews);
-router.post("/start", uploadInterviewResume, startSmartInterview);
+router.post(
+  "/start",
+  interviewRateLimit({ bucket: "start", limit: 8, windowMs: 15 * 60 * 1000 }),
+  uploadInterviewResume,
+  startSmartInterview,
+);
 router.get("/:interviewId", getSmartInterview);
 router.post("/:interviewId/initialize", interviewRateLimit({ bucket: "initialize", limit: 6 }), initializeSmartInterviewSession);
 router.get("/:interviewId/report", getSmartInterviewReport);

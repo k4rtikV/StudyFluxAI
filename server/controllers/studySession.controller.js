@@ -6,12 +6,14 @@ import StudySession from "../models/StudySession.js";
 import {
   beginPaidStudyGeneration,
   InsufficientFluxGemsError,
+  refundFailedStudyGeneration,
 } from "../services/fluxGem.service.js";
 import { queueLeaderboardRefresh } from "../services/leaderboard.service.js";
 import { getProgressOverview } from "../services/progression.service.js";
 import { enqueueStudyGeneration } from "../services/studyGenerationQueue.service.js";
 import { validateStudyGenerationInput } from "../utils/studySessionValidation.js";
 import { getLevelTransition } from "../utils/progressionRules.js";
+import { safeErrorDetails } from "../utils/safeError.js";
 
 const COSTS = {
   combined: Math.max(
@@ -264,17 +266,45 @@ export const generateStudySession = async (req, res, next) => {
         }
       : null;
 
-  enqueueStudyGeneration({
-    studySessionId,
-    userId: req.user._id,
-    cost: generationCost,
-    generationInput: {
-      profile: effectiveAcademicContext,
-      generationType,
-      ...generationSettings,
-      sourceFile,
-    },
-  });
+  try {
+    enqueueStudyGeneration({
+      studySessionId,
+      userId: req.user._id,
+      cost: generationCost,
+      generationInput: {
+        profile: effectiveAcademicContext,
+        generationType,
+        ...generationSettings,
+        sourceFile,
+      },
+    });
+  } catch (error) {
+    if (error?.code === "STUDY_GENERATION_QUEUE_FULL") {
+      try {
+        const refund = await refundFailedStudyGeneration({
+          userId: req.user._id,
+          studySessionId,
+          cost: generationCost,
+          failureCode: error.code,
+          failureMessage: error.message,
+        });
+
+        return res.status(503).json({
+          success: false,
+          code: error.code,
+          message: "Study generation is temporarily busy. Your FluxGems were not consumed; please retry shortly.",
+          data: {
+            refunded: Boolean(refund?.refunded),
+            balance: Number(refund?.balance ?? reservation.balance ?? 0),
+          },
+        });
+      } catch (refundError) {
+        console.error("CRITICAL: queue-capacity refund failed:", safeErrorDetails(refundError));
+        return next(refundError);
+      }
+    }
+    return next(error);
+  }
 
   return res.status(202).json({
     success: true,

@@ -1,17 +1,34 @@
-const errorHandler = (err, req, res, next) => {
+import { safeErrorDetails } from "../utils/safeError.js";
+
+const errorHandler = (err, req, res, _next) => {
   const statusCode =
     err.statusCode ||
     err.status ||
     (res.statusCode && res.statusCode !== 200 ? res.statusCode : 500);
+  const serverError = statusCode >= 500;
+  const production = process.env.NODE_ENV === "production";
+  const requestId = req.id || res.getHeader("X-Request-Id") || "";
+
+  if (serverError) {
+    console.error(
+      `[request-error] ${requestId || "no-request-id"} ${req.method} ${req.originalUrl || req.url}`,
+      safeErrorDetails(err),
+    );
+  }
 
   const response = {
     success: false,
-    message: err.message || "Something went wrong.",
+    code: serverError ? "INTERNAL_ERROR" : err.code,
+    message:
+      production && serverError
+        ? "Something went wrong while processing your request."
+        : err.message || "Something went wrong.",
+    ...(requestId ? { requestId } : {}),
   };
 
-  if (err.code) response.code = err.code;
+  if (!response.code) delete response.code;
 
-  if (process.env.NODE_ENV !== "production") {
+  if (!production && err.stack) {
     response.stack = err.stack;
   }
 

@@ -1,3 +1,4 @@
+import { safeErrorDetails } from "../utils/safeError.js";
 import LearningProfile from "../models/LearningProfile.js";
 import InterviewSession from "../models/InterviewSession.js";
 import TutorConversation from "../models/TutorConversation.js";
@@ -168,7 +169,7 @@ const runInterviewTutorAnalysis = async ({
         },
       );
     } catch (rollbackError) {
-      console.error("CRITICAL: Interview Tutor analysis rollback/refund failed:", rollbackError);
+      console.error("CRITICAL: Interview Tutor analysis rollback/refund failed:", safeErrorDetails(rollbackError));
     }
 
     console.error("Smart Interview Tutor deep-dive generation failed:", generationError?.message || generationError);

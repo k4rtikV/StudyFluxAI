@@ -1,3 +1,4 @@
+import { safeErrorDetails } from "../utils/safeError.js";
 import { GoogleGenAI } from "@google/genai";
 
 const DEFAULT_PRIMARY_MODEL = "gemini-3.6-flash";
@@ -293,7 +294,7 @@ const generateDraftWithFallback = async ({ prompt, schema, temperature, normaliz
       !shouldUseFallback(primaryError)
     ) {
       if (primaryError?.code === "GEMINI_NOT_CONFIGURED") throw primaryError;
-      console.error("Admin AI draft failed on primary model:", primaryError);
+      console.error("Admin AI draft failed on primary model:", safeErrorDetails(primaryError));
       throw httpError(
         "AI could not create a valid draft right now. You can retry or continue manually.",
         502,
@@ -323,7 +324,7 @@ const generateDraftWithFallback = async ({ prompt, schema, temperature, normaliz
         },
       };
     } catch (fallbackError) {
-      console.error("Admin AI draft failed on fallback model:", fallbackError);
+      console.error("Admin AI draft failed on fallback model:", safeErrorDetails(fallbackError));
       throw httpError(
         "AI could not create a valid draft right now. You can retry or continue manually.",
         502,

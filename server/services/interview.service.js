@@ -1,3 +1,4 @@
+import { safeErrorDetails } from "../utils/safeError.js";
 import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 
@@ -186,7 +187,7 @@ const generateCachedQuestionAudio = ({ interviewId, question, voice = "Kore" }) 
 const prewarmQuestionAudio = ({ interviewId, question, voice }) => {
   if (!question?.id || !question?.text) return;
   generateCachedQuestionAudio({ interviewId, question, voice }).catch((error) => {
-    console.warn("Smart Interview question-audio prewarm failed; on-demand retry remains available:", error?.message || error);
+    console.warn("Smart Interview question-audio prewarm failed; on-demand retry remains available:", safeErrorDetails(error));
   });
 };
 
@@ -686,7 +687,7 @@ export const submitSmartInterviewAnswer = async ({
           await completedInterview.save();
           queueLeaderboardRefresh(userId);
         } catch (error) {
-          console.error("Smart Interview progression sync failed; it will be backfilled from progression overview:", error);
+          console.error("Smart Interview progression sync failed; it will be backfilled from progression overview:", safeErrorDetails(error));
         }
 
         queueSmartInterviewReport({ userId, interviewId });
