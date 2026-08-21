@@ -8,7 +8,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "grant:gems": "node scripts/grantFluxGems.js",
-    "seed:admin": "node scripts/seedAdmin.js"
+    "seed:admin": "node scripts/seedAdmin.js",
+    "test:auth": "node --test tests/auth-security.test.js"
   },
   "keywords": [],
   "author": "",

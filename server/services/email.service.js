@@ -5,9 +5,7 @@ const getBrevoClient = () => {
     throw new Error("BREVO_API_KEY is missing.");
   }
 
-  return new BrevoClient({
-    apiKey: process.env.BREVO_API_KEY,
-  });
+  return new BrevoClient({ apiKey: process.env.BREVO_API_KEY });
 };
 
 const getSender = () => {
@@ -21,91 +19,174 @@ const getSender = () => {
   };
 };
 
-export const sendVerificationEmail = async ({
-  email,
-  fullName,
-  otp,
-}) => {
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const paragraphHtml = (value) => escapeHtml(value).replace(/\r?\n/g, "<br />");
+
+const getClientBase = () => String(process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+
+const safeClientHref = (path = "") => {
+  const safePath = String(path || "").startsWith("/") ? path : "";
+  return `${getClientBase()}${safePath}`;
+};
+
+const actionButton = ({ href, label }) => `
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 0;">
+    <tr>
+      <td style="border-radius:12px;background:#6d28d9;">
+        <a href="${escapeHtml(href)}" style="display:inline-block;padding:13px 20px;border-radius:12px;background:linear-gradient(90deg,#7c3aed,#2563eb,#06b6d4,#10b981);color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;line-height:1;">${escapeHtml(label)}</a>
+      </td>
+    </tr>
+  </table>
+`;
+
+const infoPanel = ({ html, tone = "violet" }) => {
+  const tones = {
+    violet: ["#f5f3ff", "#ddd6fe", "#5b21b6"],
+    cyan: ["#ecfeff", "#a5f3fc", "#0e7490"],
+    emerald: ["#ecfdf5", "#a7f3d0", "#047857"],
+    amber: ["#fffbeb", "#fde68a", "#b45309"],
+    slate: ["#f8fafc", "#e2e8f0", "#475569"],
+  };
+  const [background, border, color] = tones[tone] || tones.violet;
+  return `<div style="margin:20px 0 0;padding:16px 18px;border:1px solid ${border};border-radius:14px;background:${background};color:${color};font-size:14px;line-height:1.7;">${html}</div>`;
+};
+
+const buildBrandedEmail = ({
+  preheader = "StudyFluxAI update",
+  eyebrow = "StudyFluxAI",
+  title,
+  greeting = "",
+  bodyHtml = "",
+  footer = "This is an automated StudyFluxAI message.",
+}) => `
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f4f7fb;font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;color:#0f172a;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#f4f7fb;">
+      <tr>
+        <td align="center" style="padding:34px 14px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:620px;border-collapse:separate;background:#ffffff;border:1px solid #dbe4f0;border-radius:24px;overflow:hidden;box-shadow:0 18px 50px rgba(15,23,42,.08);">
+            <tr><td style="height:6px;background:linear-gradient(90deg,#7c3aed,#2563eb,#06b6d4,#10b981);font-size:0;line-height:0;">&nbsp;</td></tr>
+            <tr>
+              <td style="padding:28px 32px 12px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="vertical-align:middle;padding-right:12px;">
+                      <div style="width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#7c3aed,#2563eb 48%,#06b6d4 72%,#10b981);color:#ffffff;font-size:23px;font-weight:900;line-height:42px;text-align:center;box-shadow:0 7px 20px rgba(79,70,229,.25);">S</div>
+                    </td>
+                    <td style="vertical-align:middle;">
+                      <div style="font-size:19px;font-weight:900;letter-spacing:-.02em;color:#0f172a;">Study<span style="color:#4f46e5;">FluxAI</span></div>
+                      <div style="margin-top:2px;font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#94a3b8;">Learning Workspace</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 32px 34px;">
+                <div style="font-size:11px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:#6d28d9;">${escapeHtml(eyebrow)}</div>
+                <h1 style="margin:9px 0 0;font-size:27px;line-height:1.25;letter-spacing:-.035em;color:#0f172a;">${escapeHtml(title)}</h1>
+                ${greeting ? `<p style="margin:15px 0 0;font-size:15px;line-height:1.75;color:#64748b;">${greeting}</p>` : ""}
+                <div style="margin-top:18px;font-size:15px;line-height:1.78;color:#475569;">${bodyHtml}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 32px 24px;border-top:1px solid #eef2f7;background:#fbfdff;color:#94a3b8;font-size:11px;line-height:1.6;">
+                ${escapeHtml(footer)}<br />
+                <span style="color:#64748b;font-weight:700;">StudyFluxAI</span> · Learn smarter. Progress deliberately.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+const sendHtmlEmail = async ({ to, subject, htmlContent, replyTo }) => {
   const brevo = getBrevoClient();
-
-  await brevo.transactionalEmails.sendTransacEmail({
+  return brevo.transactionalEmails.sendTransacEmail({
     sender: getSender(),
-
-    to: [
-      {
-        email,
-        name: fullName,
-      },
-    ],
-
-    subject: `${otp} is your StudyFluxAI verification code`,
-
-    htmlContent: `
-      <!DOCTYPE html>
-      <html>
-        <body style="
-          margin:0;
-          padding:0;
-          background:#f7f8fc;
-          font-family:Arial,Helvetica,sans-serif;
-          color:#111827;
-        ">
-          <div style="padding:32px 16px;">
-            <div style="
-              max-width:560px;
-              margin:0 auto;
-              background:#ffffff;
-              border:1px solid #e5e7eb;
-              border-radius:20px;
-              padding:36px;
-            ">
-              <h1 style="
-                margin:0 0 12px;
-                font-size:24px;
-                color:#111827;
-              ">
-                Verify your StudyFluxAI account
-              </h1>
-
-              <p style="
-                margin:0 0 24px;
-                color:#64748b;
-                line-height:1.6;
-              ">
-                Hi ${fullName}, use the verification code below to finish
-                creating your StudyFluxAI account.
-              </p>
-
-              <div style="
-                margin:24px 0;
-                padding:18px;
-                background:#eef2ff;
-                border-radius:14px;
-                text-align:center;
-                font-size:32px;
-                font-weight:700;
-                letter-spacing:8px;
-                color:#4f46e5;
-              ">
-                ${otp}
-              </div>
-
-              <p style="
-                margin:0;
-                color:#64748b;
-                font-size:14px;
-                line-height:1.6;
-              ">
-                This code expires in 10 minutes. If you did not request this,
-                you can safely ignore this email.
-              </p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
+    to,
+    subject,
+    htmlContent,
+    ...(replyTo ? { replyTo } : {}),
   });
 };
+
+export const sendVerificationEmail = async ({ email, fullName, otp }) =>
+  sendHtmlEmail({
+    to: [{ email, name: fullName }],
+    subject: `${otp} is your StudyFluxAI verification code`,
+    htmlContent: buildBrandedEmail({
+      preheader: `Your StudyFluxAI verification code is ${otp}`,
+      eyebrow: "Verify your email",
+      title: "Finish creating your account",
+      greeting: `Hi ${escapeHtml(fullName)}, verify this email address to activate your StudyFluxAI account.`,
+      bodyHtml: `
+        ${infoPanel({
+          tone: "violet",
+          html: `<div style="text-align:center;"><div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;">Verification code</div><div style="margin-top:6px;font-size:34px;font-weight:900;letter-spacing:8px;color:#4f46e5;">${escapeHtml(otp)}</div></div>`,
+        })}
+        <p style="margin:18px 0 0;">This code expires in 10 minutes and can be used only once. If you did not start a StudyFluxAI registration, ignore this email.</p>
+      `,
+      footer: "Never share verification codes, passwords, or payment secrets with anyone claiming to be StudyFluxAI support.",
+    }),
+  });
+
+export const sendPasswordResetEmail = async ({ email, fullName, otp }) =>
+  sendHtmlEmail({
+    to: [{ email, name: fullName }],
+    subject: `${otp} is your StudyFluxAI password reset code`,
+    htmlContent: buildBrandedEmail({
+      preheader: `Use ${otp} to reset your StudyFluxAI password`,
+      eyebrow: "Account security",
+      title: "Reset your password",
+      greeting: `Hi ${escapeHtml(fullName)}, we received a request to reset your StudyFluxAI password.`,
+      bodyHtml: `
+        ${infoPanel({
+          tone: "amber",
+          html: `<div style="text-align:center;"><div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;">Password reset code</div><div style="margin-top:6px;font-size:34px;font-weight:900;letter-spacing:8px;color:#b45309;">${escapeHtml(otp)}</div></div>`,
+        })}
+        <p style="margin:18px 0 0;">Enter this code on the StudyFluxAI reset-password screen. It expires in 10 minutes and can be used only once.</p>
+        ${actionButton({ href: safeClientHref("/reset-password"), label: "Reset password" })}
+        <p style="margin:18px 0 0;font-weight:700;color:#334155;">If you did not request a password reset, do nothing. Your password remains unchanged.</p>
+      `,
+      footer: "StudyFluxAI will never ask you to send a password or reset code by email, chat, or support request.",
+    }),
+  });
+
+export const sendSecurityAlertEmail = async ({
+  email,
+  fullName,
+  title,
+  message,
+}) =>
+  sendHtmlEmail({
+    to: [{ email, name: fullName }],
+    subject: `StudyFluxAI security: ${String(title || "account change").slice(0, 120)}`,
+    htmlContent: buildBrandedEmail({
+      preheader: "A security-sensitive change was made to your StudyFluxAI account",
+      eyebrow: "Security notice",
+      title,
+      greeting: `Hi ${escapeHtml(fullName || "there")},`,
+      bodyHtml: `${infoPanel({ tone: "slate", html: paragraphHtml(message) })}<p style="margin:18px 0 0;">If you made this change, no action is needed. If you did not, secure your email account and contact StudyFluxAI support.</p>`,
+      footer: "Security notices are transactional and are sent regardless of optional email preferences.",
+    }),
+  });
 
 export const sendFluxGemPurchaseReceipt = async ({
   email,
@@ -116,55 +197,32 @@ export const sendFluxGemPurchaseReceipt = async ({
   razorpayOrderId,
   razorpayPaymentId,
 }) => {
-  const brevo = getBrevoClient();
   const amount = new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency,
     maximumFractionDigits: Number(amountPaise) % 100 === 0 ? 0 : 2,
   }).format(Number(amountPaise) / 100);
 
-  await brevo.transactionalEmails.sendTransacEmail({
-    sender: getSender(),
-    to: [
-      {
-        email,
-        name: fullName,
-      },
-    ],
-    subject: `Your StudyFluxAI FluxGem purchase receipt`,
-    htmlContent: `
-      <!DOCTYPE html>
-      <html>
-        <body style="margin:0;padding:0;background:#f7f8fc;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-          <div style="padding:32px 16px;">
-            <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:36px;">
-              <p style="margin:0 0 8px;color:#059669;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Payment verified</p>
-              <h1 style="margin:0 0 12px;font-size:24px;color:#111827;">${gems} FluxGems added</h1>
-              <p style="margin:0 0 24px;color:#64748b;line-height:1.6;">Hi ${fullName}, your Razorpay payment was verified and your StudyFluxAI wallet has been credited.</p>
-              <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:18px;">
-                <p style="margin:0 0 8px;font-weight:700;color:#065f46;">${gems} FluxGems · ${amount}</p>
-                <p style="margin:0 0 6px;color:#475569;font-size:13px;word-break:break-all;">Payment ID: ${razorpayPaymentId}</p>
-                <p style="margin:0;color:#475569;font-size:13px;word-break:break-all;">Order ID: ${razorpayOrderId}</p>
-              </div>
-              <p style="margin:22px 0 0;color:#64748b;font-size:13px;line-height:1.6;">You can also view this purchase in your StudyFluxAI profile history.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
+  return sendHtmlEmail({
+    to: [{ email, name: fullName }],
+    subject: "Your StudyFluxAI FluxGem purchase receipt",
+    htmlContent: buildBrandedEmail({
+      preheader: `${gems} FluxGems were added to your StudyFluxAI wallet`,
+      eyebrow: "Payment verified",
+      title: `${gems} FluxGems added`,
+      greeting: `Hi ${escapeHtml(fullName)}, your Razorpay payment was verified and your StudyFluxAI wallet was credited.`,
+      bodyHtml: `
+        ${infoPanel({
+          tone: "emerald",
+          html: `<strong style="font-size:17px;">${escapeHtml(gems)} FluxGems · ${escapeHtml(amount)}</strong><br /><span style="font-size:12px;word-break:break-all;">Payment ID: ${escapeHtml(razorpayPaymentId)}</span><br /><span style="font-size:12px;word-break:break-all;">Order ID: ${escapeHtml(razorpayOrderId)}</span>`,
+        })}
+        <p style="margin:18px 0 0;">You can review this purchase in your StudyFluxAI profile and FluxGem activity history.</p>
+        ${actionButton({ href: safeClientHref("/profile"), label: "View profile" })}
+      `,
+      footer: "Keep this receipt for your records. Payment and verification emails cannot be disabled in optional email preferences.",
+    }),
   });
 };
-
-const escapeHtml = (value) =>
-  String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
-const paragraphHtml = (value) =>
-  escapeHtml(value).replace(/\r?\n/g, "<br />");
 
 export const sendNotificationEmail = async ({
   email,
@@ -174,32 +232,19 @@ export const sendNotificationEmail = async ({
   actionUrl = "",
   actionLabel = "Open StudyFluxAI",
 }) => {
-  const brevo = getBrevoClient();
-  const clientBase = String(process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
-  const safePath = String(actionUrl || "").startsWith("/") ? actionUrl : "";
-  const actionHref = safePath ? `${clientBase}${safePath}` : clientBase;
+  const actionHref = safeClientHref(actionUrl);
 
-  await brevo.transactionalEmails.sendTransacEmail({
-    sender: getSender(),
+  return sendHtmlEmail({
     to: [{ email, name: fullName }],
     subject: `${String(title || "StudyFluxAI update").slice(0, 160)}`,
-    htmlContent: `
-      <!DOCTYPE html>
-      <html>
-        <body style="margin:0;padding:0;background:#f7f8fc;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-          <div style="padding:32px 16px;">
-            <div style="max-width:580px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:36px;">
-              <p style="margin:0 0 8px;color:#6d28d9;font-size:12px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;">StudyFluxAI update</p>
-              <h1 style="margin:0 0 14px;font-size:24px;color:#111827;">${escapeHtml(title)}</h1>
-              <p style="margin:0 0 22px;color:#64748b;line-height:1.7;">Hi ${escapeHtml(fullName || "there")},</p>
-              <div style="margin:0 0 24px;color:#475569;line-height:1.75;font-size:15px;">${paragraphHtml(body)}</div>
-              <a href="${escapeHtml(actionHref)}" style="display:inline-block;background:linear-gradient(90deg,#7c3aed,#2563eb,#06b6d4,#10b981);color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px;">${escapeHtml(actionLabel || "Open StudyFluxAI")}</a>
-              <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;line-height:1.6;">You can manage optional StudyFluxAI email notifications from Settings.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
+    htmlContent: buildBrandedEmail({
+      preheader: body,
+      eyebrow: "StudyFluxAI update",
+      title: title || "StudyFluxAI update",
+      greeting: `Hi ${escapeHtml(fullName || "there")},`,
+      bodyHtml: `<div>${paragraphHtml(body)}</div>${actionButton({ href: actionHref, label: actionLabel || "Open StudyFluxAI" })}`,
+      footer: "You can manage optional announcement, community, and reward emails from StudyFluxAI Settings.",
+    }),
   });
 };
 
@@ -211,55 +256,36 @@ export const sendSupportRequestEmail = async ({
   subject,
   message,
   requestId,
-}) => {
-  const brevo = getBrevoClient();
-  await brevo.transactionalEmails.sendTransacEmail({
-    sender: getSender(),
+}) =>
+  sendHtmlEmail({
     to: [{ email: supportEmail, name: "StudyFluxAI Support" }],
     replyTo: { email: userEmail, name: fullName },
     subject: `[Support · ${String(category || "other")}] ${String(subject || "StudyFluxAI request").slice(0, 140)}`,
-    htmlContent: `
-      <!DOCTYPE html>
-      <html>
-        <body style="margin:0;padding:0;background:#f7f8fc;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-          <div style="padding:28px 16px;">
-            <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;padding:32px;">
-              <p style="margin:0 0 8px;color:#0891b2;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.10em;">Learner support request</p>
-              <h1 style="margin:0 0 18px;font-size:22px;">${escapeHtml(subject)}</h1>
-              <div style="background:#f8fafc;border-radius:12px;padding:14px 16px;color:#475569;font-size:13px;line-height:1.7;">
-                <strong>${escapeHtml(fullName)}</strong> · ${escapeHtml(userEmail)}<br />
-                Category: ${escapeHtml(category)}<br />
-                Request ID: ${escapeHtml(requestId)}
-              </div>
-              <div style="margin-top:18px;color:#334155;line-height:1.75;font-size:15px;">${paragraphHtml(message)}</div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
+    htmlContent: buildBrandedEmail({
+      preheader: `New learner support request from ${fullName}`,
+      eyebrow: "Learner support request",
+      title: subject || "StudyFluxAI support request",
+      bodyHtml: `
+        ${infoPanel({
+          tone: "cyan",
+          html: `<strong>${escapeHtml(fullName)}</strong> · ${escapeHtml(userEmail)}<br />Category: ${escapeHtml(category)}<br />Request ID: ${escapeHtml(requestId)}`,
+        })}
+        <div style="margin-top:18px;">${paragraphHtml(message)}</div>
+      `,
+      footer: "Reply to this email to respond directly to the learner. Never request passwords, OTPs, or payment secrets.",
+    }),
   });
-};
 
-export const sendSupportConfirmationEmail = async ({ email, fullName, subject, requestId }) => {
-  const brevo = getBrevoClient();
-  await brevo.transactionalEmails.sendTransacEmail({
-    sender: getSender(),
+export const sendSupportConfirmationEmail = async ({ email, fullName, subject, requestId }) =>
+  sendHtmlEmail({
     to: [{ email, name: fullName }],
     subject: "We received your StudyFluxAI support request",
-    htmlContent: `
-      <!DOCTYPE html>
-      <html>
-        <body style="margin:0;padding:0;background:#f7f8fc;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-          <div style="padding:32px 16px;">
-            <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:36px;">
-              <p style="margin:0 0 8px;color:#059669;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.10em;">Support request received</p>
-              <h1 style="margin:0 0 14px;font-size:23px;">We have your message.</h1>
-              <p style="margin:0 0 16px;color:#64748b;line-height:1.7;">Hi ${escapeHtml(fullName)}, your request about <strong>${escapeHtml(subject)}</strong> was sent to the StudyFluxAI administrator.</p>
-              <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:14px;color:#065f46;font-size:13px;">Reference: ${escapeHtml(requestId)}</div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
+    htmlContent: buildBrandedEmail({
+      preheader: "Your StudyFluxAI support request was received",
+      eyebrow: "Support request received",
+      title: "We have your message",
+      greeting: `Hi ${escapeHtml(fullName)}, your request about ${escapeHtml(subject)} was submitted to StudyFluxAI support.`,
+      bodyHtml: `${infoPanel({ tone: "emerald", html: `<strong>Reference:</strong> ${escapeHtml(requestId)}` })}<p style="margin:18px 0 0;">Keep this reference if you need to follow up.</p>`,
+      footer: "StudyFluxAI support will never ask for your password, verification code, or payment secret.",
+    }),
   });
-};

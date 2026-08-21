@@ -12,6 +12,7 @@ export const generateAuthToken = (user) => {
   return jwt.sign(
     {
       role: user.role,
+      av: Number(user.authVersion || 0),
     },
     getJwtSecret(),
     {

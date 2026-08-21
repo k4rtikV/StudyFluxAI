@@ -125,6 +125,16 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+
+  useEffect(() => {
+    const handleSessionRevoked = () => {
+      setUser(null);
+    };
+
+    window.addEventListener("studyflux:session-revoked", handleSessionRevoked);
+    return () => window.removeEventListener("studyflux:session-revoked", handleSessionRevoked);
+  }, []);
+
   const login = (userData) => {
     setUser(userData);
   };

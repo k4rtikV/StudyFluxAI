@@ -112,3 +112,54 @@ export const validateOtpInput = (otp) => {
     valid: true,
   };
 };
+export const validatePasswordResetInput = ({
+  email,
+  otp,
+  password,
+  confirmPassword,
+}) => {
+  const errors = {};
+
+  if (!isValidEmail(email)) {
+    errors.email = "Enter a valid email address.";
+  }
+
+  const otpValidation = validateOtpInput(otp);
+  if (!otpValidation.valid) {
+    errors.otp = otpValidation.message;
+  }
+
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    errors.password = passwordError;
+  }
+
+  if (confirmPassword !== password) {
+    errors.confirmPassword = "Passwords do not match.";
+  }
+
+  return { valid: Object.keys(errors).length === 0, errors };
+};
+
+export const validatePasswordChangeInput = ({
+  currentPassword,
+  newPassword,
+  confirmPassword,
+}) => {
+  const errors = {};
+
+  if (typeof currentPassword !== "string" || !currentPassword) {
+    errors.currentPassword = "Current password is required.";
+  }
+
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    errors.newPassword = passwordError;
+  }
+
+  if (confirmPassword !== newPassword) {
+    errors.confirmPassword = "Passwords do not match.";
+  }
+
+  return { valid: Object.keys(errors).length === 0, errors };
+};

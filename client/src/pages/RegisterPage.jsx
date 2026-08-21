@@ -77,6 +77,10 @@ function RegisterPage() {
         "studyflux_verification_email",
         response.data.email,
       );
+      sessionStorage.setItem(
+        "studyflux_registration_token",
+        response.data.registrationToken,
+      );
 
       toast.success(response.message);
 
@@ -108,29 +112,18 @@ function RegisterPage() {
 
       if (
         response?.code ===
-        "EMAIL_PENDING_VERIFICATION"
-      ) {
-        sessionStorage.setItem(
-          "studyflux_verification_email",
-          values.email.trim().toLowerCase(),
-        );
-
-        toast(
-          "This email is already awaiting verification.",
-        );
-
-        navigate("/verify-email");
-        return;
-      }
-
-      if (
-        response?.code ===
         "VERIFICATION_EMAIL_FAILED"
       ) {
         sessionStorage.setItem(
           "studyflux_verification_email",
           values.email.trim().toLowerCase(),
         );
+        if (response?.data?.registrationToken) {
+          sessionStorage.setItem(
+            "studyflux_registration_token",
+            response.data.registrationToken,
+          );
+        }
 
         toast.error(response.message);
 

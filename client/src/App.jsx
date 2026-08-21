@@ -16,6 +16,7 @@ import DashboardPage from "./pages/DashboardPage";
 import DailyChallengesPage from "./pages/DailyChallengesPage";
 import EditProfilePage from "./pages/EditProfilePage";
 import FluxGemsInfoPage from "./pages/FluxGemsInfoPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import GeneratePage from "./pages/GeneratePage";
 import LandingPage from "./pages/LandingPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
@@ -26,6 +27,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import ProfilePage from "./pages/ProfilePage";
 import QuizGeneratorPage from "./pages/QuizGeneratorPage";
 import RegisterPage from "./pages/RegisterPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import StudyLibraryPage from "./pages/StudyLibraryPage";
 import StudyPlannerPage from "./pages/StudyPlannerPage";
 import StudySessionPage from "./pages/StudySessionPage";
@@ -73,6 +75,25 @@ function App() {
         element={
           <PublicOnlyRoute>
             <LoginPage />
+          </PublicOnlyRoute>
+        }
+      />
+
+
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicOnlyRoute>
+            <ForgotPasswordPage />
+          </PublicOnlyRoute>
+        }
+      />
+
+      <Route
+        path="/reset-password"
+        element={
+          <PublicOnlyRoute>
+            <ResetPasswordPage />
           </PublicOnlyRoute>
         }
       />

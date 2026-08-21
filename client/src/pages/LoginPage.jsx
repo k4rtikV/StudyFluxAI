@@ -40,6 +40,7 @@ function LoginPage() {
     register,
     handleSubmit,
     setError,
+    getValues,
     formState: {
       errors,
       isSubmitting,
@@ -164,9 +165,9 @@ function LoginPage() {
   };
 
   const handleForgotPassword = () => {
-    toast(
-      "Password recovery will be available shortly.",
-    );
+    navigate("/forgot-password", {
+      state: { email: String(getValues("email") || "").trim().toLowerCase() },
+    });
   };
 
   return (

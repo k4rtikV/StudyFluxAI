@@ -7,6 +7,22 @@ const api = axios.create({
   withCredentials: true,
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const code = error?.response?.data?.code;
+    if (
+      typeof window !== "undefined" &&
+      ["SESSION_REVOKED", "INVALID_SESSION"].includes(code)
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("studyflux:session-revoked", { detail: { code } }),
+      );
+    }
+    return Promise.reject(error);
+  },
+);
+
 export const registerUser = async (payload) => {
   const response = await api.post("/auth/register", payload);
   return response.data;
@@ -25,7 +41,6 @@ export const googleAuthUser = async (credential) => {
     credential,
     timezone: getBrowserTimeZone(),
   });
-
   return response.data;
 };
 
@@ -37,11 +52,34 @@ export const verifyEmail = async (payload) => {
   return response.data;
 };
 
-export const resendVerificationCode = async (email) => {
+export const resendVerificationCode = async (email, registrationToken) => {
   const response = await api.post("/auth/resend-verification", {
     email,
+    registrationToken,
   });
+  return response.data;
+};
 
+export const requestPasswordReset = async (email) => {
+  const response = await api.post("/auth/forgot-password", { email });
+  return response.data;
+};
+
+export const resetPassword = async (payload) => {
+  const response = await api.post("/auth/reset-password", payload);
+  return response.data;
+};
+
+export const changePassword = async (payload) => {
+  const response = await api.post("/auth/change-password", payload);
+  return response.data;
+};
+
+export const linkGoogleAccount = async ({ credential, currentPassword }) => {
+  const response = await api.post("/auth/link-google", {
+    credential,
+    currentPassword,
+  });
   return response.data;
 };
 
@@ -54,7 +92,6 @@ export const syncUserTimezone = async () => {
   const response = await api.patch("/auth/timezone", {
     timezone: getBrowserTimeZone(),
   });
-
   return response.data;
 };
 

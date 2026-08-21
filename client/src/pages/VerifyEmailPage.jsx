@@ -63,8 +63,12 @@ function VerifyEmailPage() {
     "studyflux_verification_email",
   );
 
+  const registrationToken = sessionStorage.getItem(
+    "studyflux_registration_token",
+  );
+
   useEffect(() => {
-    if (!email) {
+    if (!email || !registrationToken) {
       toast.error(
         "Start registration before verifying your email.",
       );
@@ -73,7 +77,7 @@ function VerifyEmailPage() {
         replace: true,
       });
     }
-  }, [email, navigate]);
+  }, [email, registrationToken, navigate]);
 
   useEffect(() => {
     if (resendSeconds <= 0) {
@@ -224,12 +228,16 @@ function VerifyEmailPage() {
       const response = await verifyEmail({
         email,
         otp,
+        registrationToken,
       });
 
       login(response.data.user);
 
       sessionStorage.removeItem(
         "studyflux_verification_email",
+      );
+      sessionStorage.removeItem(
+        "studyflux_registration_token",
       );
 
       toast.success(response.message);
@@ -303,11 +311,22 @@ function VerifyEmailPage() {
         sessionStorage.removeItem(
           "studyflux_verification_email",
         );
+        sessionStorage.removeItem(
+          "studyflux_registration_token",
+        );
 
         navigate("/login", {
           replace: true,
         });
 
+        return;
+      }
+
+      if (response?.code === "REGISTRATION_RESTART_REQUIRED") {
+        sessionStorage.removeItem("studyflux_verification_email");
+        sessionStorage.removeItem("studyflux_registration_token");
+        toast.error(response.message || "Registration expired. Please start again.");
+        navigate("/register", { replace: true });
         return;
       }
 
@@ -335,7 +354,7 @@ function VerifyEmailPage() {
       setOtpError("");
 
       const response =
-        await resendVerificationCode(email);
+        await resendVerificationCode(email, registrationToken);
 
       const cooldown =
         response.data?.resendAvailableIn ??
@@ -386,6 +405,14 @@ function VerifyEmailPage() {
         return;
       }
 
+      if (response?.code === "REGISTRATION_RESTART_REQUIRED") {
+        sessionStorage.removeItem("studyflux_verification_email");
+        sessionStorage.removeItem("studyflux_registration_token");
+        toast.error(response.message || "Registration expired. Please start again.");
+        navigate("/register", { replace: true });
+        return;
+      }
+
       toast.error(
         response?.message ||
           "Unable to resend the verification code.",
@@ -395,7 +422,7 @@ function VerifyEmailPage() {
     }
   };
 
-  if (!email) {
+  if (!email || !registrationToken) {
     return null;
   }
 

@@ -93,6 +93,23 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    authVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false,
+    },
+
+    passwordUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+
+    authMethodsUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+
     settings: {
       emailPreferences: {
         announcements: { type: Boolean, default: true },
@@ -118,8 +135,18 @@ userSchema.pre("save", async function () {
     return;
   }
 
+  if (this.$locals?.passwordAlreadyHashed === true) {
+    this.$locals.passwordAlreadyHashed = false;
+    return;
+  }
+
   this.password = await bcrypt.hash(this.password, 12);
 });
+
+userSchema.methods.setPasswordHash = function (passwordHash) {
+  this.password = passwordHash;
+  this.$locals.passwordAlreadyHashed = true;
+};
 
 userSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) {

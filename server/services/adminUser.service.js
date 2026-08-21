@@ -221,11 +221,15 @@ export const updateAdminUserStatus = async ({ userId, isActive }) => {
     throw httpError("Invalid user.");
   }
 
-  const user = await User.findOne({ _id: userId, role: "student" });
+  const user = await User.findOne({ _id: userId, role: "student" }).select("+authVersion");
   if (!user) throw httpError("Student account not found.", 404);
 
-  user.isActive = isActive;
-  await user.save();
+  if (user.isActive !== isActive) {
+    user.isActive = isActive;
+    user.authVersion = Number(user.authVersion || 0) + 1;
+    user.authMethodsUpdatedAt = new Date();
+    await user.save();
+  }
 
   if (isActive) {
     queueLeaderboardRefresh(user._id);

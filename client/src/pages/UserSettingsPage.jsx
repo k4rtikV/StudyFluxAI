@@ -3,6 +3,8 @@ import {
   Check,
   Clock3,
   Mail,
+  KeyRound,
+  Link2,
   RefreshCcw,
   Save,
   Settings2,
@@ -14,7 +16,9 @@ import {
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+import GoogleSignInButton from "../components/common/GoogleSignInButton";
 import useAuth from "../hooks/useAuth";
+import { changePassword, linkGoogleAccount } from "../services/authService";
 import { getUserSettings, updateUserSettings } from "../services/settingsService";
 import { getBrowserTimeZone } from "../utils/timezone";
 
@@ -66,6 +70,14 @@ function UserSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [googlePassword, setGooglePassword] = useState("");
+  const [googleLinking, setGoogleLinking] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +125,47 @@ function UserSettingsPage() {
       setError(requestError?.response?.data?.message || "Could not save your settings.");
     } finally {
       setSaving(false);
+    }
+  };
+
+
+  const handlePasswordChange = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error("Complete all password fields.");
+      return;
+    }
+
+    try {
+      setPasswordSaving(true);
+      const response = await changePassword(passwordForm);
+      if (response.data?.user) setUser(response.data.user);
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      toast.success(response.message);
+    } catch (requestError) {
+      const response = requestError?.response?.data;
+      const fieldMessage = response?.errors ? Object.values(response.errors)[0] : "";
+      toast.error(fieldMessage || response?.message || "Could not change your password.");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const handleGoogleCredential = async (credential) => {
+    if (!googlePassword) {
+      toast.error("Enter your current StudyFluxAI password before linking Google.");
+      return;
+    }
+
+    try {
+      setGoogleLinking(true);
+      const response = await linkGoogleAccount({ credential, currentPassword: googlePassword });
+      if (response.data?.user) setUser(response.data.user);
+      setGooglePassword("");
+      toast.success(response.message);
+    } catch (requestError) {
+      toast.error(requestError?.response?.data?.message || "Google sign-in could not be linked.");
+    } finally {
+      setGoogleLinking(false);
     }
   };
 
@@ -190,6 +243,83 @@ function UserSettingsPage() {
             <PreferenceRow icon={Mail} title="Support confirmations" description="Receive a reference email after you submit a Help & Support request." checked={form.emailPreferences.support} onChange={(value) => updateGroup("emailPreferences", "support", value)} tone="amber" />
           </div>
         </article>
+      </section>
+
+
+      <section className="mt-5 rounded-[28px] border border-violet-200/70 bg-[linear-gradient(120deg,rgba(255,255,255,.98),rgba(245,243,255,.9),rgba(236,254,255,.75))] p-5 shadow-[0_16px_40px_rgba(79,70,229,0.06)] sm:p-6">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-100 text-violet-700"><ShieldCheck size={20} /></span>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-violet-600">Account security</p>
+            <h2 className="text-xl font-black text-slate-900">Sign-in methods & password</h2>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-5 xl:grid-cols-2">
+          <article className="rounded-2xl border border-slate-200 bg-white/90 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><KeyRound size={18} /></span>
+              <div>
+                <p className="text-sm font-black text-slate-900">Password sign-in</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Changing your password revokes other previously issued sessions.</p>
+              </div>
+            </div>
+
+            {user?.authProviders?.includes("local") ? (
+              <div className="mt-4 space-y-3">
+                {[
+                  ["currentPassword", "Current password", "current-password"],
+                  ["newPassword", "New password", "new-password"],
+                  ["confirmPassword", "Confirm new password", "new-password"],
+                ].map(([key, label, autoComplete]) => (
+                  <input
+                    key={key}
+                    type="password"
+                    autoComplete={autoComplete}
+                    value={passwordForm[key]}
+                    onChange={(event) => setPasswordForm((current) => ({ ...current, [key]: event.target.value }))}
+                    placeholder={label}
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                  />
+                ))}
+                <button type="button" onClick={handlePasswordChange} disabled={passwordSaving} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:opacity-60">
+                  <KeyRound size={16} /> {passwordSaving ? "Changing password..." : "Change password"}
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold leading-5 text-slate-600">This account currently signs in through Google and has no local password.</div>
+            )}
+          </article>
+
+          <article className="rounded-2xl border border-slate-200 bg-white/90 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-50 text-cyan-700"><Link2 size={18} /></span>
+              <div>
+                <p className="text-sm font-black text-slate-900">Google sign-in</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Google can only be linked after password reauthentication, and the Google email must match this account.</p>
+              </div>
+            </div>
+
+            {user?.authProviders?.includes("google") ? (
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700"><Check size={16} /> Google sign-in securely linked</div>
+            ) : user?.authProviders?.includes("local") ? (
+              <div className="mt-4 space-y-3">
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={googlePassword}
+                  onChange={(event) => setGooglePassword(event.target.value)}
+                  placeholder="Current StudyFluxAI password"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                />
+                <div className={googleLinking || !googlePassword ? "pointer-events-none opacity-55" : ""}>
+                  <GoogleSignInButton text="continue_with" onCredential={handleGoogleCredential} loadingLabel="Linking Google..." />
+                </div>
+                <p className="text-[11px] leading-5 text-slate-500">Linking Google revokes other sessions and keeps this browser signed in with a freshly issued token.</p>
+              </div>
+            ) : null}
+          </article>
+        </div>
       </section>
 
       <section className="mt-5 rounded-[28px] border border-slate-200 bg-white/92 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)] sm:p-6">

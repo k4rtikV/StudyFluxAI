@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 
 import connectDB from "../config/db.js";
 import User from "../models/User.js";
+import PendingRegistration from "../models/PendingRegistration.js";
 import VerificationCode from "../models/VerificationCode.js";
 
 const normalizeEmail = (value) =>
@@ -35,7 +36,7 @@ await connectDB();
 
 try {
   let admin = await User.findOne({ email }).select(
-    "+password +googleId",
+    "+password +googleId +authVersion",
   );
 
   const created = !admin;
@@ -61,11 +62,17 @@ try {
   admin.isEmailVerified = true;
   admin.learningProfileCompleted = false;
   admin.isActive = true;
+  admin.authVersion = Number(admin.authVersion || 0) + 1;
+  admin.passwordUpdatedAt = new Date();
+  admin.authMethodsUpdatedAt = new Date();
 
   await admin.save();
 
   // A seeded admin never needs public email-verification OTP state.
-  await VerificationCode.deleteMany({ email });
+  await Promise.all([
+    VerificationCode.deleteMany({ email }),
+    PendingRegistration.deleteMany({ email }),
+  ]);
 
   console.log(
     `${created ? "Created" : "Updated"} StudyFluxAI admin: ${admin.email}`,
