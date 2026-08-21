@@ -9,6 +9,11 @@ import { getLevelProgress } from "../utils/progressionRules.js";
 
 const LEADERBOARD_META_KEY = "studyflux:leaderboard:meta:v1";
 const META_TTL_SECONDS = 6 * 60 * 60;
+const METRIC_TTL_SECONDS = 6 * 60 * 60;
+const refreshTimers = new Map();
+const refreshFlights = new Map();
+const FALLBACK_CACHE_MS = 20_000;
+let fallbackMetricsCache = { rows: null, periodInfo: null, expiresAt: 0, inFlight: null };
 const BOARD_TYPES = new Set(["overall", "weekly", "monthly", "streak"]);
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 25;
@@ -55,6 +60,9 @@ const getRedisKeys = (periodInfo) => ({
   monthly: `studyflux:leaderboard:monthly:${periodInfo.month.id}:v1`,
   streak: "studyflux:leaderboard:streak:v1",
 });
+
+const metricCacheKey = (userId, periodInfo) =>
+  `studyflux:leaderboard:metrics:${periodInfo.week.id}:${periodInfo.month.id}:${String(userId)}:v1`;
 
 const normalizeBoard = (value) => {
   const candidate = String(value || "overall").trim().toLowerCase();
@@ -153,6 +161,7 @@ const zAddMetrics = async ({ userId, metrics, periodInfo }) => {
       .expire(keys.weekly, 45 * 24 * 60 * 60)
       .expire(keys.monthly, 400 * 24 * 60 * 60)
       .exec();
+    await setCachedJson(metricCacheKey(userId, periodInfo), metrics, METRIC_TTL_SECONDS);
     return true;
   } catch (error) {
     console.warn("Leaderboard Redis update skipped:", error.message);
@@ -201,11 +210,25 @@ export const refreshUserLeaderboard = async (userId, { emit = true } = {}) => {
 };
 
 export const queueLeaderboardRefresh = (userId) => {
-  Promise.resolve()
-    .then(() => refreshUserLeaderboard(userId, { emit: true }))
-    .catch((error) => {
-      console.warn("Leaderboard refresh skipped:", error.message);
-    });
+  fallbackMetricsCache.expiresAt = 0;
+  const key = String(userId);
+  const existingTimer = refreshTimers.get(key);
+  if (existingTimer) clearTimeout(existingTimer);
+
+  refreshTimers.set(
+    key,
+    setTimeout(() => {
+      refreshTimers.delete(key);
+      if (refreshFlights.has(key)) return;
+
+      const flight = refreshUserLeaderboard(userId, { emit: true })
+        .catch((error) => {
+          console.warn("Leaderboard refresh skipped:", error.message);
+        })
+        .finally(() => refreshFlights.delete(key));
+      refreshFlights.set(key, flight);
+    }, 250),
+  );
 };
 
 const loadActiveStudents = () =>
@@ -237,7 +260,42 @@ const buildAllMetrics = async ({ writeRedis = true } = {}) => {
   return { rows, periodInfo };
 };
 
+const getFallbackMetricsSnapshot = async () => {
+  const now = Date.now();
+  if (
+    Array.isArray(fallbackMetricsCache.rows) &&
+    fallbackMetricsCache.periodInfo &&
+    fallbackMetricsCache.expiresAt > now
+  ) {
+    return {
+      rows: fallbackMetricsCache.rows,
+      periodInfo: fallbackMetricsCache.periodInfo,
+    };
+  }
+
+  if (fallbackMetricsCache.inFlight) return fallbackMetricsCache.inFlight;
+
+  const flight = buildAllMetrics({ writeRedis: false })
+    .then((snapshot) => {
+      fallbackMetricsCache = {
+        rows: snapshot.rows,
+        periodInfo: snapshot.periodInfo,
+        expiresAt: Date.now() + FALLBACK_CACHE_MS,
+        inFlight: null,
+      };
+      return snapshot;
+    })
+    .catch((error) => {
+      fallbackMetricsCache.inFlight = null;
+      throw error;
+    });
+
+  fallbackMetricsCache.inFlight = flight;
+  return flight;
+};
+
 export const rebuildLeaderboardCache = async ({ emit = true } = {}) => {
+  fallbackMetricsCache.expiresAt = 0;
   const client = getRedisClient();
   const periodInfo = getPeriodInfo();
   const keys = getRedisKeys(periodInfo);
@@ -315,7 +373,9 @@ const serializeEntry = ({ rank, user, metrics, board, currentUserId, exposeUserI
 });
 
 const getMongoFallbackLeaderboard = async ({ board, currentUserId, limit, exposeUserId }) => {
-  const { rows, periodInfo } = await buildAllMetrics({ writeRedis: false });
+  const snapshot = await getFallbackMetricsSnapshot();
+  const rows = snapshot.rows.map((row) => ({ ...row }));
+  const periodInfo = snapshot.periodInfo;
 
   rows.sort((a, b) => {
     const scoreDiff = scoreForBoard(b.metrics, board) - scoreForBoard(a.metrics, board);
@@ -360,6 +420,25 @@ const getMongoFallbackLeaderboard = async ({ board, currentUserId, limit, expose
   };
 };
 
+const getDisplayMetrics = async ({ userId, periodInfo }) => {
+  const cached = await getCachedJson(metricCacheKey(userId, periodInfo));
+  if (cached) {
+    return {
+      overallXp: Number(cached.overallXp || 0),
+      weeklyXp: Number(cached.weeklyXp || 0),
+      monthlyXp: Number(cached.monthlyXp || 0),
+      currentStreak: Number(cached.currentStreak || 0),
+      bestStreak: Number(cached.bestStreak || 0),
+      achievementXp: Number(cached.achievementXp || 0),
+      activityXp: Number(cached.activityXp || 0),
+    };
+  }
+
+  const metrics = await computeLeaderboardMetrics(userId, periodInfo);
+  await setCachedJson(metricCacheKey(userId, periodInfo), metrics, METRIC_TTL_SECONDS);
+  return metrics;
+};
+
 const getRedisLeaderboard = async ({ board, currentUserId, limit, exposeUserId }) => {
   const client = getRedisClient();
   if (!client) return null;
@@ -384,7 +463,7 @@ const getRedisLeaderboard = async ({ board, currentUserId, limit, exposeUserId }
       topScores.map(async (item, index) => {
         const user = userMap.get(String(item.value));
         if (!user) return null;
-        const metrics = await computeLeaderboardMetrics(user._id, periodInfo);
+        const metrics = await getDisplayMetrics({ userId: user._id, periodInfo });
         return serializeEntry({
           rank: index + 1,
           user,
@@ -410,7 +489,7 @@ const getRedisLeaderboard = async ({ board, currentUserId, limit, exposeUserId }
           .lean();
 
         if (viewerUser) {
-          const viewerMetrics = await computeLeaderboardMetrics(viewerUser._id, periodInfo);
+          const viewerMetrics = await getDisplayMetrics({ userId: viewerUser._id, periodInfo });
           viewerEntry = serializeEntry({
             rank: Number(viewerRank) + 1,
             user: viewerUser,
@@ -449,10 +528,9 @@ export const getLeaderboard = async ({
     MAX_LIMIT,
   );
 
-  if (currentUserId) {
-    await refreshUserLeaderboard(currentUserId, { emit: false });
-  }
-
+  // Progress mutations already queue a debounced refresh. Avoid recomputing a
+  // learner's entire progression graph on every leaderboard read; the Redis
+  // board and per-user metric snapshots are refreshed by those mutations.
   const redisResult = await getRedisLeaderboard({
     board: normalizedBoard,
     currentUserId,

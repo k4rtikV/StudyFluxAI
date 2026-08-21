@@ -1,14 +1,19 @@
+import crypto from "node:crypto";
+
 import { getRedisClient } from "../config/redis.js";
 
 const fallbackBuckets = new Map();
 
+const hashKey = (value) =>
+  crypto.createHash("sha256").update(String(value || "")).digest("hex").slice(0, 32);
+
 const pruneFallback = (now) => {
-  if (fallbackBuckets.size < 500) return;
+  if (fallbackBuckets.size < 1000) return;
   for (const [key, bucket] of fallbackBuckets.entries()) {
     if (bucket.resetAt <= now) fallbackBuckets.delete(key);
   }
 
-  while (fallbackBuckets.size > 1500) {
+  while (fallbackBuckets.size > 2500) {
     const oldestKey = fallbackBuckets.keys().next().value;
     if (!oldestKey) break;
     fallbackBuckets.delete(oldestKey);
@@ -41,16 +46,26 @@ const consumeRedis = async ({ client, key, limit, windowSeconds }) => {
   };
 };
 
-export const interviewRateLimit = ({ bucket, limit, windowMs = 60000 }) => async (req, res, next) => {
+export const purchaseRateLimit = ({
+  bucket,
+  limit,
+  windowMs = 15 * 60 * 1000,
+}) => async (req, res, next) => {
   const userId = String(req.user?._id || "anonymous");
-  const key = `rate:smart-interview:${bucket}:${userId}`;
+  const ip = String(req.ip || req.socket?.remoteAddress || "unknown").slice(0, 128);
+  const key = `rate:purchase:${bucket}:${hashKey(`${userId}:${ip}`)}`;
   const now = Date.now();
   let result;
 
   try {
     const client = getRedisClient();
     result = client
-      ? await consumeRedis({ client, key, limit, windowSeconds: Math.max(1, Math.ceil(windowMs / 1000)) })
+      ? await consumeRedis({
+          client,
+          key,
+          limit,
+          windowSeconds: Math.max(1, Math.ceil(windowMs / 1000)),
+        })
       : consumeFallback({ key, limit, windowMs, now });
   } catch {
     result = consumeFallback({ key, limit, windowMs, now });
@@ -58,12 +73,13 @@ export const interviewRateLimit = ({ bucket, limit, windowMs = 60000 }) => async
 
   res.setHeader("X-RateLimit-Limit", String(limit));
   res.setHeader("X-RateLimit-Remaining", String(result.remaining));
+
   if (!result.allowed) {
     res.setHeader("Retry-After", String(result.retryAfterSeconds));
     return res.status(429).json({
       success: false,
-      code: "INTERVIEW_RATE_LIMITED",
-      message: "Smart Interview is receiving requests too quickly. Please wait a moment and try again.",
+      code: "PURCHASE_RATE_LIMITED",
+      message: "Too many payment requests. Please wait before trying again.",
       retryAfterSeconds: result.retryAfterSeconds,
     });
   }

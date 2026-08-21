@@ -241,6 +241,7 @@ function UserSettingsPage() {
             <PreferenceRow icon={Users} title="Community updates" description="Receive emails for newly live challenges and polls when the admin enables community email delivery." checked={form.emailPreferences.community} onChange={(value) => updateGroup("emailPreferences", "community", value)} tone="cyan" />
             <PreferenceRow icon={Trophy} title="Reward emails" description="Receive a lightweight email when one-time FluxGem rewards are granted." checked={form.emailPreferences.rewards} onChange={(value) => updateGroup("emailPreferences", "rewards", value)} tone="emerald" />
             <PreferenceRow icon={Mail} title="Support confirmations" description="Receive a reference email after you submit a Help & Support request." checked={form.emailPreferences.support} onChange={(value) => updateGroup("emailPreferences", "support", value)} tone="amber" />
+            <PreferenceRow icon={Clock3} title="Study plan reminders" description="Receive one branded email seven days before each active Study Planner deadline. Completed plans are skipped automatically." checked={form.emailPreferences.plannerReminders !== false} onChange={(value) => updateGroup("emailPreferences", "plannerReminders", value)} tone="violet" />
           </div>
         </article>
       </section>

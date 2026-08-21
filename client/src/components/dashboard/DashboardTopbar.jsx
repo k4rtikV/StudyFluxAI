@@ -257,10 +257,24 @@ function DashboardTopbar({ onOpenSidebar }) {
   }, [loadProgress]);
 
   useEffect(() => {
-    if (profileOpen) {
+    if (profileOpen || gemMenuOpen) {
       loadProgress({ quiet: true });
     }
-  }, [loadProgress, profileOpen]);
+  }, [gemMenuOpen, loadProgress, profileOpen]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "hidden") return;
+      loadProgress({ quiet: true });
+    };
+
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [loadProgress]);
 
   useEffect(
     () => subscribeToProgressionChanges(() => loadProgress({ quiet: true })),
@@ -286,8 +300,18 @@ function DashboardTopbar({ onOpenSidebar }) {
   );
 
   useEffect(() => {
-    const timer = window.setInterval(loadPlannerSummary, 60_000);
-    return () => window.clearInterval(timer);
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") loadPlannerSummary();
+    };
+    const timer = window.setInterval(refreshIfVisible, 60_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") loadPlannerSummary();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [loadPlannerSummary]);
 
   useEffect(() => {

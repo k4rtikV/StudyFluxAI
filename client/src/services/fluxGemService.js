@@ -25,9 +25,10 @@ export const getFluxGemPurchases = async ({ limit = 20, page = 1 } = {}) =>
     type: "purchase",
   });
 
-export const createFluxGemPurchaseOrder = async (packageId) => {
+export const createFluxGemPurchaseOrder = async (packageId, clientRequestId) => {
   const response = await api.post("/fluxgems/purchases/order", {
     packageId,
+    clientRequestId,
   });
 
   return response.data;
@@ -44,5 +45,11 @@ export const verifyFluxGemPurchase = async (paymentResponse) => {
 
 export const getFluxGemPurchaseStatus = async (purchaseId) => {
   const response = await api.get(`/fluxgems/purchases/${purchaseId}`);
+  return response.data;
+};
+
+
+export const reconcileFluxGemPurchase = async (purchaseId) => {
+  const response = await api.post(`/fluxgems/purchases/${purchaseId}/reconcile`);
   return response.data;
 };

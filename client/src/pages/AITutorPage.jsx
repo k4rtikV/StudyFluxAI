@@ -406,6 +406,11 @@ function AITutorPage() {
     let timer = null;
 
     const pollInterviewDeepDive = async () => {
+      if (document.visibilityState === "hidden") {
+        timer = window.setTimeout(pollInterviewDeepDive, 6000);
+        return;
+      }
+
       try {
         const response = await getTutorConversation(activeConversationId);
         if (!active) return;
@@ -431,9 +436,17 @@ function AITutorPage() {
       }
     };
 
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible" || !active) return;
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(pollInterviewDeepDive, 150);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
     timer = window.setTimeout(pollInterviewDeepDive, 1200);
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", handleVisibility);
       if (timer) window.clearTimeout(timer);
     };
   }, [activeConversationId, activeConversation?.isGenerating, activeConversation?.sourceInterviewId]);

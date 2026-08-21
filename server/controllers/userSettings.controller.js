@@ -9,6 +9,7 @@ const serialize = (user) => ({
     community: user.settings?.emailPreferences?.community === true,
     rewards: user.settings?.emailPreferences?.rewards !== false,
     support: user.settings?.emailPreferences?.support !== false,
+    plannerReminders: user.settings?.emailPreferences?.plannerReminders !== false,
   },
   notificationPreferences: {
     announcements: user.settings?.notificationPreferences?.announcements !== false,
@@ -36,7 +37,7 @@ export const updateUserSettings = async (req, res, next) => {
     }
 
     if (payload.emailPreferences && typeof payload.emailPreferences === "object") {
-      for (const key of [...BOOL_KEYS, "support"]) {
+      for (const key of [...BOOL_KEYS, "support", "plannerReminders"]) {
         if (typeof payload.emailPreferences[key] === "boolean") {
           user.set(`settings.emailPreferences.${key}`, payload.emailPreferences[key]);
         }

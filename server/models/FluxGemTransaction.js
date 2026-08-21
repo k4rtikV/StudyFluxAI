@@ -104,6 +104,8 @@ const fluxGemTransactionSchema = new mongoose.Schema(
 );
 
 fluxGemTransactionSchema.index({ user: 1, createdAt: -1 });
+fluxGemTransactionSchema.index({ user: 1, type: 1, createdAt: -1 });
+fluxGemTransactionSchema.index({ user: 1, reason: 1, createdAt: -1 });
 fluxGemTransactionSchema.index(
   { user: 1, rewardKey: 1 },
   { unique: true, partialFilterExpression: { rewardKey: { $type: "string" } } },

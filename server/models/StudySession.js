@@ -338,6 +338,7 @@ const studySessionSchema = new mongoose.Schema(
 );
 
 studySessionSchema.index({ user: 1, createdAt: -1 });
+studySessionSchema.index({ user: 1, status: 1, completedAt: -1, createdAt: -1 });
 studySessionSchema.index({ user: 1, generationType: 1, createdAt: -1 });
 studySessionSchema.index(
   { "tutorProvenance.assistantMessage": 1 },

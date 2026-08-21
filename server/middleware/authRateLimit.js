@@ -18,6 +18,12 @@ const pruneFallback = (now) => {
   for (const [key, bucket] of fallbackBuckets.entries()) {
     if (bucket.resetAt <= now) fallbackBuckets.delete(key);
   }
+
+  while (fallbackBuckets.size > 2500) {
+    const oldestKey = fallbackBuckets.keys().next().value;
+    if (!oldestKey) break;
+    fallbackBuckets.delete(oldestKey);
+  }
 };
 
 const consumeFallback = ({ key, limit, windowMs, now }) => {

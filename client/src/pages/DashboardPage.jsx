@@ -15,7 +15,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
@@ -198,14 +197,6 @@ function DashboardPage() {
   const firstName =
     user?.fullName?.split(" ")[0] ||
     "there";
-
-  const showComingSoon = (
-    feature,
-  ) => {
-    toast(
-      `${feature} will be connected in an upcoming StudyFluxAI phase.`,
-    );
-  };
 
   return (
     <>
@@ -415,11 +406,7 @@ function DashboardPage() {
               <button
                 key={title}
                 type="button"
-                onClick={() =>
-                  path
-                    ? navigate(path)
-                    : showComingSoon(title)
-                }
+                onClick={() => navigate(path)}
                 className={`group rounded-2xl border bg-white/68 p-5 text-left shadow-[0_10px_28px_rgba(15,23,42,0.055)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:bg-white/86 hover:shadow-[0_18px_38px_rgba(15,23,42,0.10)] ${border}`}
               >
                 <div
@@ -437,9 +424,7 @@ function DashboardPage() {
                 </p>
 
                 <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-slate-400 transition group-hover:text-brand-600">
-                  {path
-                    ? actionLabel || "Open generator"
-                    : "Coming soon"}
+                  {actionLabel || "Open generator"}
                   <ArrowRight size={14} />
                 </div>
               </button>

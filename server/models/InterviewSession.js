@@ -181,6 +181,7 @@ interviewSessionSchema.index(
   { unique: true },
 );
 interviewSessionSchema.index({ user: 1, createdAt: -1 });
+interviewSessionSchema.index({ user: 1, status: 1, completedAt: -1, createdAt: -1 });
 
 const InterviewSession = mongoose.model("InterviewSession", interviewSessionSchema);
 

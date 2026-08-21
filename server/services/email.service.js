@@ -248,6 +248,61 @@ export const sendNotificationEmail = async ({
   });
 };
 
+export const sendStudyPlanReminderEmail = async ({
+  email,
+  fullName,
+  timezone,
+  title,
+  topic,
+  goal,
+  targetAt,
+  durationMinutes,
+  priority,
+}) => {
+  const target = new Date(targetAt);
+  let deadline = target.toISOString();
+  try {
+    deadline = new Intl.DateTimeFormat("en", {
+      timeZone: timezone || "UTC",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(target);
+  } catch {
+    deadline = target.toUTCString();
+  }
+
+  const duration = Number(durationMinutes || 0);
+  const durationLabel = duration > 0
+    ? `${duration} minute${duration === 1 ? "" : "s"}`
+    : "Not specified";
+
+  return sendHtmlEmail({
+    to: [{ email, name: fullName }],
+    subject: `Study plan reminder: ${String(title || topic || "your deadline").slice(0, 110)} is one week away`,
+    htmlContent: buildBrandedEmail({
+      preheader: `${String(title || topic || "Your study plan")} is due in one week`,
+      eyebrow: "Study Planner reminder",
+      title: "Your study deadline is one week away",
+      greeting: `Hi ${escapeHtml(fullName || "there")}, this active Study Planner goal is due in seven days.`,
+      bodyHtml: `
+        ${infoPanel({
+          tone: priority === "high" ? "amber" : "violet",
+          html: `<strong style="font-size:17px;">${escapeHtml(title || topic || "Study plan")}</strong><br />${topic ? `<span style="color:#64748b;">${escapeHtml(topic)}</span><br />` : ""}<div style="margin-top:10px;"><strong>Deadline:</strong> ${escapeHtml(deadline)}<br /><strong>Priority:</strong> ${escapeHtml(priority || "medium")}<br /><strong>Planned study time:</strong> ${escapeHtml(durationLabel)}</div>`,
+        })}
+        ${goal ? `<div style="margin-top:18px;"><strong style="color:#334155;">Goal</strong><div style="margin-top:5px;">${paragraphHtml(goal)}</div></div>` : ""}
+        <p style="margin:18px 0 0;">Open Study Planner to review linked material, adjust the schedule, or mark the plan complete when you are done.</p>
+        ${actionButton({ href: safeClientHref("/planner"), label: "Open Study Planner" })}
+      `,
+      footer: "This one-week reminder is sent only while the plan is still active. You can turn Study plan reminders off in StudyFluxAI Settings.",
+    }),
+  });
+};
+
 export const sendSupportRequestEmail = async ({
   supportEmail,
   userEmail,

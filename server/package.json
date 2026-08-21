@@ -9,7 +9,9 @@
     "dev": "nodemon index.js",
     "grant:gems": "node scripts/grantFluxGems.js",
     "seed:admin": "node scripts/seedAdmin.js",
-    "test:auth": "node --test tests/auth-security.test.js"
+    "test:auth": "node --test tests/auth-security.test.js",
+    "test:payment": "node --test tests/payment-security.test.js",
+    "test:phase3": "node --test tests/payment-security.test.js tests/auth-security.test.js"
   },
   "keywords": [],
   "author": "",

@@ -33,43 +33,69 @@ const getRazorpayCredentials = () => {
       "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
     );
     error.statusCode = 503;
+    error.code = "RAZORPAY_NOT_CONFIGURED";
     throw error;
   }
 
   return { keyId, keySecret };
 };
 
+const getRequestTimeoutMs = () => {
+  const configured = Number(process.env.RAZORPAY_REQUEST_TIMEOUT_MS || 15000);
+  return Number.isFinite(configured)
+    ? Math.min(Math.max(configured, 3000), 45000)
+    : 15000;
+};
+
 const razorpayRequest = async (path, options = {}) => {
   const { keyId, keySecret } = getRazorpayCredentials();
-  const response = await fetch(`https://api.razorpay.com/v1${path}`, {
-    method: options.method || "GET",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
-      "Content-Type": "application/json",
-    },
-    ...(options.body ? { body: JSON.stringify(options.body) } : {}),
-  });
-
-  let payload = null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getRequestTimeoutMs());
 
   try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
+    const response = await fetch(`https://api.razorpay.com/v1${path}`, {
+      method: options.method || "GET",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      ...(options.body ? { body: JSON.stringify(options.body) } : {}),
+    });
 
-  if (!response.ok) {
-    const error = new Error(
-      payload?.error?.description ||
-        payload?.error?.reason ||
-        "Razorpay request failed.",
-    );
-    error.statusCode = response.status >= 500 ? 502 : 400;
-    error.code = payload?.error?.code || "RAZORPAY_REQUEST_FAILED";
+    let payload = null;
+
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    if (!response.ok) {
+      const error = new Error(
+        payload?.error?.description ||
+          payload?.error?.reason ||
+          "Razorpay request failed.",
+      );
+      error.statusCode = response.status >= 500 ? 502 : 400;
+      error.code = payload?.error?.code || "RAZORPAY_REQUEST_FAILED";
+      throw error;
+    }
+
+    return payload;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      const timeoutError = new Error(
+        "Razorpay took too long to respond. Please retry in a moment.",
+      );
+      timeoutError.statusCode = 504;
+      timeoutError.code = "RAZORPAY_TIMEOUT";
+      throw timeoutError;
+    }
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return payload;
 };
 
 export const getFluxGemPackage = (packageId) =>
@@ -78,6 +104,7 @@ export const getFluxGemPackage = (packageId) =>
 export const createRazorpayOrder = async ({
   packageDetails,
   userId,
+  purchaseId = "",
 }) => {
   const receipt = `sfa_${String(userId).slice(-8)}_${Date.now()}`.slice(0, 40);
 
@@ -92,6 +119,7 @@ export const createRazorpayOrder = async ({
         packageId: packageDetails.id,
         gems: String(packageDetails.gems),
         userId: String(userId),
+        ...(purchaseId ? { purchaseId: String(purchaseId) } : {}),
       },
     },
   });
@@ -99,6 +127,12 @@ export const createRazorpayOrder = async ({
 
 export const fetchRazorpayPayment = async (paymentId) =>
   razorpayRequest(`/payments/${encodeURIComponent(paymentId)}`);
+
+export const fetchRazorpayOrder = async (orderId) =>
+  razorpayRequest(`/orders/${encodeURIComponent(orderId)}`);
+
+export const fetchRazorpayOrderPayments = async (orderId) =>
+  razorpayRequest(`/orders/${encodeURIComponent(orderId)}/payments`);
 
 export const verifyRazorpayCheckoutSignature = ({
   orderId,
@@ -131,6 +165,7 @@ export const verifyRazorpayWebhookSignature = ({
       "RAZORPAY_WEBHOOK_SECRET is not configured.",
     );
     error.statusCode = 503;
+    error.code = "RAZORPAY_WEBHOOK_NOT_CONFIGURED";
     throw error;
   }
 

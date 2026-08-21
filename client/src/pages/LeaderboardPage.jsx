@@ -233,9 +233,11 @@ function LeaderboardPage() {
         setData(response?.data || null);
         setLoadError("");
       } catch (error) {
-        const message = error?.response?.data?.message || "We couldn't load the leaderboard.";
-        setLoadError(message);
-        toast.error(message);
+        if (!quiet) {
+          const message = error?.response?.data?.message || "We couldn't load the leaderboard.";
+          setLoadError(message);
+          toast.error(message);
+        }
       } finally {
         if (!quiet) setLoading(false);
       }

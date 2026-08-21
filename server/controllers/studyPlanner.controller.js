@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import StudyPlan from "../models/StudyPlan.js";
 import StudySession from "../models/StudySession.js";
 import { findRelatedStudyLibraryItems } from "../services/studyPlannerMatcher.service.js";
+import { applyStudyPlanReminderSchedule } from "../services/studyPlanReminder.service.js";
 import { createUserNotification } from "../services/notification.service.js";
 import {
   validatePlannerMatchInput,
@@ -219,7 +220,7 @@ export const createStudyPlan = async (req, res, next) => {
       });
     }
 
-    const plan = await StudyPlan.create({
+    const plan = new StudyPlan({
       user: req.user._id,
       title: validation.values.title,
       topic: validation.values.topic,
@@ -229,6 +230,8 @@ export const createStudyPlan = async (req, res, next) => {
       priority: validation.values.priority,
       linkedStudySessions,
     });
+    applyStudyPlanReminderSchedule(plan);
+    await plan.save();
 
     const populated = await populatePlan(StudyPlan.findById(plan._id)).lean();
 
@@ -264,6 +267,9 @@ export const updateStudyPlan = async (req, res, next) => {
       return res.status(404).json({ success: false, code: "STUDY_PLAN_NOT_FOUND", message: "Study plan not found." });
     }
 
+    const previousTargetAt = plan.targetAt ? new Date(plan.targetAt) : null;
+    const previousStatus = plan.status;
+
     const { linkedStudySessionIds, ...updates } = validation.values;
     if (linkedStudySessionIds !== undefined) {
       const linked = await resolveOwnedLinkedSessions(req.user._id, linkedStudySessionIds);
@@ -282,6 +288,7 @@ export const updateStudyPlan = async (req, res, next) => {
     if (updates.status === "completed" && !plan.completedAt) plan.completedAt = new Date();
     if (updates.status && updates.status !== "completed") plan.completedAt = null;
 
+    applyStudyPlanReminderSchedule(plan, { previousTargetAt, previousStatus });
     await plan.save();
 
     const populated = await populatePlan(StudyPlan.findById(plan._id)).lean();

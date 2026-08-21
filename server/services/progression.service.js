@@ -141,13 +141,46 @@ export const getProgressOverview = async (userId) => {
 
   const timeZone = normalizeTimeZone(user?.timezone);
 
-  const sessions = await StudySession.find({
-    user: userId,
-    status: "completed",
-  })
-    .select("generationType origin createdAt completedAt quizProgress quizProgressionSource")
-    .sort({ completedAt: 1, createdAt: 1 })
-    .lean();
+  // These activity reads are independent. Running them together removes the
+  // serial MongoDB waterfall that previously made Dashboard/Profile/Topbar
+  // progression requests feel much slower as a learner accumulated history.
+  const [
+    sessions,
+    completedTutorQuestions,
+    tutorActivityMessages,
+    quizAttempts,
+    challengeAttempts,
+    completedInterviews,
+  ] = await Promise.all([
+    StudySession.find({ user: userId, status: "completed" })
+      .select("generationType origin createdAt completedAt quizProgress quizProgressionSource")
+      .sort({ completedAt: 1, createdAt: 1 })
+      .lean(),
+    TutorMessage.countDocuments({ user: userId, role: "user", status: "completed" }),
+    TutorMessage.find({
+      user: userId,
+      role: "user",
+      status: "completed",
+      completedAt: { $ne: null },
+    })
+      .select("completedAt")
+      .sort({ completedAt: 1 })
+      .lean(),
+    QuizAttempt.find({ user: userId })
+      .select("attemptedAt studySession")
+      .sort({ attemptedAt: 1 })
+      .lean(),
+    DailyChallengeAttempt.find({ user: userId })
+      .select("isCorrect answeredAt xpEarned fluxGemsEarned")
+      .sort({ answeredAt: 1 })
+      .lean(),
+    InterviewSession.find({ user: userId, status: "completed" })
+      .select(
+        "targetRole interviewType transcript completedAt completionTimezone completionLocalDay createdAt status",
+      )
+      .sort({ completedAt: 1, createdAt: 1 })
+      .lean(),
+  ]);
 
   // Saving a Tutor quiz is an artifact conversion, not learning activity by
   // itself. Once the learner actually takes it, it can count as a completed
@@ -177,46 +210,6 @@ export const getProgressOverview = async (userId) => {
   const completedQuizzes = sessions.filter(
     (session) => Number(session.quizProgress?.attempts || 0) > 0,
   ).length;
-
-  const completedTutorQuestions = await TutorMessage.countDocuments({
-    user: userId,
-    role: "user",
-    status: "completed",
-  });
-
-  const tutorActivityMessages = await TutorMessage.find({
-    user: userId,
-    role: "user",
-    status: "completed",
-    completedAt: { $ne: null },
-  })
-    .select("completedAt")
-    .sort({ completedAt: 1 })
-    .lean();
-
-  const quizAttempts = await QuizAttempt.find({
-    user: userId,
-  })
-    .select("attemptedAt studySession")
-    .sort({ attemptedAt: 1 })
-    .lean();
-
-  const challengeAttempts = await DailyChallengeAttempt.find({
-    user: userId,
-  })
-    .select("isCorrect answeredAt xpEarned fluxGemsEarned")
-    .sort({ answeredAt: 1 })
-    .lean();
-
-  const completedInterviews = await InterviewSession.find({
-    user: userId,
-    status: "completed",
-  })
-    .select(
-      "targetRole interviewType transcript completedAt completionTimezone completionLocalDay createdAt status",
-    )
-    .sort({ completedAt: 1, createdAt: 1 })
-    .lean();
 
   const challengeWins = challengeAttempts.filter(
     (attempt) => attempt.isCorrect,
@@ -300,46 +293,41 @@ export const getProgressOverview = async (userId) => {
     currentLevel: levelProgress.level,
   });
 
-  const rewardTotals = await FluxGemTransaction.aggregate([
-    {
-      $match: {
-        user: userId,
-        type: "reward",
-        amount: { $gt: 0 },
+  const [rewardTotals, recentSessions, recentTutorConversations] = await Promise.all([
+    FluxGemTransaction.aggregate([
+      {
+        $match: {
+          user: userId,
+          type: "reward",
+          amount: { $gt: 0 },
+        },
       },
-    },
-    {
-      $group: {
-        _id: null,
-        total: { $sum: "$amount" },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$amount" },
+        },
       },
-    },
+    ]),
+    StudySession.find({ user: userId, status: "completed" })
+      .select(
+        "generationType origin topic sourceMode sourceFile output quizSize quizProgress tutorProvenance createdAt completedAt",
+      )
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .lean(),
+    TutorConversation.find({
+      user: userId,
+      archivedAt: null,
+      successfulQuestionCount: { $gt: 0 },
+    })
+      .select("title contextTitle successfulQuestionCount lastMessageAt createdAt")
+      .sort({ lastMessageAt: -1, updatedAt: -1 })
+      .limit(3)
+      .lean(),
   ]);
 
   const gemRewardsEarned = Number(rewardTotals[0]?.total || 0);
-
-  const recentSessions = await StudySession.find({
-    user: userId,
-    status: "completed",
-  })
-    .select(
-      "generationType origin topic sourceMode sourceFile output quizSize quizProgress tutorProvenance createdAt completedAt",
-    )
-    .sort({ createdAt: -1 })
-    .limit(3)
-    .lean();
-
-  const recentTutorConversations = await TutorConversation.find({
-    user: userId,
-    archivedAt: null,
-    successfulQuestionCount: { $gt: 0 },
-  })
-    .select(
-      "title contextTitle successfulQuestionCount lastMessageAt createdAt",
-    )
-    .sort({ lastMessageAt: -1, updatedAt: -1 })
-    .limit(3)
-    .lean();
 
   return {
     stats: {

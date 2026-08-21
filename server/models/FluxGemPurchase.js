@@ -33,11 +33,20 @@ const fluxGemPurchaseSchema = new mongoose.Schema(
       default: "INR",
     },
 
+    clientRequestId: {
+      type: String,
+      default: null,
+      trim: true,
+      maxlength: 100,
+    },
+
     razorpayOrderId: {
       type: String,
       required: true,
       unique: true,
       index: true,
+      trim: true,
+      maxlength: 160,
     },
 
     razorpayPaymentId: {
@@ -45,13 +54,29 @@ const fluxGemPurchaseSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
       index: true,
+      trim: true,
+      maxlength: 160,
     },
 
     status: {
       type: String,
-      enum: ["created", "paid", "failed"],
-      default: "created",
+      enum: ["creating", "created", "pending", "paid", "failed"],
+      default: "creating",
       index: true,
+    },
+
+    providerOrderStatus: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 80,
+    },
+
+    providerPaymentStatus: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 80,
     },
 
     signatureVerifiedAt: {
@@ -83,6 +108,27 @@ const fluxGemPurchaseSchema = new mongoose.Schema(
     lastWebhookEventId: {
       type: String,
       default: "",
+      maxlength: 160,
+    },
+
+    lastReconciledAt: {
+      type: Date,
+      default: null,
+    },
+
+    receiptEmailSentAt: {
+      type: Date,
+      default: null,
+    },
+
+    receiptEmailClaimedAt: {
+      type: Date,
+      default: null,
+    },
+
+    receiptEmailFailedAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -91,6 +137,15 @@ const fluxGemPurchaseSchema = new mongoose.Schema(
 );
 
 fluxGemPurchaseSchema.index({ user: 1, createdAt: -1 });
+fluxGemPurchaseSchema.index({ user: 1, status: 1, createdAt: -1 });
+fluxGemPurchaseSchema.index(
+  { user: 1, clientRequestId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { clientRequestId: { $type: "string" } },
+  },
+);
+
 
 const FluxGemPurchase = mongoose.model(
   "FluxGemPurchase",

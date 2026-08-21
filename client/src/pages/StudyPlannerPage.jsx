@@ -549,7 +549,9 @@ function StudyPlannerPage() {
       const response = await listStudyPlans();
       setPlans(response?.data?.studyPlans || []);
     } catch (error) {
-      toast.error(getErrorMessage(error, "Study Planner could not be loaded."));
+      if (!quiet) {
+        toast.error(getErrorMessage(error, "Study Planner could not be loaded."));
+      }
     } finally {
       if (!quiet) setLoading(false);
     }

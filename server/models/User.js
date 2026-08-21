@@ -116,6 +116,7 @@ const userSchema = new mongoose.Schema(
         community: { type: Boolean, default: false },
         rewards: { type: Boolean, default: true },
         support: { type: Boolean, default: true },
+        plannerReminders: { type: Boolean, default: true },
       },
       notificationPreferences: {
         announcements: { type: Boolean, default: true },

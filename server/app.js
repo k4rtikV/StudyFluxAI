@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 
 import errorHandler from "./middleware/errorHandler.js";
 import notFound from "./middleware/notFound.js";
+import { requestTiming } from "./middleware/requestTiming.js";
 import healthRoutes from "./routes/healthRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import fluxGemRoutes from "./routes/fluxGemRoutes.js";
@@ -31,6 +32,7 @@ const app = express();
 
 app.disable("x-powered-by");
 
+app.use(requestTiming);
 app.use(helmet());
 
 app.use(

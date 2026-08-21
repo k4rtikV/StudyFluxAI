@@ -8,6 +8,10 @@ import { closeRedis, connectRedis } from "./config/redis.js";
 import { initializeSocketServer } from "./realtime/socket.js";
 import { startInterviewJobWorker, stopInterviewJobWorker } from "./services/interviewJob.service.js";
 import {
+  startStudyPlanReminderWorker,
+  stopStudyPlanReminderWorker,
+} from "./services/studyPlanReminder.service.js";
+import {
   recoverStaleStudyGenerations,
   startStudyGenerationRecoverySweep,
 } from "./services/studyGenerationQueue.service.js";
@@ -28,6 +32,9 @@ const startServer = async () => {
   startInterviewJobWorker().catch((error) => {
     console.error("Initial Smart Interview job recovery failed:", error);
   });
+  startStudyPlanReminderWorker().catch((error) => {
+    console.error("Initial Study Planner reminder worker startup failed:", error);
+  });
 
   server.listen(PORT, () => {
     console.log(`StudyFluxAI server running on port ${PORT}`);
@@ -43,6 +50,7 @@ const startServer = async () => {
 
     server.close(async () => {
       stopInterviewJobWorker();
+      stopStudyPlanReminderWorker();
       await closeRedis();
       console.log("StudyFluxAI server stopped.");
       process.exit(0);

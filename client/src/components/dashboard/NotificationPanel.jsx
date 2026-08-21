@@ -69,12 +69,20 @@ function NotificationPanel({ onNavigate }) {
 
   useEffect(() => {
     load({ quiet: true });
-    const timer = window.setInterval(() => load({ quiet: true }), 30_000);
-    const handleFocus = () => load({ quiet: true });
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") load({ quiet: true });
+    };
+    const timer = window.setInterval(refreshIfVisible, 60_000);
+    const handleFocus = () => refreshIfVisible();
+    const handleVisibility = () => refreshIfVisible();
+
     window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [load]);
 
@@ -86,8 +94,15 @@ function NotificationPanel({ onNavigate }) {
     const close = (event) => {
       if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
     };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, []);
 
   const openNotification = async (item) => {
@@ -130,7 +145,7 @@ function NotificationPanel({ onNavigate }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+10px)] z-50 w-[min(92vw,390px)] rounded-[24px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_28px_70px_rgba(15,23,42,0.22)]">
+        <div role="dialog" aria-label="Notifications" className="absolute right-0 top-[calc(100%+10px)] z-50 w-[min(92vw,390px)] rounded-[24px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_28px_70px_rgba(15,23,42,0.22)]">
           <div className="overflow-hidden rounded-[22.5px] bg-white/98 backdrop-blur-2xl">
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-violet-50/80 via-white to-cyan-50/70 px-4 py-3.5">
               <div>
@@ -144,7 +159,7 @@ function NotificationPanel({ onNavigate }) {
               {loading && !items.length ? (
                 <div className="py-10 text-center text-sm font-semibold text-slate-400">Loading notifications...</div>
               ) : error && !items.length ? (
-                <div className="m-2 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-5 text-sm font-semibold text-rose-700">{error}</div>
+                <div className="m-2 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-5 text-sm font-semibold text-rose-700"><p>{error}</p><button type="button" onClick={() => load()} className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-black text-rose-700 shadow-sm">Retry</button></div>
               ) : items.length ? (
                 items.map((item) => {
                   const Icon = iconForType(item.type);

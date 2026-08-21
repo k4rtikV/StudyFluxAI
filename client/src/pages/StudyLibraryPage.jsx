@@ -100,7 +100,7 @@ function FilterSelect({ value, onChange, label, options }) {
 function StudyLibraryPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const cacheKey = String(user?.id || "anonymous");
+  const cacheKey = String(user?.id || user?._id || "anonymous");
   const cachedSnapshot = getLibrarySnapshot(cacheKey);
   const [sessions, setSessions] = useState(() =>
     Array.isArray(cachedSnapshot?.sessions) ? cachedSnapshot.sessions : [],
@@ -140,8 +140,15 @@ function StudyLibraryPage() {
 
     if (pendingIds.length === 0) return undefined;
 
-    const refresh = () => loadSessions(false);
-    const intervalId = window.setInterval(refresh, 4000);
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      loadSessions(false);
+    };
+    const intervalId = window.setInterval(refresh, 10000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
     const socket = getRealtimeSocket();
     const handleSessionChanged = (payload) => {
       if (pendingIds.includes(String(payload?.sessionId || ""))) refresh();
@@ -152,6 +159,7 @@ function StudyLibraryPage() {
 
     return () => {
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibility);
       pendingIds.forEach((sessionId) => socket.emit("study-session:leave", sessionId));
       socket.off("study-session:changed", handleSessionChanged);
     };

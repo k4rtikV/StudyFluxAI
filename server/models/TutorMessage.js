@@ -118,6 +118,7 @@ tutorMessageSchema.index({
   status: 1,
   completedAt: -1,
 });
+tutorMessageSchema.index({ user: 1, role: 1, status: 1, completedAt: -1 });
 
 const TutorMessage = mongoose.model(
   "TutorMessage",
