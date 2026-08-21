@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router";
 
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardTopbar from "../components/dashboard/DashboardTopbar";
 
 function DashboardLayout({ children }) {
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#f7f8fc]">
@@ -24,7 +31,7 @@ function DashboardLayout({ children }) {
 
       <div className="relative lg:pl-[286px]">
         <main className="px-4 pb-6 pt-[106px] sm:px-6 sm:pb-7 xl:px-8 xl:pb-8">
-          <div className="mx-auto max-w-[1500px]">{children}</div>
+          <div className="mx-auto max-w-[1500px]">{children ?? <Outlet />}</div>
         </main>
       </div>
     </div>

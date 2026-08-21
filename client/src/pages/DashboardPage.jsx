@@ -20,7 +20,6 @@ import { useNavigate } from "react-router";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import useAuth from "../hooks/useAuth";
-import DashboardLayout from "../layouts/DashboardLayout";
 import { getProgressOverview } from "../services/progressService";
 
 const QUICK_ACTIONS = [
@@ -209,7 +208,7 @@ function DashboardPage() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-sm font-bold text-brand-600">
@@ -558,7 +557,7 @@ function DashboardPage() {
           )}
         </article>
       </section>
-    </DashboardLayout>
+    </>
   );
 }
 

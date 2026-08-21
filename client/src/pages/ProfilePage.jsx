@@ -19,7 +19,6 @@ import { useLocation, useNavigate } from "react-router";
 import useAuth from "../hooks/useAuth";
 import UserAvatar from "../components/common/UserAvatar";
 import LevelKite from "../components/progression/LevelKite";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getFluxGemActivity,
   getFluxGemPurchases,
@@ -423,7 +422,7 @@ function ProfilePage() {
   const levels = Array.isArray(progression.levels) ? progression.levels : [];
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-bold text-brand-600">
@@ -1020,7 +1019,7 @@ function ProfilePage() {
           )}
         </article>
       </section>
-    </DashboardLayout>
+    </>
   );
 }
 

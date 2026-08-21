@@ -33,7 +33,6 @@ import {
   levelUsesProgram,
   levelUsesStream,
 } from "../data/learningCatalog";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getLearningProfile,
   saveLearningProfile,
@@ -457,7 +456,7 @@ function EditProfilePage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <>
         <div className="flex min-h-[60vh] items-center justify-center">
           <div className="text-center">
             <LoaderCircle
@@ -470,12 +469,12 @@ function EditProfilePage() {
             </p>
           </div>
         </div>
-      </DashboardLayout>
+      </>
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex items-start gap-3">
         <button
           type="button"
@@ -1025,7 +1024,7 @@ function EditProfilePage() {
           </p>
         </div>
       </section>
-    </DashboardLayout>
+    </>
   );
 }
 

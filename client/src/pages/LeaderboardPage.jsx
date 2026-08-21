@@ -13,7 +13,6 @@ import toast from "react-hot-toast";
 
 import UserAvatar from "../components/common/UserAvatar";
 import LevelKite from "../components/progression/LevelKite";
-import DashboardLayout from "../layouts/DashboardLayout";
 import { getLeaderboard } from "../services/leaderboardService";
 import { getRealtimeSocket } from "../utils/realtimeSocket";
 
@@ -277,7 +276,7 @@ function LeaderboardPage() {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <section className="relative overflow-hidden rounded-[32px] border border-violet-100 bg-[linear-gradient(120deg,rgba(255,255,255,0.98)_0%,rgba(248,247,255,0.97)_46%,rgba(238,252,255,0.95)_72%,rgba(240,253,248,0.96)_100%)] px-6 py-7 shadow-[0_18px_50px_rgba(76,29,149,0.06)] sm:px-8">
         <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-cyan-200/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 left-[38%] h-44 w-44 rounded-full bg-violet-200/20 blur-3xl" />
@@ -409,7 +408,7 @@ function LeaderboardPage() {
           ) : null}
         </>
       )}
-    </DashboardLayout>
+    </>
   );
 }
 

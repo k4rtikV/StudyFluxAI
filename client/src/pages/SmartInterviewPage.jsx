@@ -23,7 +23,6 @@ import { useNavigate } from "react-router";
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import InterviewAudioPreflight from "../components/interview/InterviewAudioPreflight";
 import useAuth from "../hooks/useAuth";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getInterviewEligibility,
   listInterviews,
@@ -242,18 +241,18 @@ function SmartInterviewPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <>
         <div className="flex min-h-[55vh] items-center justify-center text-sm font-bold text-slate-500">
           <LoaderCircle size={20} className="mr-2 animate-spin" /> Preparing Smart Interview...
         </div>
-      </DashboardLayout>
+      </>
     );
   }
 
   const eligible = Boolean(eligibility?.eligible);
 
   return (
-    <DashboardLayout>
+    <>
       <section className="overflow-hidden rounded-[32px] border border-violet-200/70 bg-[linear-gradient(120deg,rgba(255,255,255,0.96),rgba(245,243,255,0.94),rgba(236,254,255,0.88))] p-6 shadow-[0_22px_70px_rgba(79,70,229,0.10)] sm:p-8">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
           <div className="max-w-3xl">
@@ -487,7 +486,7 @@ function SmartInterviewPage() {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 }
 

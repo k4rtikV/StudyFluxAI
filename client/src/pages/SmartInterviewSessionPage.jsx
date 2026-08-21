@@ -23,7 +23,6 @@ import toast from "react-hot-toast";
 import { useNavigate, useParams } from "react-router";
 
 import InterviewAvatar from "../components/interview/InterviewAvatar";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getInterview,
   getInterviewQuestionAudio,
@@ -452,18 +451,18 @@ function SmartInterviewSessionPage() {
   }, [engineState]);
 
   if (loading) {
-    return <DashboardLayout><div className="flex min-h-[55vh] items-center justify-center text-sm font-bold text-slate-500"><LoaderCircle size={20} className="mr-2 animate-spin" /> Loading interview...</div></DashboardLayout>;
+    return <><div className="flex min-h-[55vh] items-center justify-center text-sm font-bold text-slate-500"><LoaderCircle size={20} className="mr-2 animate-spin" /> Loading interview...</div></>;
   }
 
   if (!interview) {
-    return <DashboardLayout><div className="rounded-3xl border border-slate-200 bg-white p-8 text-center"><h1 className="text-2xl font-black text-slate-900">Interview unavailable</h1><button type="button" onClick={() => navigate("/interview")} className="mt-5 rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-extrabold text-white">Back to Smart Interview</button></div></DashboardLayout>;
+    return <><div className="rounded-3xl border border-slate-200 bg-white p-8 text-center"><h1 className="text-2xl font-black text-slate-900">Interview unavailable</h1><button type="button" onClick={() => navigate("/interview")} className="mt-5 rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-extrabold text-white">Back to Smart Interview</button></div></>;
   }
 
   const noSpeechSeconds = noSpeechRemainingMs == null ? null : Math.ceil(noSpeechRemainingMs / 1000);
   const warning = engineState === "listening" && !hasSpeech && noSpeechSeconds != null && noSpeechSeconds <= Number(turnConfig.warningSeconds || 5);
 
   return (
-    <DashboardLayout>
+    <>
       <button type="button" onClick={() => navigate("/interview")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-600 shadow-sm hover:text-violet-700"><ArrowLeft size={15} /> Interview home</button>
 
       <section className="mt-4 overflow-hidden rounded-[32px] border border-violet-200/75 bg-[linear-gradient(125deg,#ffffff_0%,#f5f3ff_56%,#ecfeff_100%)] p-6 shadow-[0_22px_70px_rgba(79,70,229,0.10)] sm:p-8">
@@ -650,7 +649,7 @@ function SmartInterviewSessionPage() {
           </section>
         </aside>
       </div>
-    </DashboardLayout>
+    </>
   );
 }
 

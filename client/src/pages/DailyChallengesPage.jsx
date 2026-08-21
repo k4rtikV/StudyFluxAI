@@ -15,7 +15,6 @@ import toast from "react-hot-toast";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import useAuth from "../hooks/useAuth";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   answerDailyChallenge,
   getCommunityPolls,
@@ -293,7 +292,7 @@ function DailyChallengesPage() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-bold text-emerald-600">Community learning</p>
@@ -484,7 +483,7 @@ function DailyChallengesPage() {
           </div>
         </div>
       )}
-    </DashboardLayout>
+    </>
   );
 }
 

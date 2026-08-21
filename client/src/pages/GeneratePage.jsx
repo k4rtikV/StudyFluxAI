@@ -22,7 +22,6 @@ import { useNavigate } from "react-router";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import useAuth from "../hooks/useAuth";
-import DashboardLayout from "../layouts/DashboardLayout";
 import { getLearningProfile } from "../services/learningProfileService";
 import { generateStudySession } from "../services/studySessionService";
 
@@ -301,7 +300,7 @@ function GeneratePage() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex items-start gap-3">
           <button
@@ -800,7 +799,7 @@ function GeneratePage() {
           </article>
         </aside>
       </form>
-    </DashboardLayout>
+    </>
   );
 }
 

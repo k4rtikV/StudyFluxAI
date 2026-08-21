@@ -14,7 +14,6 @@ import toast from "react-hot-toast";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import LevelKite from "../components/progression/LevelKite";
-import DashboardLayout from "../layouts/DashboardLayout";
 import useAuth from "../hooks/useAuth";
 import { getProgressOverview } from "../services/progressService";
 
@@ -198,7 +197,7 @@ function AchievementsPage() {
   );
 
   return (
-    <DashboardLayout>
+    <>
       <section>
         <p className="text-sm font-bold text-violet-600">Progression</p>
 
@@ -466,7 +465,7 @@ function AchievementsPage() {
           </section>
         </>
       )}
-    </DashboardLayout>
+    </>
   );
 }
 

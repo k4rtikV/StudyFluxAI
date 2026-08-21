@@ -26,7 +26,6 @@ import {
 import { useNavigate } from "react-router";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
-import DashboardLayout from "../layouts/DashboardLayout";
 
 const EARNING_METHODS = [
   {
@@ -114,7 +113,7 @@ function FluxGemsInfoPage() {
   const navigate = useNavigate();
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex items-start gap-3">
         <button
           type="button"
@@ -507,7 +506,7 @@ function FluxGemsInfoPage() {
           ))}
         </div>
       </section>
-    </DashboardLayout>
+    </>
   );
 }
 

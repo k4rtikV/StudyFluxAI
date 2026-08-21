@@ -29,7 +29,6 @@ import {
 
 import LevelKite from "../components/progression/LevelKite";
 import GoogleFormsExportModal from "../components/study/GoogleFormsExportModal";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   getStudySession,
   submitStudyQuiz,
@@ -749,14 +748,14 @@ function StudySessionPage() {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
+      <>
         <div className="flex min-h-[55vh] items-center justify-center">
           <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-bold text-slate-600 shadow-sm">
             <LoaderCircle size={18} className="animate-spin text-violet-600" />
             Loading your learning session...
           </div>
         </div>
-      </DashboardLayout>
+      </>
     );
   }
 
@@ -785,7 +784,7 @@ function StudySessionPage() {
     };
 
     return (
-      <DashboardLayout>
+      <>
         <section className="mx-auto max-w-3xl rounded-3xl border border-violet-200/80 bg-white/80 p-6 shadow-[0_18px_50px_rgba(109,40,217,0.08)] backdrop-blur-xl sm:p-8">
           <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-violet-100 via-indigo-50 to-emerald-50 text-violet-600">
             <LoaderCircle size={26} className="animate-spin" />
@@ -833,13 +832,13 @@ function StudySessionPage() {
             </button>
           </div>
         </section>
-      </DashboardLayout>
+      </>
     );
   }
 
   if (studySession?.status === "failed") {
     return (
-      <DashboardLayout>
+      <>
         <section className="mx-auto max-w-3xl rounded-3xl border border-rose-200 bg-white/85 p-7 text-center shadow-sm backdrop-blur-xl sm:p-9">
           <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-rose-50 text-rose-600">
             <X size={25} />
@@ -869,13 +868,13 @@ function StudySessionPage() {
             </button>
           </div>
         </section>
-      </DashboardLayout>
+      </>
     );
   }
 
   if (!studySession || !output) {
     return (
-      <DashboardLayout>
+      <>
         <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-2xl font-extrabold text-slate-950">
             Learning session unavailable
@@ -891,12 +890,12 @@ function StudySessionPage() {
             Create another session
           </button>
         </div>
-      </DashboardLayout>
+      </>
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex items-start gap-3">
           <button
@@ -1144,7 +1143,7 @@ function StudySessionPage() {
         onClose={() => setGoogleFormsExportModalOpen(false)}
         onExport={handleGoogleFormsExport}
       />
-    </DashboardLayout>
+    </>
   );
 }
 

@@ -9,6 +9,7 @@ import {
 } from "./components/common/RouteGuards";
 
 import AdminLayout from "./layouts/AdminLayout";
+import DashboardLayout from "./layouts/DashboardLayout";
 import AchievementsPage from "./pages/AchievementsPage";
 import AITutorPage from "./pages/AITutorPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -114,166 +115,31 @@ function App() {
       </Route>
 
       <Route
-        path="/dashboard"
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <DashboardLayout />
           </ProtectedRoute>
         }
-      />
-
-      <Route
-        path="/generate"
-        element={
-          <ProtectedRoute>
-            <GeneratePage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/generate/notes"
-        element={
-          <ProtectedRoute>
-            <NotesGeneratorPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/generate/quiz"
-        element={
-          <ProtectedRoute>
-            <QuizGeneratorPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/ai-tutor"
-        element={
-          <ProtectedRoute>
-            <AITutorPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/library"
-        element={
-          <ProtectedRoute>
-            <StudyLibraryPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/study/:sessionId"
-        element={
-          <ProtectedRoute>
-            <StudySessionPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/planner"
-        element={
-          <ProtectedRoute>
-            <StudyPlannerPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/interview"
-        element={
-          <ProtectedRoute>
-            <SmartInterviewPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/interview/:interviewId"
-        element={
-          <ProtectedRoute>
-            <SmartInterviewSessionPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/interview/:interviewId/report"
-        element={
-          <ProtectedRoute>
-            <SmartInterviewReportPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/daily-challenges"
-        element={
-          <ProtectedRoute>
-            <DailyChallengesPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/leaderboard"
-        element={
-          <ProtectedRoute>
-            <LeaderboardPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/wallet"
-        element={
-          <ProtectedRoute>
-            <WalletPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/fluxgems"
-        element={
-          <ProtectedRoute>
-            <FluxGemsInfoPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/achievements"
-        element={
-          <ProtectedRoute>
-            <AchievementsPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/profile/edit"
-        element={
-          <ProtectedRoute>
-            <EditProfilePage />
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="generate" element={<GeneratePage />} />
+        <Route path="generate/notes" element={<NotesGeneratorPage />} />
+        <Route path="generate/quiz" element={<QuizGeneratorPage />} />
+        <Route path="ai-tutor" element={<AITutorPage />} />
+        <Route path="library" element={<StudyLibraryPage />} />
+        <Route path="study/:sessionId" element={<StudySessionPage />} />
+        <Route path="planner" element={<StudyPlannerPage />} />
+        <Route path="interview" element={<SmartInterviewPage />} />
+        <Route path="interview/:interviewId" element={<SmartInterviewSessionPage />} />
+        <Route path="interview/:interviewId/report" element={<SmartInterviewReportPage />} />
+        <Route path="daily-challenges" element={<DailyChallengesPage />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="wallet" element={<WalletPage />} />
+        <Route path="fluxgems" element={<FluxGemsInfoPage />} />
+        <Route path="achievements" element={<AchievementsPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="profile/edit" element={<EditProfilePage />} />
+      </Route>
 
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

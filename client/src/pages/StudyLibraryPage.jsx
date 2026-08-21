@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 
-import DashboardLayout from "../layouts/DashboardLayout";
+import useAuth from "../hooks/useAuth";
 import { listStudySessions } from "../services/studySessionService";
 import { getRealtimeSocket } from "../utils/realtimeSocket";
 
@@ -74,6 +74,11 @@ const SORT_OPTIONS = [
   ["oldest", "Oldest first"],
 ];
 
+const librarySnapshots = new Map();
+
+const getLibrarySnapshot = (userId) =>
+  librarySnapshots.get(String(userId || "anonymous")) || null;
+
 function FilterSelect({ value, onChange, label, options }) {
   return (
     <label className="relative min-w-[150px] flex-1 sm:flex-none">
@@ -94,28 +99,39 @@ function FilterSelect({ value, onChange, label, options }) {
 
 function StudyLibraryPage() {
   const navigate = useNavigate();
-  const [sessions, setSessions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+  const cacheKey = String(user?.id || "anonymous");
+  const cachedSnapshot = getLibrarySnapshot(cacheKey);
+  const [sessions, setSessions] = useState(() =>
+    Array.isArray(cachedSnapshot?.sessions) ? cachedSnapshot.sessions : [],
+  );
+  const [isLoading, setIsLoading] = useState(() => !Array.isArray(cachedSnapshot?.sessions));
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [originFilter, setOriginFilter] = useState("all");
   const [sort, setSort] = useState("newest");
 
-  const loadSessions = useCallback(async (showError = true) => {
+  const loadSessions = useCallback(async (showError = true, { foreground = false } = {}) => {
     try {
+      if (foreground) setIsLoading(true);
       const response = await listStudySessions(100, "", true);
-      setSessions(response?.data?.studySessions || []);
+      const nextSessions = response?.data?.studySessions || [];
+      librarySnapshots.set(cacheKey, { sessions: nextSessions, updatedAt: Date.now() });
+      setSessions(nextSessions);
     } catch (error) {
       if (showError) toast.error(getErrorMessage(error));
     } finally {
-      setIsLoading(false);
+      if (foreground) setIsLoading(false);
     }
-  }, []);
+  }, [cacheKey]);
 
   useEffect(() => {
-    loadSessions();
-  }, [loadSessions]);
+    const snapshot = getLibrarySnapshot(cacheKey);
+    const hasSnapshot = Array.isArray(snapshot?.sessions);
+    if (hasSnapshot) setSessions(snapshot.sessions);
+    loadSessions(!hasSnapshot, { foreground: !hasSnapshot });
+  }, [cacheKey, loadSessions]);
 
   useEffect(() => {
     const pendingIds = sessions
@@ -179,7 +195,7 @@ function StudyLibraryPage() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-bold text-violet-600">Your learning archive</p>
@@ -347,7 +363,7 @@ function StudyLibraryPage() {
           })}
         </section>
       )}
-    </DashboardLayout>
+    </>
   );
 }
 

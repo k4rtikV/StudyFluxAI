@@ -33,7 +33,6 @@ import {
   levelUsesStream,
 } from "../../data/learningCatalog";
 import useAuth from "../../hooks/useAuth";
-import DashboardLayout from "../../layouts/DashboardLayout";
 import { getLearningProfile } from "../../services/learningProfileService";
 import { generateStudySession } from "../../services/studySessionService";
 import FluxGemMark from "../dashboard/FluxGemMark";
@@ -550,7 +549,7 @@ function StandaloneGeneratorWorkspace({ generationType }) {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex items-start gap-3">
           <button
@@ -1130,7 +1129,7 @@ function StandaloneGeneratorWorkspace({ generationType }) {
           </article>
         </aside>
       </form>
-    </DashboardLayout>
+    </>
   );
 }
 

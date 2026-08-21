@@ -15,7 +15,6 @@ import { useNavigate } from "react-router";
 
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import useAuth from "../hooks/useAuth";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   createFluxGemPurchaseOrder,
   verifyFluxGemPurchase,
@@ -145,7 +144,7 @@ function WalletPage() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex items-start gap-3">
         <button
           type="button"
@@ -331,7 +330,7 @@ function WalletPage() {
           </div>
         </article>
       </section>
-    </DashboardLayout>
+    </>
   );
 }
 

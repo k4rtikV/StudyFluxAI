@@ -28,7 +28,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router";
 
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   createStudyPlan,
   deleteStudyPlan,
@@ -639,7 +638,7 @@ function StudyPlannerPage() {
   };
 
   return (
-    <DashboardLayout>
+    <>
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2 text-violet-600">
@@ -872,7 +871,7 @@ function StudyPlannerPage() {
           await loadPlans({ quiet: true });
         }}
       />
-    </DashboardLayout>
+    </>
   );
 }
 

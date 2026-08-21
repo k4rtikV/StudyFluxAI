@@ -26,7 +26,6 @@ import { useNavigate, useParams } from "react-router";
 
 import LevelKite from "../components/progression/LevelKite";
 import useAuth from "../hooks/useAuth";
-import DashboardLayout from "../layouts/DashboardLayout";
 import {
   downloadInterviewReportPdf,
   exportInterviewQuestionsToTutor,
@@ -283,19 +282,19 @@ function SmartInterviewReportPage() {
 
   if (loading && !payload) {
     return (
-      <DashboardLayout>
+      <>
         <div className="flex min-h-[58vh] items-center justify-center">
           <div className="rounded-3xl border border-violet-200 bg-white px-6 py-5 text-sm font-extrabold text-slate-600 shadow-sm">
             <LoaderCircle size={19} className="mr-2 inline animate-spin text-violet-600" /> Loading interview report...
           </div>
         </div>
-      </DashboardLayout>
+      </>
     );
   }
 
   if ((generating || !report) && !error) {
     return (
-      <DashboardLayout>
+      <>
         <button type="button" onClick={() => navigate("/interview")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-600 shadow-sm hover:text-violet-700">
           <ArrowLeft size={15} /> Interview history
         </button>
@@ -312,13 +311,13 @@ function SmartInterviewReportPage() {
             <LoaderCircle size={14} className="animate-spin" /> This page updates automatically
           </div>
         </section>
-      </DashboardLayout>
+      </>
     );
   }
 
   if (error && !payload) {
     return (
-      <DashboardLayout>
+      <>
         <div className="mx-auto mt-10 max-w-2xl rounded-[30px] border border-rose-200 bg-white p-7 text-center shadow-sm">
           <RefreshCcw size={28} className="mx-auto text-rose-500" />
           <h1 className="mt-4 text-2xl font-black text-slate-900">Report generation needs another try.</h1>
@@ -328,7 +327,7 @@ function SmartInterviewReportPage() {
             <button type="button" onClick={() => navigate("/interview")} className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-700">Interview history</button>
           </div>
         </div>
-      </DashboardLayout>
+      </>
     );
   }
 
@@ -348,7 +347,7 @@ function SmartInterviewReportPage() {
           : "Export + analyze in Tutor";
 
   return (
-    <DashboardLayout>
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={() => navigate("/interview")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-600 shadow-sm hover:text-violet-700">
           <ArrowLeft size={15} /> Interview history
@@ -555,7 +554,7 @@ function SmartInterviewReportPage() {
           </button>
         </aside>
       </div>
-    </DashboardLayout>
+    </>
   );
 }
 

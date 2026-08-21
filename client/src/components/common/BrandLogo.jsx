@@ -40,9 +40,9 @@ function BrandLogo({
               style={
                 inverse
                   ? {
-                      WebkitTextStroke: "0.65px rgba(255,255,255,0.92)",
+                      WebkitTextStroke: "0.72px rgba(51,65,85,0.92)",
                       paintOrder: "stroke fill",
-                      textShadow: "0 1px 8px rgba(255,255,255,0.10)",
+                      textShadow: "0 1px 7px rgba(15,23,42,0.18)",
                     }
                   : undefined
               }

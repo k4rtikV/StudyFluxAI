@@ -27,7 +27,6 @@ import { useNavigate, useSearchParams } from "react-router";
 import FluxGemMark from "../components/dashboard/FluxGemMark";
 import TutorMessageContent from "../components/tutor/TutorMessageContent";
 import useAuth from "../hooks/useAuth";
-import DashboardLayout from "../layouts/DashboardLayout";
 import { getLearningProfile } from "../services/learningProfileService";
 import { listStudySessions } from "../services/studySessionService";
 import {
@@ -749,7 +748,7 @@ function AITutorPage() {
     freeRemaining <= 0 && Number(user?.fluxGems || 0) < paidCost;
 
   return (
-    <DashboardLayout>
+    <>
       <section className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -1280,7 +1279,7 @@ function AITutorPage() {
         </div>
       )}
 
-    </DashboardLayout>
+    </>
   );
 }
 
