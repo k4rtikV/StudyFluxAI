@@ -10,6 +10,7 @@ function BrandLogo({
     sm: { mark: "h-8 w-8", text: "text-lg" },
     md: { mark: "h-10 w-10", text: "text-xl" },
     lg: { mark: "h-11 w-11", text: "text-[1.35rem]" },
+    xl: { mark: "h-[3.15rem] w-[3.15rem]", text: "text-[1.55rem]" },
   }[size] || { mark: "h-10 w-10", text: "text-xl" };
 
   return (
@@ -40,9 +41,9 @@ function BrandLogo({
               style={
                 inverse
                   ? {
-                      WebkitTextStroke: "0.72px rgba(51,65,85,0.92)",
+                      WebkitTextStroke: "1.15px rgba(51,65,85,0.98)",
                       paintOrder: "stroke fill",
-                      textShadow: "0 1px 7px rgba(15,23,42,0.18)",
+                      textShadow: "0 1px 8px rgba(15,23,42,0.24)",
                     }
                   : undefined
               }

@@ -23,12 +23,31 @@ import {
   getAdminLeaderboard,
   rebuildAdminLeaderboard,
 } from "../controllers/adminLeaderboard.controller.js";
+import {
+  archiveAnnouncementHandler,
+  createAnnouncementHandler,
+  deleteAnnouncementHandler,
+  getAnnouncements,
+  publishAnnouncementHandler,
+  updateAnnouncementHandler,
+} from "../controllers/adminAnnouncement.controller.js";
+import { getAdminSettings, updateAdminSettings } from "../controllers/adminSettings.controller.js";
 import { requireAdmin } from "../middleware/admin.js";
 import { protect } from "../middleware/auth.js";
 
 const router = express.Router();
 
 router.use(protect, requireAdmin);
+
+router.get("/announcements", getAnnouncements);
+router.post("/announcements", createAnnouncementHandler);
+router.patch("/announcements/:announcementId", updateAnnouncementHandler);
+router.post("/announcements/:announcementId/publish", publishAnnouncementHandler);
+router.post("/announcements/:announcementId/archive", archiveAnnouncementHandler);
+router.delete("/announcements/:announcementId", deleteAnnouncementHandler);
+
+router.get("/settings", getAdminSettings);
+router.patch("/settings", updateAdminSettings);
 
 router.get("/community/overview", getCommunityOverview);
 

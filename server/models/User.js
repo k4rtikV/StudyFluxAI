@@ -92,6 +92,21 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    settings: {
+      emailPreferences: {
+        announcements: { type: Boolean, default: true },
+        community: { type: Boolean, default: false },
+        rewards: { type: Boolean, default: true },
+        support: { type: Boolean, default: true },
+      },
+      notificationPreferences: {
+        announcements: { type: Boolean, default: true },
+        community: { type: Boolean, default: true },
+        rewards: { type: Boolean, default: true },
+        system: { type: Boolean, default: true },
+      },
+    },
   },
   {
     timestamps: true,

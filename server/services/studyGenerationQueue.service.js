@@ -3,6 +3,7 @@ import { emitStudySessionChanged } from "../realtime/socket.js";
 import { refundFailedStudyGeneration } from "./fluxGem.service.js";
 import { generateLearningSession } from "./gemini.service.js";
 import { queueLeaderboardRefresh } from "./leaderboard.service.js";
+import { createUserNotification } from "./notification.service.js";
 
 const CONCURRENCY = Math.max(
   Number(process.env.STUDY_GENERATION_CONCURRENCY || 2),
@@ -140,6 +141,19 @@ const processJob = async (job) => {
       generationStage: "completed",
       fallbackUsed: Boolean(generation.fallbackUsed),
     });
+
+    createUserNotification({
+      userId,
+      type: "system",
+      title: "Your study material is ready",
+      body: `${completedSession.output?.sessionTitle || completedSession.topic || "Your StudyFluxAI generation"} finished generating.`,
+      actionUrl: `/study/${String(studySessionId)}`,
+      actionLabel: "Open session",
+      priority: "normal",
+      dedupeKey: `study-session:${String(studySessionId)}:completed`,
+      emailRequested: false,
+      metadata: { studySessionId: String(studySessionId), status: "completed" },
+    }).catch((error) => console.warn("Study generation notification failed:", error.message));
   } catch (generationError) {
     try {
       const refundResult = await refundFailedStudyGeneration({
@@ -175,6 +189,21 @@ const processJob = async (job) => {
         generationStage: "failed",
         refunded: Boolean(refundResult.refunded),
       });
+
+      createUserNotification({
+        userId,
+        type: "system",
+        title: "Study generation needs attention",
+        body: refundResult.refunded
+          ? "The AI generation failed and your FluxGems were refunded. Open Study Library to review or try again."
+          : "The AI generation failed. Open Study Library to review the saved status.",
+        actionUrl: "/library",
+        actionLabel: "Open Study Library",
+        priority: "high",
+        dedupeKey: `study-session:${String(studySessionId)}:failed`,
+        emailRequested: false,
+        metadata: { studySessionId: String(studySessionId), status: "failed", refunded: Boolean(refundResult.refunded) },
+      }).catch((error) => console.warn("Study generation failure notification failed:", error.message));
     } catch (refundError) {
       console.error(
         "CRITICAL: FluxGem refund failed after background AI generation error:",

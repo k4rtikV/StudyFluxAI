@@ -22,6 +22,9 @@ import googleFormsIntegrationRoutes from "./routes/googleFormsIntegrationRoutes.
 import tutorRoutes from "./routes/tutorRoutes.js";
 import communityRoutes from "./routes/communityRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
+import supportRoutes from "./routes/supportRoutes.js";
 import { handleRazorpayWebhook } from "./controllers/fluxGemPurchase.controller.js";
 
 const app = express();
@@ -76,6 +79,9 @@ app.use("/api/tutor", tutorRoutes);
 
 app.use("/api/community", communityRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/support", supportRoutes);
 
 app.use("/api/study-sessions", studySessionRoutes);
 app.use("/api/study-planner", studyPlannerRoutes);

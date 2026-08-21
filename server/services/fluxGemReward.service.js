@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import User from "../models/User.js";
+import { notifyFluxGemRewards } from "./notification.service.js";
 import {
   getLevelFluxGemReward,
   MAX_LEVEL,
@@ -93,6 +94,9 @@ const grantMissingRewards = async ({ userId, rewards, retryOnConflict = true }) 
         balance: Number(user.fluxGems || 0),
       };
     });
+    if (result?.granted?.length) {
+      await notifyFluxGemRewards({ userId, granted: result.granted });
+    }
     return result;
   } catch (error) {
     if (retryOnConflict && error?.code === 11000) {

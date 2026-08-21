@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import InterviewJob from "../models/InterviewJob.js";
+import { createUserNotification } from "./notification.service.js";
 
 const POLL_MS = Math.max(Number(process.env.INTERVIEW_JOB_POLL_MS || 1500), 500);
 const LEASE_MS = Math.max(Number(process.env.INTERVIEW_JOB_LEASE_MS || 3 * 60 * 1000), 60000);
@@ -204,6 +205,24 @@ const processClaimedJob = async (job) => {
   try {
     await runJob(job);
     await completeJob(job);
+
+    const isReport = job.type === "report";
+    createUserNotification({
+      userId: job.user,
+      type: "system",
+      title: isReport ? "Smart Interview report ready" : "Tutor interview deep dive ready",
+      body: isReport
+        ? "Astra finished preparing your interview report and question-by-question feedback."
+        : "AI Tutor finished the detailed analysis of your interview question stack.",
+      actionUrl: isReport
+        ? `/interview/${String(job.interview)}/report`
+        : `/ai-tutor?conversation=${String(job.conversation || "")}`,
+      actionLabel: isReport ? "Open report" : "Open Tutor brief",
+      priority: "normal",
+      dedupeKey: `interview-job:${String(job._id)}:completed`,
+      emailRequested: false,
+      metadata: { interviewId: String(job.interview), jobType: job.type },
+    }).catch((error) => console.warn("Interview completion notification failed:", error.message));
   } catch (error) {
     console.error(`Interview background job ${job.type} failed:`, error?.message || error);
     await failOrRetryJob(job, error);

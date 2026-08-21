@@ -1,11 +1,11 @@
 import {
   ArrowUpRight,
   Award,
-  Bell,
   Flame,
   LogOut,
   Menu,
   Search,
+  Settings,
   Sparkles,
   UserRound,
   Wallet,
@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router";
 
 import FluxGemMark from "./FluxGemMark";
+import NotificationPanel from "./NotificationPanel";
 import LevelKite from "../progression/LevelKite";
 import UserAvatar from "../common/UserAvatar";
 import useAuth from "../../hooks/useAuth";
@@ -104,6 +105,20 @@ const SEARCH_ITEMS = [
     keywords: ["achievements", "badges", "milestones", "xp"],
   },
   {
+    label: "Settings",
+    description: "Manage notifications, optional emails, and timezone preferences.",
+    path: "/settings",
+    icon: UserRound,
+    keywords: ["settings", "preferences", "notifications", "email", "timezone"],
+  },
+  {
+    label: "Help & Support",
+    description: "Browse FAQs or send a support request to the administrator.",
+    path: "/help",
+    icon: BookOpen,
+    keywords: ["help", "support", "faq", "contact", "issue"],
+  },
+  {
     label: "Profile",
     description: "View and manage your learner profile.",
     path: "/profile",
@@ -142,6 +157,7 @@ function DashboardTopbar({ onOpenSidebar }) {
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [gemMenuOpen, setGemMenuOpen] = useState(false);
+  const [plannerMenuOpen, setPlannerMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -151,11 +167,13 @@ function DashboardTopbar({ onOpenSidebar }) {
 
   const profileRef = useRef(null);
   const gemMenuRef = useRef(null);
+  const plannerRef = useRef(null);
   const searchRef = useRef(null);
 
   const goTo = (path) => {
     setProfileOpen(false);
     setGemMenuOpen(false);
+    setPlannerMenuOpen(false);
     setSearchOpen(false);
     navigate(path);
   };
@@ -196,6 +214,13 @@ function DashboardTopbar({ onOpenSidebar }) {
         !gemMenuRef.current.contains(target)
       ) {
         setGemMenuOpen(false);
+      }
+
+      if (
+        plannerRef.current &&
+        !plannerRef.current.contains(target)
+      ) {
+        setPlannerMenuOpen(false);
       }
 
       if (
@@ -264,6 +289,10 @@ function DashboardTopbar({ onOpenSidebar }) {
     const timer = window.setInterval(loadPlannerSummary, 60_000);
     return () => window.clearInterval(timer);
   }, [loadPlannerSummary]);
+
+  useEffect(() => {
+    setPlannerMenuOpen(false);
+  }, [location.pathname]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -410,17 +439,7 @@ function DashboardTopbar({ onOpenSidebar }) {
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              toast("Notifications will be available in an upcoming phase.")
-            }
-            className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/84 bg-white/92 text-slate-600 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
-            aria-label="Notifications"
-          >
-            <Bell size={18} />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
-          </button>
+          <NotificationPanel onNavigate={goTo} />
 
           <div
             ref={gemMenuRef}
@@ -428,11 +447,13 @@ function DashboardTopbar({ onOpenSidebar }) {
             onMouseEnter={() => {
               setGemMenuOpen(true);
               setProfileOpen(false);
+              setPlannerMenuOpen(false);
             }}
             onMouseLeave={() => setGemMenuOpen(false)}
             onFocusCapture={() => {
               setGemMenuOpen(true);
               setProfileOpen(false);
+              setPlannerMenuOpen(false);
             }}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -445,6 +466,7 @@ function DashboardTopbar({ onOpenSidebar }) {
               onClick={() => {
                 setGemMenuOpen(true);
                 setProfileOpen(false);
+                setPlannerMenuOpen(false);
               }}
               className="flex min-h-[52px] items-center gap-2 rounded-2xl border border-white/84 bg-white/92 px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
               aria-label="Open FluxGems wallet menu"
@@ -498,10 +520,30 @@ function DashboardTopbar({ onOpenSidebar }) {
             )}
           </div>
 
-          <div className="group/planner relative shrink-0">
+          <div
+            ref={plannerRef}
+            className="relative shrink-0"
+            onMouseEnter={() => {
+              setPlannerMenuOpen(true);
+              setGemMenuOpen(false);
+              setProfileOpen(false);
+            }}
+            onMouseLeave={() => setPlannerMenuOpen(false)}
+            onFocusCapture={() => {
+              setPlannerMenuOpen(true);
+              setGemMenuOpen(false);
+              setProfileOpen(false);
+            }}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setPlannerMenuOpen(false);
+              }
+            }}
+          >
             <button
               type="button"
               onClick={() => goTo("/planner")}
+              aria-expanded={plannerMenuOpen}
               className={`relative flex min-h-[52px] items-center gap-2 rounded-2xl border px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition ${
                 location.pathname === "/planner"
                   ? "border-violet-100 bg-white text-violet-700"
@@ -529,7 +571,8 @@ function DashboardTopbar({ onOpenSidebar }) {
               )}
             </button>
 
-            <div className="pointer-events-none invisible absolute right-0 top-full z-50 w-[300px] translate-y-1 pt-2.5 opacity-0 transition-all duration-200 group-hover/planner:pointer-events-auto group-hover/planner:visible group-hover/planner:translate-y-0 group-hover/planner:opacity-100 group-focus-within/planner:pointer-events-auto group-focus-within/planner:visible group-focus-within/planner:translate-y-0 group-focus-within/planner:opacity-100">
+            {plannerMenuOpen && (
+            <div className="absolute right-0 top-full z-50 w-[300px] pt-2.5">
               <div className="rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                 <div className="overflow-hidden rounded-[21.5px] bg-white/97 backdrop-blur-2xl">
                 <div className="p-3">
@@ -574,6 +617,7 @@ function DashboardTopbar({ onOpenSidebar }) {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           <div
@@ -582,11 +626,13 @@ function DashboardTopbar({ onOpenSidebar }) {
             onMouseEnter={() => {
               setProfileOpen(true);
               setGemMenuOpen(false);
+              setPlannerMenuOpen(false);
             }}
             onMouseLeave={() => setProfileOpen(false)}
             onFocusCapture={() => {
               setProfileOpen(true);
               setGemMenuOpen(false);
+              setPlannerMenuOpen(false);
             }}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -599,6 +645,7 @@ function DashboardTopbar({ onOpenSidebar }) {
               onClick={() => {
                 setProfileOpen(true);
                 setGemMenuOpen(false);
+                setPlannerMenuOpen(false);
               }}
               className="flex min-h-[52px] max-w-[240px] items-center gap-2 rounded-2xl border border-white/84 bg-white/92 p-1.5 pr-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
               aria-expanded={profileOpen}
@@ -745,6 +792,15 @@ function DashboardTopbar({ onOpenSidebar }) {
                 >
                   <Award size={16} />
                   Achievements
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => goTo("/settings")}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  <Settings size={16} />
+                  Settings & preferences
                 </button>
 
                 <div className="my-1 h-px bg-slate-100" />

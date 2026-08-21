@@ -10,6 +10,7 @@ import User from "../models/User.js";
 import XPTransaction from "../models/XPTransaction.js";
 import { emitPollResults } from "../realtime/socket.js";
 import { queueLeaderboardRefresh } from "./leaderboard.service.js";
+import { broadcastCommunityPublication } from "./notification.service.js";
 import { getProgressOverview } from "./progression.service.js";
 import { getLevelTransition } from "../utils/progressionRules.js";
 
@@ -24,6 +25,19 @@ const httpError = (message, statusCode = 400, code = "COMMUNITY_ERROR") => {
 
 export const syncCommunityStatuses = async () => {
   const now = new Date();
+
+  const [dueChallenges, duePolls] = await Promise.all([
+    DailyChallenge.find({
+      status: "scheduled",
+      publishAt: { $lte: now },
+      expiresAt: { $gt: now },
+    }).lean(),
+    CommunityPoll.find({
+      status: "scheduled",
+      publishAt: { $lte: now },
+      expiresAt: { $gt: now },
+    }).lean(),
+  ]);
 
   await Promise.all([
     DailyChallenge.updateMany(
@@ -55,6 +69,15 @@ export const syncCommunityStatuses = async () => {
         expiresAt: { $lte: now },
       },
       { $set: { status: "ended" } },
+    ),
+  ]);
+
+  await Promise.allSettled([
+    ...dueChallenges.map((item) =>
+      broadcastCommunityPublication({ kind: "challenge", item }),
+    ),
+    ...duePolls.map((item) =>
+      broadcastCommunityPublication({ kind: "poll", item }),
     ),
   ]);
 };
@@ -290,6 +313,24 @@ export const submitDailyChallenge = async ({ userId, challengeId, selectedOption
   };
 
   queueLeaderboardRefresh(userId);
+
+  if (responseData?.challenge?.attempt?.isCorrect) {
+    const xp = Number(responseData.challenge.attempt.xpEarned || 0);
+    const gems = Number(responseData.challenge.attempt.fluxGemsEarned || 0);
+    createUserNotification({
+      userId,
+      type: "reward",
+      title: "Daily Challenge reward earned",
+      body: `Correct answer — +${xp} XP${gems > 0 ? ` and +${gems} FluxGems` : ""}.`,
+      actionUrl: "/daily-challenges",
+      actionLabel: "View challenge",
+      priority: "normal",
+      dedupeKey: `daily-challenge:${String(challengeId)}:reward`,
+      emailRequested: false,
+      metadata: { dailyChallengeId: String(challengeId), xp, fluxGems: gems },
+    }).catch((error) => console.warn("Challenge reward notification failed:", error.message));
+  }
+
   return responseData;
 };
 

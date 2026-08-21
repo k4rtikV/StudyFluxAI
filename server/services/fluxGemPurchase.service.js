@@ -10,6 +10,7 @@ import {
   getRazorpayPublicKey,
 } from "./razorpay.service.js";
 import { sendFluxGemPurchaseReceipt } from "./email.service.js";
+import { createUserNotification } from "./notification.service.js";
 
 const ensureMatchingPayment = ({ purchase, payment }) => {
   if (!payment) {
@@ -228,6 +229,19 @@ export const creditCapturedPurchase = async ({
   }
 
   if (result?.credited && result.user?.email) {
+    createUserNotification({
+      userId: result.purchase.user,
+      type: "reward",
+      title: `${Number(result.purchase.gems || 0)} FluxGems added`,
+      body: "Your Razorpay payment was verified and your StudyFluxAI wallet balance has been updated.",
+      actionUrl: "/wallet",
+      actionLabel: "View wallet",
+      priority: "normal",
+      dedupeKey: `purchase:${String(result.purchase._id)}:credited`,
+      emailRequested: false,
+      metadata: { purchaseId: String(result.purchase._id), gems: Number(result.purchase.gems || 0) },
+    }).catch((error) => console.warn("Purchase notification failed:", error.message));
+
     sendFluxGemPurchaseReceipt({
       email: result.user.email,
       fullName: result.user.fullName,

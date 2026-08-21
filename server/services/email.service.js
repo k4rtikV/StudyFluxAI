@@ -154,3 +154,112 @@ export const sendFluxGemPurchaseReceipt = async ({
     `,
   });
 };
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const paragraphHtml = (value) =>
+  escapeHtml(value).replace(/\r?\n/g, "<br />");
+
+export const sendNotificationEmail = async ({
+  email,
+  fullName,
+  title,
+  body,
+  actionUrl = "",
+  actionLabel = "Open StudyFluxAI",
+}) => {
+  const brevo = getBrevoClient();
+  const clientBase = String(process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+  const safePath = String(actionUrl || "").startsWith("/") ? actionUrl : "";
+  const actionHref = safePath ? `${clientBase}${safePath}` : clientBase;
+
+  await brevo.transactionalEmails.sendTransacEmail({
+    sender: getSender(),
+    to: [{ email, name: fullName }],
+    subject: `${String(title || "StudyFluxAI update").slice(0, 160)}`,
+    htmlContent: `
+      <!DOCTYPE html>
+      <html>
+        <body style="margin:0;padding:0;background:#f7f8fc;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+          <div style="padding:32px 16px;">
+            <div style="max-width:580px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:36px;">
+              <p style="margin:0 0 8px;color:#6d28d9;font-size:12px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;">StudyFluxAI update</p>
+              <h1 style="margin:0 0 14px;font-size:24px;color:#111827;">${escapeHtml(title)}</h1>
+              <p style="margin:0 0 22px;color:#64748b;line-height:1.7;">Hi ${escapeHtml(fullName || "there")},</p>
+              <div style="margin:0 0 24px;color:#475569;line-height:1.75;font-size:15px;">${paragraphHtml(body)}</div>
+              <a href="${escapeHtml(actionHref)}" style="display:inline-block;background:linear-gradient(90deg,#7c3aed,#2563eb,#06b6d4,#10b981);color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px;">${escapeHtml(actionLabel || "Open StudyFluxAI")}</a>
+              <p style="margin:24px 0 0;color:#94a3b8;font-size:12px;line-height:1.6;">You can manage optional StudyFluxAI email notifications from Settings.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  });
+};
+
+export const sendSupportRequestEmail = async ({
+  supportEmail,
+  userEmail,
+  fullName,
+  category,
+  subject,
+  message,
+  requestId,
+}) => {
+  const brevo = getBrevoClient();
+  await brevo.transactionalEmails.sendTransacEmail({
+    sender: getSender(),
+    to: [{ email: supportEmail, name: "StudyFluxAI Support" }],
+    replyTo: { email: userEmail, name: fullName },
+    subject: `[Support · ${String(category || "other")}] ${String(subject || "StudyFluxAI request").slice(0, 140)}`,
+    htmlContent: `
+      <!DOCTYPE html>
+      <html>
+        <body style="margin:0;padding:0;background:#f7f8fc;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+          <div style="padding:28px 16px;">
+            <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;padding:32px;">
+              <p style="margin:0 0 8px;color:#0891b2;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.10em;">Learner support request</p>
+              <h1 style="margin:0 0 18px;font-size:22px;">${escapeHtml(subject)}</h1>
+              <div style="background:#f8fafc;border-radius:12px;padding:14px 16px;color:#475569;font-size:13px;line-height:1.7;">
+                <strong>${escapeHtml(fullName)}</strong> · ${escapeHtml(userEmail)}<br />
+                Category: ${escapeHtml(category)}<br />
+                Request ID: ${escapeHtml(requestId)}
+              </div>
+              <div style="margin-top:18px;color:#334155;line-height:1.75;font-size:15px;">${paragraphHtml(message)}</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  });
+};
+
+export const sendSupportConfirmationEmail = async ({ email, fullName, subject, requestId }) => {
+  const brevo = getBrevoClient();
+  await brevo.transactionalEmails.sendTransacEmail({
+    sender: getSender(),
+    to: [{ email, name: fullName }],
+    subject: "We received your StudyFluxAI support request",
+    htmlContent: `
+      <!DOCTYPE html>
+      <html>
+        <body style="margin:0;padding:0;background:#f7f8fc;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+          <div style="padding:32px 16px;">
+            <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:36px;">
+              <p style="margin:0 0 8px;color:#059669;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.10em;">Support request received</p>
+              <h1 style="margin:0 0 14px;font-size:23px;">We have your message.</h1>
+              <p style="margin:0 0 16px;color:#64748b;line-height:1.7;">Hi ${escapeHtml(fullName)}, your request about <strong>${escapeHtml(subject)}</strong> was sent to the StudyFluxAI administrator.</p>
+              <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:14px;color:#065f46;font-size:13px;">Reference: ${escapeHtml(requestId)}</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  });
+};

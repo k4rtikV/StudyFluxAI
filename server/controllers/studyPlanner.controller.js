@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import StudyPlan from "../models/StudyPlan.js";
 import StudySession from "../models/StudySession.js";
 import { findRelatedStudyLibraryItems } from "../services/studyPlannerMatcher.service.js";
+import { createUserNotification } from "../services/notification.service.js";
 import {
   validatePlannerMatchInput,
   validateStudyPlanInput,
@@ -96,7 +97,7 @@ export const getStudyPlannerSummary = async (req, res, next) => {
       status: { $in: ["planned", "in_progress"] },
     };
 
-    const [activeCount, upcomingCount, overdueCount, nextPlan] = await Promise.all([
+    const [activeCount, upcomingCount, overdueCount, nextPlan, overduePlan] = await Promise.all([
       StudyPlan.countDocuments(activeFilter),
       StudyPlan.countDocuments({ ...activeFilter, targetAt: { $gte: now } }),
       StudyPlan.countDocuments({ ...activeFilter, targetAt: { $lt: now } }),
@@ -104,7 +105,41 @@ export const getStudyPlannerSummary = async (req, res, next) => {
         .sort({ targetAt: 1 })
         .select("title topic targetAt durationMinutes priority status")
         .lean(),
+      StudyPlan.findOne({ ...activeFilter, targetAt: { $lt: now } })
+        .sort({ targetAt: 1 })
+        .select("title topic targetAt priority status")
+        .lean(),
     ]);
+
+    if (nextPlan && new Date(nextPlan.targetAt).getTime() - now.getTime() <= 24 * 60 * 60 * 1000) {
+      createUserNotification({
+        userId: req.user._id,
+        type: "system",
+        title: "Study plan coming up",
+        body: `${nextPlan.title} is scheduled within the next 24 hours.`,
+        actionUrl: "/planner",
+        actionLabel: "Open Planner",
+        priority: nextPlan.priority === "high" ? "high" : "normal",
+        dedupeKey: `planner:${String(nextPlan._id)}:${new Date(nextPlan.targetAt).toISOString()}:upcoming`,
+        emailRequested: false,
+        metadata: { studyPlanId: String(nextPlan._id), kind: "upcoming" },
+      }).catch(() => {});
+    }
+
+    if (overduePlan) {
+      createUserNotification({
+        userId: req.user._id,
+        type: "system",
+        title: "A study plan is overdue",
+        body: `${overduePlan.title} has passed its target time. Reschedule it or mark it complete.`,
+        actionUrl: "/planner",
+        actionLabel: "Review plan",
+        priority: overduePlan.priority === "high" ? "high" : "normal",
+        dedupeKey: `planner:${String(overduePlan._id)}:${new Date(overduePlan.targetAt).toISOString()}:overdue`,
+        emailRequested: false,
+        metadata: { studyPlanId: String(overduePlan._id), kind: "overdue" },
+      }).catch(() => {});
+    }
 
     return res.status(200).json({
       success: true,

@@ -34,11 +34,14 @@ import SmartInterviewSessionPage from "./pages/SmartInterviewSessionPage";
 import SmartInterviewReportPage from "./pages/SmartInterviewReportPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import WalletPage from "./pages/WalletPage";
+import UserSettingsPage from "./pages/UserSettingsPage";
+import HelpSupportPage from "./pages/HelpSupportPage";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
 import AdminLeaderboardPage from "./pages/admin/AdminLeaderboardPage";
-import AdminSoonPage from "./pages/admin/AdminSoonPage";
 import AdminUserDetailsPage from "./pages/admin/AdminUserDetailsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminAnnouncementsPage from "./pages/admin/AdminAnnouncementsPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminChallengeEditorPage from "./pages/admin/challenges/AdminChallengeEditorPage";
 import AdminChallengesPage from "./pages/admin/challenges/AdminChallengesPage";
 import AdminPollEditorPage from "./pages/admin/polls/AdminPollEditorPage";
@@ -110,8 +113,8 @@ function App() {
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="users/:userId" element={<AdminUserDetailsPage />} />
         <Route path="leaderboard" element={<AdminLeaderboardPage />} />
-        <Route path="announcements" element={<AdminSoonPage feature="announcements" />} />
-        <Route path="settings" element={<AdminSoonPage feature="settings" />} />
+        <Route path="announcements" element={<AdminAnnouncementsPage />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
 
       <Route
@@ -139,6 +142,8 @@ function App() {
         <Route path="achievements" element={<AchievementsPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="profile/edit" element={<EditProfilePage />} />
+        <Route path="settings" element={<UserSettingsPage />} />
+        <Route path="help" element={<HelpSupportPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

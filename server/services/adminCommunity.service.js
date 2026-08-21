@@ -6,6 +6,7 @@ import DailyChallenge from "../models/DailyChallenge.js";
 import DailyChallengeAttempt from "../models/DailyChallengeAttempt.js";
 import PollVote from "../models/PollVote.js";
 import { getPollResults, syncCommunityStatuses } from "./community.service.js";
+import { broadcastCommunityPublication } from "./notification.service.js";
 
 const httpError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -188,6 +189,11 @@ export const createAdminChallenge = async ({ adminId, payload }) => {
   }
 
   const challenge = await DailyChallenge.create({ ...data, createdBy: adminId });
+  if (challenge.status === "live") {
+    broadcastCommunityPublication({ kind: "challenge", item: challenge }).catch((error) =>
+      console.warn("Challenge notification failed:", error.message),
+    );
+  }
   return serializeAdminChallenge(challenge.toObject());
 };
 
@@ -215,8 +221,14 @@ export const updateAdminChallenge = async ({ challengeId, payload }) => {
     await ensureNoChallengeOverlap({ ...data, ignoreId: existing._id });
   }
 
+  const wasLive = existing.status === "live";
   Object.assign(existing, data);
   await existing.save();
+  if (!wasLive && existing.status === "live") {
+    broadcastCommunityPublication({ kind: "challenge", item: existing }).catch((error) =>
+      console.warn("Challenge notification failed:", error.message),
+    );
+  }
   return serializeAdminChallenge(existing.toObject());
 };
 
@@ -277,6 +289,11 @@ export const listAdminPolls = async () => {
 
 export const createAdminPoll = async ({ adminId, payload }) => {
   const poll = await CommunityPoll.create({ ...pollPayload(payload), createdBy: adminId });
+  if (poll.status === "live") {
+    broadcastCommunityPublication({ kind: "poll", item: poll }).catch((error) =>
+      console.warn("Poll notification failed:", error.message),
+    );
+  }
   return serializeAdminPoll(poll.toObject());
 };
 
@@ -304,12 +321,18 @@ export const updateAdminPoll = async ({ pollId, payload }) => {
     expiresAt: payload.expiresAt ?? existing.expiresAt,
   });
 
+  const wasLive = existing.status === "live";
   existing.question = data.question;
   if (voteCount === 0) existing.options = data.options;
   existing.status = data.status;
   existing.publishAt = data.publishAt;
   existing.expiresAt = data.expiresAt;
   await existing.save();
+  if (!wasLive && existing.status === "live") {
+    broadcastCommunityPublication({ kind: "poll", item: existing }).catch((error) =>
+      console.warn("Poll notification failed:", error.message),
+    );
+  }
 
   await deleteCacheKeys(`studyflux:poll:${existing._id}:results`);
   return serializeAdminPoll(existing.toObject());

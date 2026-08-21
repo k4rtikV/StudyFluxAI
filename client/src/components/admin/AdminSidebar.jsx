@@ -26,7 +26,7 @@ const primaryItems = [
   { label: "Leaderboard", path: "/admin/leaderboard", icon: BarChart3 },
 ];
 
-const futureItems = [
+const operationsItems = [
   { label: "Announcements", path: "/admin/announcements", icon: Megaphone },
   { label: "Admin Settings", path: "/admin/settings", icon: Settings },
 ];
@@ -122,7 +122,7 @@ function AdminSidebar({ open, onClose }) {
             </span>
           </div>
           <p className="mt-1.5 text-xs leading-5 text-slate-400">
-            Manage community content and learner accounts from a dedicated control plane.
+            Manage learners, community content, announcements and platform communication settings from one control plane.
           </p>
         </div>
 
@@ -139,11 +139,11 @@ function AdminSidebar({ open, onClose }) {
           <div className="my-5 h-px bg-white/8" />
 
           <p className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-500">
-            Coming next
+            Communications & settings
           </p>
           <div className="space-y-1.5">
-            {futureItems.map((item) => (
-              <NavItem key={item.path} item={item} onNavigate={onClose} soon />
+            {operationsItems.map((item) => (
+              <NavItem key={item.path} item={item} onNavigate={onClose} />
             ))}
           </div>
         </nav>

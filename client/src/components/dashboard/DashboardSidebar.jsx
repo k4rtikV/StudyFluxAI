@@ -443,7 +443,7 @@ function DashboardSidebar({ open, onClose }) {
             className="rounded-2xl px-1 py-1.5 text-left transition hover:translate-x-0.5"
             aria-label="Go to dashboard"
           >
-            <BrandLogo tone="inverse" size="lg" subtitle="Learning workspace" />
+            <BrandLogo tone="inverse" size="xl" subtitle="Learning workspace" />
           </button>
 
           <button
@@ -500,9 +500,9 @@ function DashboardSidebar({ open, onClose }) {
               item={{
                 label: "Settings",
                 icon: Settings,
-                comingSoon: true,
+                path: "/settings",
               }}
-              active={false}
+              active={isActive({ path: "/settings" })}
               onSelect={handleSelect}
             />
 
@@ -510,9 +510,9 @@ function DashboardSidebar({ open, onClose }) {
               item={{
                 label: "Help & Support",
                 icon: CircleHelp,
-                comingSoon: true,
+                path: "/help",
               }}
-              active={false}
+              active={isActive({ path: "/help" })}
               onSelect={handleSelect}
             />
           </div>
