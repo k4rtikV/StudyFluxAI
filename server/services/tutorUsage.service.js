@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import { getNumberEnv } from "../config/env.js";
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import InterviewJob from "../models/InterviewJob.js";
 import TutorConversation from "../models/TutorConversation.js";
@@ -8,35 +9,16 @@ import TutorMessage from "../models/TutorMessage.js";
 import User from "../models/User.js";
 import { normalizeTimeZone, toLocalDayNumber } from "../utils/timezone.js";
 
-const getFreeLimit = () =>
-  Math.max(
-    Number(process.env.TUTOR_FREE_QUESTIONS_PER_DAY || 5),
-    0,
-  );
+const getFreeLimit = () => getNumberEnv("TUTOR_FREE_QUESTIONS_PER_DAY", 5);
 
-const getPaidCost = () =>
-  Math.max(
-    Number(process.env.TUTOR_PAID_QUESTION_COST || 5),
-    0,
-  );
+const getPaidCost = () => getNumberEnv("TUTOR_PAID_QUESTION_COST", 5);
 
 const getDailyHardLimit = () =>
-  Math.max(
-    Number(process.env.TUTOR_DAILY_HARD_LIMIT || 100),
-    getFreeLimit(),
-  );
+  Math.max(getNumberEnv("TUTOR_DAILY_HARD_LIMIT", 100), getFreeLimit());
 
-const getRateLimitMs = () =>
-  Math.max(
-    Number(process.env.TUTOR_RATE_LIMIT_MS || 1500),
-    0,
-  );
+const getRateLimitMs = () => getNumberEnv("TUTOR_RATE_LIMIT_MS", 1500);
 
-const getStaleLockMs = () =>
-  Math.max(
-    Number(process.env.TUTOR_STALE_LOCK_MS || 120000),
-    30000,
-  );
+const getStaleLockMs = () => getNumberEnv("TUTOR_STALE_LOCK_MS", 120000);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

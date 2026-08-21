@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import PendingRegistration from "../models/PendingRegistration.js";
 import User from "../models/User.js";
 import VerificationCode from "../models/VerificationCode.js";
+import { getNumberEnv } from "../config/env.js";
 
 import {
   sendPasswordResetEmail,
@@ -39,12 +40,11 @@ import { isValidTimeZone, normalizeTimeZone } from "../utils/timezone.js";
 const DEFAULT_PENDING_REGISTRATION_MINUTES = 30;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync("StudyFluxAI timing equalizer only", 12);
 
-const pendingRegistrationMinutes = () => {
-  const configured = Number(process.env.PENDING_REGISTRATION_TTL_MINUTES || DEFAULT_PENDING_REGISTRATION_MINUTES);
-  return Number.isFinite(configured) && configured >= 10 && configured <= 1440
-    ? configured
-    : DEFAULT_PENDING_REGISTRATION_MINUTES;
-};
+const pendingRegistrationMinutes = () =>
+  getNumberEnv(
+    "PENDING_REGISTRATION_TTL_MINUTES",
+    DEFAULT_PENDING_REGISTRATION_MINUTES,
+  );
 
 const createClaimToken = () => crypto.randomBytes(32).toString("base64url");
 const hashClaimToken = (token) => crypto.createHash("sha256").update(String(token || "")).digest("hex");

@@ -83,7 +83,7 @@ app.use(
           "https://accounts.google.com",
           "https://*.googleapis.com",
           "https://*.razorpay.com",
-          ...(production ? ["wss:"] : ["ws:", "wss:"]),
+          ...(!production ? ["ws:", "wss:"] : []),
         ],
         frameSrc: [
           "'self'",

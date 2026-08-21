@@ -1,3 +1,4 @@
+import { getNumberEnv } from "../config/env.js";
 import StudyPlan from "../models/StudyPlan.js";
 import { safeErrorDetails } from "../utils/safeError.js";
 import User from "../models/User.js";
@@ -6,11 +7,11 @@ import { getPlatformSettings } from "./platformSettings.service.js";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const ACTIVE_STATUSES = new Set(["planned", "in_progress"]);
-const POLL_MS = Math.max(60_000, Number(process.env.STUDY_PLAN_REMINDER_POLL_MS || 300_000));
-const LEASE_MS = Math.max(60_000, Number(process.env.STUDY_PLAN_REMINDER_LEASE_MS || 600_000));
-const RETRY_MS = Math.max(60_000, Number(process.env.STUDY_PLAN_REMINDER_RETRY_MS || 900_000));
-const MAX_ATTEMPTS = Math.max(1, Number(process.env.STUDY_PLAN_REMINDER_MAX_ATTEMPTS || 5));
-const BATCH_SIZE = Math.max(1, Math.min(50, Number(process.env.STUDY_PLAN_REMINDER_BATCH_SIZE || 20)));
+const POLL_MS = getNumberEnv("STUDY_PLAN_REMINDER_POLL_MS", 300_000);
+const LEASE_MS = getNumberEnv("STUDY_PLAN_REMINDER_LEASE_MS", 600_000);
+const RETRY_MS = getNumberEnv("STUDY_PLAN_REMINDER_RETRY_MS", 900_000);
+const MAX_ATTEMPTS = getNumberEnv("STUDY_PLAN_REMINDER_MAX_ATTEMPTS", 5);
+const BATCH_SIZE = getNumberEnv("STUDY_PLAN_REMINDER_BATCH_SIZE", 20);
 
 let timer = null;
 let stopping = false;

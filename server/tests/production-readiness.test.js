@@ -7,6 +7,12 @@ import {
   validateRuntimeEnvironment,
 } from "../config/env.js";
 import { browserRequestGuard } from "../middleware/browserSecurity.js";
+import { buildAuthRateLimitKeys } from "../utils/authRateLimitIdentity.js";
+import {
+  audioSignatureMatchesMimeType,
+  hasPdfSignature,
+} from "../utils/fileSignatures.js";
+import { getSafeRequestTarget } from "../utils/requestLog.js";
 
 const SNAPSHOT = { ...process.env };
 
@@ -42,6 +48,60 @@ test("development keeps localhost as the safe default client origin", () => {
   process.env.NODE_ENV = "development";
   delete process.env.CLIENT_URL;
   assert.deepEqual(getAllowedClientOrigins(), ["http://localhost:5173"]);
+});
+
+test("request logging strips OAuth and other query values", () => {
+  assert.equal(
+    getSafeRequestTarget({
+      originalUrl: "/api/integrations/google-forms/callback?code=secret&state=signed-state",
+    }),
+    "/api/integrations/google-forms/callback",
+  );
+});
+
+test("invalid numeric configuration is rejected centrally", () => {
+  process.env.STUDY_GENERATION_CONCURRENCY = "abc";
+  process.env.INTERVIEW_JOB_CONCURRENCY = "1.5";
+
+  const { errors } = validateRuntimeEnvironment();
+  assert.ok(errors.some((message) => message.includes("STUDY_GENERATION_CONCURRENCY must be a finite number")));
+  assert.ok(errors.some((message) => message.includes("INTERVIEW_JOB_CONCURRENCY must be an integer")));
+});
+
+test("login limiter identities independently bind IP and normalized account", () => {
+  const first = buildAuthRateLimitKeys({
+    bucket: "login",
+    ip: "203.0.113.10",
+    email: " Learner@Example.com ",
+    accountLimit: 10,
+  });
+  const otherEmail = buildAuthRateLimitKeys({
+    bucket: "login",
+    ip: "203.0.113.10",
+    email: "other@example.com",
+    accountLimit: 10,
+  });
+  const otherIp = buildAuthRateLimitKeys({
+    bucket: "login",
+    ip: "203.0.113.11",
+    email: "learner@example.com",
+    accountLimit: 10,
+  });
+
+  assert.equal(first.primaryKey, otherEmail.primaryKey);
+  assert.equal(first.accountKey, otherIp.accountKey);
+  assert.notEqual(first.primaryKey, otherIp.primaryKey);
+});
+
+test("upload signatures distinguish real PDF and supported audio headers", () => {
+  assert.equal(hasPdfSignature(Buffer.from("%PDF-1.7\n")), true);
+  assert.equal(hasPdfSignature(Buffer.from("not a pdf")), false);
+
+  const wav = Buffer.alloc(12);
+  wav.write("RIFF", 0, "ascii");
+  wav.write("WAVE", 8, "ascii");
+  assert.equal(audioSignatureMatchesMimeType(wav, "audio/wav"), true);
+  assert.equal(audioSignatureMatchesMimeType(Buffer.from("fake"), "audio/wav"), false);
 });
 
 const makeResponse = () => {

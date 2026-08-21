@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import { getNumberEnv } from "../config/env.js";
 import InterviewSession from "../models/InterviewSession.js";
 import {
   beginSmartInterview,
@@ -28,15 +29,10 @@ import {
   TutorRateLimitError,
 } from "../services/tutorUsage.service.js";
 
-const numberSetting = (value, fallback, min, max) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
-};
-
 const turnConfig = {
-  noSpeechTimeoutMs: numberSetting(process.env.INTERVIEW_NO_SPEECH_TIMEOUT_MS, 15000, 5000, 45000),
-  endSilenceMs: numberSetting(process.env.INTERVIEW_END_SILENCE_MS, 7000, 1200, 15000),
-  maxAnswerSeconds: numberSetting(process.env.INTERVIEW_MAX_ANSWER_SECONDS, 120, 30, 300),
+  noSpeechTimeoutMs: getNumberEnv("INTERVIEW_NO_SPEECH_TIMEOUT_MS", 15000),
+  endSilenceMs: getNumberEnv("INTERVIEW_END_SILENCE_MS", 7000),
+  maxAnswerSeconds: getNumberEnv("INTERVIEW_MAX_ANSWER_SECONDS", 120),
   warningSeconds: 5,
 };
 

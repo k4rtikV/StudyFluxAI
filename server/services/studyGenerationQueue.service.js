@@ -1,3 +1,4 @@
+import { getNumberEnv } from "../config/env.js";
 import StudySession from "../models/StudySession.js";
 import { safeErrorDetails } from "../utils/safeError.js";
 import { emitStudySessionChanged } from "../realtime/socket.js";
@@ -6,16 +7,12 @@ import { generateLearningSession } from "./gemini.service.js";
 import { queueLeaderboardRefresh } from "./leaderboard.service.js";
 import { createUserNotification } from "./notification.service.js";
 
-const CONCURRENCY = Math.max(
-  Number(process.env.STUDY_GENERATION_CONCURRENCY || 2),
-  1,
-);
-const STALE_GENERATION_MS = Math.max(
-  Number(process.env.STUDY_GENERATION_STALE_MS || 5 * 60 * 1000),
-  2 * 60 * 1000,
-);
+const CONCURRENCY = getNumberEnv("STUDY_GENERATION_CONCURRENCY", 2);
+const STALE_GENERATION_MS = getNumberEnv("STUDY_GENERATION_STALE_MS", 5 * 60 * 1000, {
+  min: 2 * 60 * 1000,
+});
 const MAX_QUEUE_DEPTH = Math.max(
-  Number(process.env.STUDY_GENERATION_QUEUE_MAX || 50),
+  getNumberEnv("STUDY_GENERATION_QUEUE_MAX", 50),
   CONCURRENCY,
 );
 

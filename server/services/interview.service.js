@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 
 import { getRedisClient } from "../config/redis.js";
+import { getNumberEnv } from "../config/env.js";
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import InterviewSession from "../models/InterviewSession.js";
 import LearningProfile from "../models/LearningProfile.js";
@@ -20,17 +21,8 @@ import {
   syncSmartInterviewProgression,
 } from "./interviewProgression.service.js";
 
-const configuredInterviewCost = Number(process.env.INTERVIEW_FLUXGEM_COST || 100);
-export const INTERVIEW_COST =
-  Number.isInteger(configuredInterviewCost) && configuredInterviewCost > 0
-    ? configuredInterviewCost
-    : 100;
-
-const configuredQuestionCount = Number(process.env.INTERVIEW_QUESTION_COUNT || 8);
-export const INTERVIEW_QUESTION_COUNT =
-  Number.isInteger(configuredQuestionCount) && configuredQuestionCount >= 3 && configuredQuestionCount <= 15
-    ? configuredQuestionCount
-    : 8;
+export const INTERVIEW_COST = getNumberEnv("INTERVIEW_FLUXGEM_COST", 100);
+export const INTERVIEW_QUESTION_COUNT = getNumberEnv("INTERVIEW_QUESTION_COUNT", 8);
 
 export const INTERVIEW_ELIGIBLE_EDUCATION_LEVELS = new Set([
   "bachelors",

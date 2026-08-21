@@ -1,3 +1,4 @@
+import { getNumberEnv } from "../config/env.js";
 import { getRedisClient } from "../config/redis.js";
 
 const fallbackBuckets = new Map();
@@ -41,7 +42,7 @@ const consumeRedis = async ({ client, key, limit, windowSeconds }) => {
 };
 
 export const studyGenerationRateLimit = ({
-  limit = Math.max(Number(process.env.STUDY_GENERATION_RATE_LIMIT_PER_HOUR || 20), 1),
+  limit = getNumberEnv("STUDY_GENERATION_RATE_LIMIT_PER_HOUR", 20),
   windowMs = 60 * 60 * 1000,
 } = {}) => async (req, res, next) => {
   const userId = String(req.user?._id || "anonymous");

@@ -1,6 +1,7 @@
 import { safeErrorDetails } from "../utils/safeError.js";
 import mongoose from "mongoose";
 
+import { getNumberEnv } from "../config/env.js";
 import LearningProfile from "../models/LearningProfile.js";
 import StudySession from "../models/StudySession.js";
 import TutorConversation from "../models/TutorConversation.js";
@@ -27,19 +28,10 @@ import {
   TutorRateLimitError,
 } from "../services/tutorUsage.service.js";
 
-const MAX_QUESTION_LENGTH = Math.max(
-  Number(process.env.TUTOR_QUESTION_MAX_LENGTH || 2000),
-  200,
-);
+const MAX_QUESTION_LENGTH = getNumberEnv("TUTOR_QUESTION_MAX_LENGTH", 2000);
 
 const getHistoryMessageLimit = () =>
-  Math.min(
-    Math.max(
-      Number(process.env.TUTOR_HISTORY_MESSAGES || 12),
-      2,
-    ),
-    30,
-  );
+  getNumberEnv("TUTOR_HISTORY_MESSAGES", 12);
 
 const buildProfileSnapshot = (profile) => ({
   educationLevel: profile.educationLevel || "",

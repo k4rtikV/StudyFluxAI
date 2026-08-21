@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 
+import { getNumberEnv } from "../config/env.js";
 import InterviewJob from "../models/InterviewJob.js";
 import { safeErrorDetails } from "../utils/safeError.js";
 import { createUserNotification } from "./notification.service.js";
 
-const POLL_MS = Math.max(Number(process.env.INTERVIEW_JOB_POLL_MS || 1500), 500);
-const LEASE_MS = Math.max(Number(process.env.INTERVIEW_JOB_LEASE_MS || 3 * 60 * 1000), 60000);
-const CONCURRENCY = Math.max(Number(process.env.INTERVIEW_JOB_CONCURRENCY || 2), 1);
-const DEFAULT_MAX_ATTEMPTS = Math.max(Number(process.env.INTERVIEW_JOB_MAX_ATTEMPTS || 3), 1);
+const POLL_MS = getNumberEnv("INTERVIEW_JOB_POLL_MS", 1500);
+const LEASE_MS = getNumberEnv("INTERVIEW_JOB_LEASE_MS", 3 * 60 * 1000);
+const CONCURRENCY = getNumberEnv("INTERVIEW_JOB_CONCURRENCY", 2);
+const DEFAULT_MAX_ATTEMPTS = getNumberEnv("INTERVIEW_JOB_MAX_ATTEMPTS", 3);
 
 let timer = null;
 let active = 0;

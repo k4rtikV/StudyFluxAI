@@ -29,7 +29,7 @@ import {
   stopStudyGenerationRecoverySweep,
 } from "./services/studyGenerationQueue.service.js";
 
-const PORT = Number(process.env.PORT || 5000);
+const PORT = getNumberEnv("PORT", 5000);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const waitForBackgroundWork = async (timeoutMs) => {

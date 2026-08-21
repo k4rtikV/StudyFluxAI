@@ -2,6 +2,8 @@ import path from "node:path";
 
 import multer from "multer";
 
+import { hasPdfSignature } from "../utils/fileSignatures.js";
+
 const MAX_SOURCE_BYTES = 10 * 1024 * 1024;
 
 const allowedMimeTypes = new Set([
@@ -46,6 +48,14 @@ const upload = multer({
 export const uploadStudySource = (req, res, next) => {
   upload.single("sourceFile")(req, res, (error) => {
     if (!error) {
+      const extension = path.extname(req.file?.originalname || "").toLowerCase();
+      if (extension === ".pdf" && !hasPdfSignature(req.file?.buffer)) {
+        return res.status(415).json({
+          success: false,
+          code: "INVALID_SOURCE_FILE_SIGNATURE",
+          message: "That file does not contain a valid PDF header.",
+        });
+      }
       next();
       return;
     }

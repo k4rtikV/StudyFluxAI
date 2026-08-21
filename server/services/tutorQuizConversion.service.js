@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { GoogleGenAI } from "@google/genai";
 
+import { getNumberEnv } from "../config/env.js";
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import StudySession from "../models/StudySession.js";
 import TutorMessage from "../models/TutorMessage.js";
@@ -12,14 +13,14 @@ const FALLBACK_HTTP_STATUSES = new Set([404, 408, 429, 500, 502, 503, 504]);
 const MIN_QUIZ_QUESTIONS = 2;
 const MAX_QUIZ_QUESTIONS = 30;
 
-export const TUTOR_QUIZ_CONVERSION_COST = Math.max(
-  Number(process.env.TUTOR_QUIZ_CONVERSION_COST || 25),
-  1,
+export const TUTOR_QUIZ_CONVERSION_COST = getNumberEnv(
+  "TUTOR_QUIZ_CONVERSION_COST",
+  25,
 );
 
-const CONVERSION_TIMEOUT_MS = Math.max(
-  Number(process.env.TUTOR_QUIZ_CONVERSION_TIMEOUT_MS || 60000),
-  5000,
+const CONVERSION_TIMEOUT_MS = getNumberEnv(
+  "TUTOR_QUIZ_CONVERSION_TIMEOUT_MS",
+  60000,
 );
 
 const quizProperty = {

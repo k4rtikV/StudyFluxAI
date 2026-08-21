@@ -32,7 +32,12 @@ router.post(
 );
 router.post(
   "/login",
-  authRateLimit({ bucket: "login", limit: 15, windowMs: 15 * 60 * 1000, includeEmail: true }),
+  authRateLimit({
+    bucket: "login",
+    limit: 30,
+    accountLimit: 10,
+    windowMs: 15 * 60 * 1000,
+  }),
   login,
 );
 router.post(

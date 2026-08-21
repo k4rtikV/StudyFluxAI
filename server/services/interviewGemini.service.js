@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
+import { getNumberEnv } from "../config/env.js";
+
 const DEFAULT_INTERVIEW_MODEL = "gemini-3.6-flash";
 const DEFAULT_INTERVIEW_FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const DEFAULT_TTS_MODEL = "gemini-2.5-flash-preview-tts";
@@ -7,8 +9,8 @@ const DEFAULT_TTS_FALLBACK_MODEL = "gemini-3.1-flash-tts-preview";
 const DEFAULT_TTS_VOICE = "Kore";
 
 const FALLBACK_HTTP_STATUSES = new Set([404, 408, 429, 500, 502, 503, 504]);
-const MODEL_TIMEOUT_MS = Math.max(Number(process.env.INTERVIEW_GEMINI_TIMEOUT_MS || 60000), 8000);
-const TTS_TIMEOUT_MS = Math.max(Number(process.env.INTERVIEW_TTS_TIMEOUT_MS || 20000), 8000);
+const MODEL_TIMEOUT_MS = getNumberEnv("INTERVIEW_GEMINI_TIMEOUT_MS", 60000);
+const TTS_TIMEOUT_MS = getNumberEnv("INTERVIEW_TTS_TIMEOUT_MS", 20000);
 
 const firstQuestionSchema = {
   type: "object",

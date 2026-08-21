@@ -1,17 +1,7 @@
-import crypto from "node:crypto";
-
 import { getRedisClient } from "../config/redis.js";
+import { buildAuthRateLimitKeys } from "../utils/authRateLimitIdentity.js";
 
 const fallbackBuckets = new Map();
-
-const normalizePart = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .slice(0, 256);
-
-const hashKey = (value) =>
-  crypto.createHash("sha256").update(value).digest("hex").slice(0, 32);
 
 const pruneFallback = (now) => {
   if (fallbackBuckets.size < 1000) return;
@@ -58,38 +48,53 @@ export const authRateLimit = ({
   limit,
   windowMs = 15 * 60 * 1000,
   includeEmail = false,
+  accountLimit = null,
 }) => async (req, res, next) => {
-  const ip = normalizePart(req.ip || req.socket?.remoteAddress || "unknown");
-  const email = includeEmail ? normalizePart(req.body?.email) : "";
-  const keyMaterial = `${bucket}:${ip}:${email}`;
-  const key = `rate:auth:${bucket}:${hashKey(keyMaterial)}`;
+  const { primaryKey, accountKey } = buildAuthRateLimitKeys({
+    bucket,
+    ip: req.ip || req.socket?.remoteAddress || "unknown",
+    email: req.body?.email,
+    includeEmail,
+    accountLimit,
+  });
   const now = Date.now();
-  let result;
+  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
 
-  try {
-    const client = getRedisClient();
-    result = client
-      ? await consumeRedis({
-          client,
-          key,
-          limit,
-          windowSeconds: Math.max(1, Math.ceil(windowMs / 1000)),
-        })
-      : consumeFallback({ key, limit, windowMs, now });
-  } catch {
-    result = consumeFallback({ key, limit, windowMs, now });
+  const consume = async (key, scopedLimit) => {
+    try {
+      const client = getRedisClient();
+      return client
+        ? await consumeRedis({ client, key, limit: scopedLimit, windowSeconds })
+        : consumeFallback({ key, limit: scopedLimit, windowMs, now });
+    } catch {
+      return consumeFallback({ key, limit: scopedLimit, windowMs, now });
+    }
+  };
+
+  const results = [{ ...(await consume(primaryKey, limit)), limit }];
+
+  if (accountKey) {
+    results.push({ ...(await consume(accountKey, accountLimit)), limit: accountLimit });
   }
 
-  res.setHeader("X-RateLimit-Limit", String(limit));
-  res.setHeader("X-RateLimit-Remaining", String(result.remaining));
+  const tightest = [...results].sort(
+    (left, right) => left.remaining / left.limit - right.remaining / right.limit,
+  )[0];
+  const blocked = results.filter((result) => !result.allowed);
 
-  if (!result.allowed) {
-    res.setHeader("Retry-After", String(result.retryAfterSeconds));
+  res.setHeader("X-RateLimit-Limit", String(tightest.limit));
+  res.setHeader("X-RateLimit-Remaining", String(tightest.remaining));
+
+  if (blocked.length > 0) {
+    const retryAfterSeconds = Math.max(
+      ...blocked.map((result) => result.retryAfterSeconds),
+    );
+    res.setHeader("Retry-After", String(retryAfterSeconds));
     return res.status(429).json({
       success: false,
       code: "AUTH_RATE_LIMITED",
       message: "Too many authentication attempts. Please wait and try again.",
-      retryAfterSeconds: result.retryAfterSeconds,
+      retryAfterSeconds,
     });
   }
 

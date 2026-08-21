@@ -1,4 +1,5 @@
 import { safeErrorDetails } from "../utils/safeError.js";
+import { getSafeRequestTarget } from "../utils/requestLog.js";
 
 const errorHandler = (err, req, res, _next) => {
   const statusCode =
@@ -11,7 +12,7 @@ const errorHandler = (err, req, res, _next) => {
 
   if (serverError) {
     console.error(
-      `[request-error] ${requestId || "no-request-id"} ${req.method} ${req.originalUrl || req.url}`,
+      `[request-error] ${requestId || "no-request-id"} ${req.method} ${getSafeRequestTarget(req)}`,
       safeErrorDetails(err),
     );
   }

@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { getNumberEnv } from "../config/env.js";
+
 import LearningProfile from "../models/LearningProfile.js";
 import QuizAttempt from "../models/QuizAttempt.js";
 import StudySession from "../models/StudySession.js";
@@ -16,18 +18,9 @@ import { getLevelTransition } from "../utils/progressionRules.js";
 import { safeErrorDetails } from "../utils/safeError.js";
 
 const COSTS = {
-  combined: Math.max(
-    Number(process.env.GENERATION_FLUXGEM_COST || 50),
-    0,
-  ),
-  notes: Math.max(
-    Number(process.env.AI_NOTES_FLUXGEM_COST || 25),
-    0,
-  ),
-  quiz: Math.max(
-    Number(process.env.AI_QUIZ_FLUXGEM_COST || 25),
-    0,
-  ),
+  combined: getNumberEnv("GENERATION_FLUXGEM_COST", 50),
+  notes: getNumberEnv("AI_NOTES_FLUXGEM_COST", 25),
+  quiz: getNumberEnv("AI_QUIZ_FLUXGEM_COST", 25),
 };
 
 const getGenerationType = (studySession) =>

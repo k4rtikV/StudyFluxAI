@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
+import { getNumberEnv } from "../config/env.js";
+
 const DEFAULT_PRIMARY_MODEL = "gemini-3.6-flash";
 const DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash-lite";
 
@@ -114,10 +116,9 @@ const normalizeStudyContext = (studySession) => {
   };
 
   const serialized = JSON.stringify(safeContext, null, 2);
-  const maxChars = Math.max(
-    Number(process.env.TUTOR_STUDY_CONTEXT_MAX_CHARS || 24000),
-    4000,
-  );
+  const maxChars = getNumberEnv("TUTOR_STUDY_CONTEXT_MAX_CHARS", 24000, {
+    min: 4000,
+  });
 
   if (serialized.length <= maxChars) {
     return serialized;
@@ -189,19 +190,10 @@ const isMaxTokensFinish = (finishReason) => {
 };
 
 const getOutputTokenLimit = () =>
-  Math.max(
-    Number(process.env.TUTOR_MAX_OUTPUT_TOKENS || 2400),
-    512,
-  );
+  getNumberEnv("TUTOR_MAX_OUTPUT_TOKENS", 2400, { min: 512 });
 
 const getMaxContinuations = () =>
-  Math.min(
-    Math.max(
-      Number(process.env.TUTOR_MAX_CONTINUATIONS || 2),
-      0,
-    ),
-    4,
-  );
+  getNumberEnv("TUTOR_MAX_CONTINUATIONS", 2, { max: 4 });
 
 const getContinuationInstruction = () => `
 Continue the Tutor answer from exactly where it stopped.

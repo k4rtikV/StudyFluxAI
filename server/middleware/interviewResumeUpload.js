@@ -2,6 +2,8 @@ import path from "node:path";
 
 import multer from "multer";
 
+import { hasPdfSignature } from "../utils/fileSignatures.js";
+
 const MAX_RESUME_BYTES = 2 * 1024 * 1024;
 const allowedMimeTypes = new Set([
   "application/pdf",
@@ -26,7 +28,17 @@ const upload = multer({
 
 export const uploadInterviewResume = (req, res, next) => {
   upload.single("resume")(req, res, (error) => {
-    if (!error) return next();
+    if (!error) {
+      const extension = path.extname(req.file?.originalname || "").toLowerCase();
+      if (extension === ".pdf" && !hasPdfSignature(req.file?.buffer)) {
+        return res.status(415).json({
+          success: false,
+          code: "INVALID_INTERVIEW_RESUME_SIGNATURE",
+          message: "That file does not contain a valid PDF header.",
+        });
+      }
+      return next();
+    }
 
     if (error instanceof multer.MulterError) {
       if (error.code === "LIMIT_FILE_SIZE") {

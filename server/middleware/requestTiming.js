@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
 
+import { getNumberEnv } from "../config/env.js";
+import { getSafeRequestTarget } from "../utils/requestLog.js";
+
 export const requestTiming = (req, res, next) => {
   const started = process.hrtime.bigint();
   const incomingRequestId = String(req.get("x-request-id") || "").trim();
@@ -21,7 +24,10 @@ export const requestTiming = (req, res, next) => {
 
   res.on("finish", () => {
     const elapsedMs = Number(process.hrtime.bigint() - started) / 1_000_000;
-    const slowThreshold = Number(process.env.SLOW_REQUEST_LOG_MS || 1500);
+    const slowThreshold = getNumberEnv("SLOW_REQUEST_LOG_MS", 1500, {
+      min: 0,
+      max: 600000,
+    });
 
     if (
       Number.isFinite(slowThreshold) &&
@@ -30,7 +36,7 @@ export const requestTiming = (req, res, next) => {
       !req.path?.includes("/health")
     ) {
       console.warn(
-        `[slow-request] ${requestId} ${req.method} ${req.originalUrl || req.url} ${res.statusCode} ${elapsedMs.toFixed(0)}ms`,
+        `[slow-request] ${requestId} ${req.method} ${getSafeRequestTarget(req)} ${res.statusCode} ${elapsedMs.toFixed(0)}ms`,
       );
     }
   });

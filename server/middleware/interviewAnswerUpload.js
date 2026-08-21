@@ -1,5 +1,7 @@
 import multer from "multer";
 
+import { audioSignatureMatchesMimeType } from "../utils/fileSignatures.js";
+
 const MAX_ANSWER_BYTES = 6 * 1024 * 1024;
 const ALLOWED_AUDIO_MIME_TYPES = new Set([
   "audio/wav",
@@ -28,7 +30,16 @@ const upload = multer({
 
 export const uploadInterviewAnswer = (req, res, next) => {
   upload.single("answerAudio")(req, res, (error) => {
-    if (!error) return next();
+    if (!error) {
+      if (req.file && !audioSignatureMatchesMimeType(req.file.buffer, req.file.mimetype)) {
+        return res.status(415).json({
+          success: false,
+          code: "INVALID_INTERVIEW_AUDIO_SIGNATURE",
+          message: "The uploaded audio content does not match its declared format.",
+        });
+      }
+      return next();
+    }
 
     if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
       return res.status(413).json({

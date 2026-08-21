@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
+import { getNumberEnv } from "../config/env.js";
+
 const DEFAULT_PRIMARY_MODEL = "gemini-3.6-flash";
 const DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash-lite";
 
@@ -13,14 +15,8 @@ const FALLBACK_HTTP_STATUSES = new Set([
   504,
 ]);
 
-const PRIMARY_TIMEOUT_MS = Math.max(
-  Number(process.env.GEMINI_PRIMARY_TIMEOUT_MS || 60000),
-  5000,
-);
-const FALLBACK_TIMEOUT_MS = Math.max(
-  Number(process.env.GEMINI_FALLBACK_TIMEOUT_MS || 60000),
-  5000,
-);
+const PRIMARY_TIMEOUT_MS = getNumberEnv("GEMINI_PRIMARY_TIMEOUT_MS", 60000);
+const FALLBACK_TIMEOUT_MS = getNumberEnv("GEMINI_FALLBACK_TIMEOUT_MS", 60000);
 
 const runWithTimeout = (operation, timeoutMs, model) =>
   new Promise((resolve, reject) => {

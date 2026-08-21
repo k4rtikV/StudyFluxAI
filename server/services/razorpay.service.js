@@ -1,5 +1,7 @@
 import crypto from "crypto";
 
+import { getNumberEnv } from "../config/env.js";
+
 export const FLUXGEM_PACKAGES = Object.freeze({
   starter: Object.freeze({
     id: "starter",
@@ -40,12 +42,11 @@ const getRazorpayCredentials = () => {
   return { keyId, keySecret };
 };
 
-const getRequestTimeoutMs = () => {
-  const configured = Number(process.env.RAZORPAY_REQUEST_TIMEOUT_MS || 15000);
-  return Number.isFinite(configured)
-    ? Math.min(Math.max(configured, 3000), 45000)
-    : 15000;
-};
+const getRequestTimeoutMs = () =>
+  getNumberEnv("RAZORPAY_REQUEST_TIMEOUT_MS", 15000, {
+    min: 3000,
+    max: 45000,
+  });
 
 const razorpayRequest = async (path, options = {}) => {
   const { keyId, keySecret } = getRazorpayCredentials();

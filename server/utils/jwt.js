@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 
+import { getNumberEnv } from "../config/env.js";
+
 const getJwtSecret = () => {
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET is missing from environment variables.");
@@ -32,15 +34,7 @@ export const verifyAuthToken = (token) => {
 };
 
 export const setAuthCookie = (res, token) => {
-  const cookieDays = Number(
-    process.env.JWT_COOKIE_DAYS || 7,
-  );
-
-  if (!Number.isFinite(cookieDays) || cookieDays <= 0) {
-    throw new Error(
-      "JWT_COOKIE_DAYS must be a positive number.",
-    );
-  }
+  const cookieDays = getNumberEnv("JWT_COOKIE_DAYS", 7);
 
   res.cookie("studyflux_token", token, {
     httpOnly: true,
