@@ -93,6 +93,31 @@ test("login limiter identities independently bind IP and normalized account", ()
   assert.notEqual(first.primaryKey, otherIp.primaryKey);
 });
 
+test("registration limiter independently binds IP and normalized account", () => {
+  const first = buildAuthRateLimitKeys({
+    bucket: "register",
+    ip: "203.0.113.20",
+    email: " NewLearner@Example.com ",
+    accountLimit: 4,
+  });
+  const otherEmail = buildAuthRateLimitKeys({
+    bucket: "register",
+    ip: "203.0.113.20",
+    email: "rotated@example.com",
+    accountLimit: 4,
+  });
+  const otherIp = buildAuthRateLimitKeys({
+    bucket: "register",
+    ip: "203.0.113.21",
+    email: "newlearner@example.com",
+    accountLimit: 4,
+  });
+
+  assert.equal(first.primaryKey, otherEmail.primaryKey);
+  assert.equal(first.accountKey, otherIp.accountKey);
+  assert.notEqual(first.primaryKey, otherIp.primaryKey);
+});
+
 test("upload signatures distinguish real PDF and supported audio headers", () => {
   assert.equal(hasPdfSignature(Buffer.from("%PDF-1.7\n")), true);
   assert.equal(hasPdfSignature(Buffer.from("not a pdf")), false);

@@ -27,7 +27,12 @@ router.use((req, res, next) => {
 
 router.post(
   "/register",
-  authRateLimit({ bucket: "register", limit: 8, windowMs: 15 * 60 * 1000, includeEmail: true }),
+  authRateLimit({
+    bucket: "register",
+    limit: 12,
+    accountLimit: 4,
+    windowMs: 15 * 60 * 1000,
+  }),
   register,
 );
 router.post(
