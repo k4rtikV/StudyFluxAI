@@ -1,7 +1,6 @@
 import {
   Activity,
   ArrowRight,
-  BarChart3,
   CalendarClock,
   MessageSquare,
   ShieldCheck,

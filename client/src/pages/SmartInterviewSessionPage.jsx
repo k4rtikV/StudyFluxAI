@@ -104,11 +104,11 @@ function SmartInterviewSessionPage() {
       player.onplaying = null;
       player.onended = null;
       player.onerror = null;
-      try { player.pause(); } catch {}
+      try { player.pause(); } catch { /* Best-effort media cleanup. */ }
       try {
         player.removeAttribute("src");
         player.load();
-      } catch {}
+      } catch { /* Best-effort media cleanup. */ }
     }
 
     if (audioUrlRef.current) {
@@ -121,7 +121,7 @@ function SmartInterviewSessionPage() {
     if (recorderRef.current) {
       const recorder = recorderRef.current;
       recorderRef.current = null;
-      try { await recorder.dispose(); } catch {}
+      try { await recorder.dispose(); } catch { /* Best-effort recorder cleanup. */ }
     }
   }, []);
 
@@ -148,7 +148,7 @@ function SmartInterviewSessionPage() {
       mountedRef.current = false;
       cleanupPlayer();
       cleanupRecorder();
-      try { audioContextRef.current?.close?.(); } catch {}
+      try { audioContextRef.current?.close?.(); } catch { /* Best-effort audio cleanup. */ }
       audioContextRef.current = null;
     };
   }, [cleanupPlayer, cleanupRecorder, interviewId]);

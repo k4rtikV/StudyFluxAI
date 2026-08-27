@@ -101,11 +101,11 @@ export const startInterviewAudioRecorder = async ({
   let lastUiUpdate = 0;
 
   const cleanup = async () => {
-    try { processor.disconnect(); } catch {}
-    try { source.disconnect(); } catch {}
-    try { sink.disconnect(); } catch {}
+    try { processor.disconnect(); } catch { /* Already disconnected. */ }
+    try { source.disconnect(); } catch { /* Already disconnected. */ }
+    try { sink.disconnect(); } catch { /* Already disconnected. */ }
     stream.getTracks().forEach((track) => track.stop());
-    try { await context.close(); } catch {}
+    try { await context.close(); } catch { /* Already closed. */ }
   };
 
   const finish = async (reason = "manual_submit") => {

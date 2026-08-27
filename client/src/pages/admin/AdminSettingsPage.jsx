@@ -1,4 +1,4 @@
-import { Mail, Save, Settings, ShieldCheck, Users } from "lucide-react";
+import { Mail, Save, ShieldCheck, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 

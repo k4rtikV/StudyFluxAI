@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
-  FileText,
   Flag,
   Lightbulb,
   Link2,

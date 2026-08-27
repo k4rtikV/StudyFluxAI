@@ -8,7 +8,6 @@ import {
   Coins,
   CreditCard,
   Flame,
-  Gem,
   Gift,
   History,
   Info,
