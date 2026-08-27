@@ -42,5 +42,7 @@ jobs:
       - name: Lint client
         run: npm --prefix client run lint
 
-      - name: Build production client
+            - name: Build production client
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
