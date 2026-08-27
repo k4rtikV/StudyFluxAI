@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import { getPrimaryClientUrl } from "../config/env.js";
 import { safeErrorDetails } from "../utils/safeError.js";
+import { verifyAuthToken } from "../utils/jwt.js";
 
 import StudySession from "../models/StudySession.js";
 import User from "../models/User.js";
@@ -23,6 +24,21 @@ import {
 } from "../services/studyExport.service.js";
 
 const getClientUrl = () => getPrimaryClientUrl();
+
+const oauthCallbackMatchesActiveSession = (req, stateData) => {
+  const token = String(req.cookies?.studyflux_token || "").trim();
+  if (!token) return false;
+
+  try {
+    const payload = verifyAuthToken(token);
+    return (
+      String(payload.sub || "") === String(stateData.userId || "") &&
+      Number(payload.av || 0) === Number(stateData.authVersion || 0)
+    );
+  } catch {
+    return false;
+  }
+};
 
 const getStudyReturnUrl = (
   sessionId,
@@ -270,6 +286,15 @@ export const googleFormsCallback = async (
       verifyGoogleFormsOauthState(
         req.query.state,
       );
+
+    // Bind the signed OAuth state to the same live StudyFluxAI session that
+    // initiated the connection. A leaked state token alone must not be enough
+    // to attach or replace a victim's persisted Google Forms credentials.
+    if (!oauthCallbackMatchesActiveSession(req, stateData)) {
+      return res.redirect(
+        getGoogleFormsErrorReturnUrl(stateData.sessionId),
+      );
+    }
 
     if (req.query.error) {
       return res.redirect(

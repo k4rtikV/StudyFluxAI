@@ -330,7 +330,27 @@ export const getSmartInterviewReport = async (req, res, next) => {
     }
 
     if (!interview.finalReport?.generatedAt) {
-      queueSmartInterviewReport({ userId: req.user._id, interviewId: interview._id });
+      const job = await queueSmartInterviewReport({
+        userId: req.user._id,
+        interviewId: interview._id,
+      });
+
+      if (!job) {
+        return res.status(503).json({
+          success: false,
+          code: "INTERVIEW_REPORT_QUEUE_UNAVAILABLE",
+          message: "Astra could not start the report worker. Try again shortly.",
+        });
+      }
+
+      if (job.status === "failed") {
+        return res.status(503).json({
+          success: false,
+          code: "INTERVIEW_REPORT_FAILED",
+          message: "Report generation stopped after repeated failures. Use Retry report to start a fresh attempt.",
+        });
+      }
+
       return res.status(202).json({
         success: true,
         message: "Astra is preparing your final interview report.",
@@ -520,7 +540,24 @@ export const downloadSmartInterviewReportPdf = async (req, res, next) => {
       });
     }
     if (!interview.finalReport?.generatedAt) {
-      queueSmartInterviewReport({ userId: req.user._id, interviewId: interview._id });
+      const job = await queueSmartInterviewReport({
+        userId: req.user._id,
+        interviewId: interview._id,
+      });
+      if (job?.status === "failed") {
+        return res.status(409).json({
+          success: false,
+          code: "INTERVIEW_REPORT_FAILED",
+          message: "The report is not available because generation stopped after repeated failures. Retry the report first.",
+        });
+      }
+      if (!job) {
+        return res.status(503).json({
+          success: false,
+          code: "INTERVIEW_REPORT_QUEUE_UNAVAILABLE",
+          message: "Astra could not start the report worker. Try again shortly.",
+        });
+      }
       return res.status(409).json({
         success: false,
         code: "INTERVIEW_REPORT_GENERATING",

@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   FLUXGEM_PACKAGES,
+  buildRazorpayOrderReceipt,
   getFluxGemPackage,
   verifyRazorpayCheckoutSignature,
   verifyRazorpayWebhookSignature,
@@ -32,6 +33,18 @@ test("FluxGem packages are server-owned immutable values", () => {
   assert.equal(getFluxGemPackage("starter?amount=1"), null);
   assert.ok(Object.isFrozen(FLUXGEM_PACKAGES));
   assert.ok(Object.isFrozen(FLUXGEM_PACKAGES.starter));
+});
+
+
+test("Razorpay order receipts are deterministic per durable purchase id", () => {
+  const purchaseId = "507f1f77bcf86cd799439011";
+  const first = buildRazorpayOrderReceipt(purchaseId);
+  const retry = buildRazorpayOrderReceipt(purchaseId);
+
+  assert.equal(first, retry);
+  assert.equal(first, `sfa_${purchaseId}`);
+  assert.ok(first.length <= 40);
+  assert.notEqual(first, buildRazorpayOrderReceipt("507f1f77bcf86cd799439012"));
 });
 
 test("checkout signature accepts only the exact order/payment pair", () => {

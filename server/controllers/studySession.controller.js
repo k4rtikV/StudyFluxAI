@@ -478,26 +478,41 @@ export const submitStudyQuiz = async (req, res, next) => {
     );
     const beforeProgress = await getProgressOverview(req.user._id);
     const now = new Date();
-    const previousAttempts = Number(studySession.quizProgress?.attempts || 0);
-    const previousBest = Number(
-      studySession.quizProgress?.bestPercentage || 0,
-    );
-
-    const nextQuizProgress = {
-      attempts: previousAttempts + 1,
-      latestAnswers: normalizedAnswers,
-      latestScore: score,
-      totalQuestions,
-      latestPercentage: percentage,
-      bestPercentage: Math.max(previousBest, percentage),
-      firstCompletedAt:
-        studySession.quizProgress?.firstCompletedAt || now,
-      lastCompletedAt: now,
-    };
+    let nextQuizProgress = null;
 
     const mongoSession = await mongoose.startSession();
     try {
       await mongoSession.withTransaction(async () => {
+        // Read the latest progress inside the transaction. If two submissions
+        // race, MongoDB's transaction conflict retry recomputes from the newly
+        // committed value instead of both writers persisting attempts + 1 from
+        // the same stale pre-transaction snapshot.
+        const currentProgressSession = await StudySession.findOne({
+          _id: studySession._id,
+          user: req.user._id,
+          status: "completed",
+        })
+          .select("quizProgress")
+          .session(mongoSession);
+
+        if (!currentProgressSession) {
+          throw new Error("The quiz could not be updated.");
+        }
+
+        const previousAttempts = Number(currentProgressSession.quizProgress?.attempts || 0);
+        const previousBest = Number(currentProgressSession.quizProgress?.bestPercentage || 0);
+
+        nextQuizProgress = {
+          attempts: previousAttempts + 1,
+          latestAnswers: normalizedAnswers,
+          latestScore: score,
+          totalQuestions,
+          latestPercentage: percentage,
+          bestPercentage: Math.max(previousBest, percentage),
+          firstCompletedAt: currentProgressSession.quizProgress?.firstCompletedAt || now,
+          lastCompletedAt: now,
+        };
+
         const updated = await StudySession.findOneAndUpdate(
           {
             _id: studySession._id,

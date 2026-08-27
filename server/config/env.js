@@ -181,6 +181,20 @@ const requireValue = (errors, name, { minLength = 1, email = false } = {}) => {
   return value;
 };
 
+const requireDistinctSecrets = (errors, entries) => {
+  for (let left = 0; left < entries.length; left += 1) {
+    const [leftName, leftValue] = entries[left];
+    if (!leftValue) continue;
+
+    for (let right = left + 1; right < entries.length; right += 1) {
+      const [rightName, rightValue] = entries[right];
+      if (rightValue && leftValue === rightValue) {
+        errors.push(`${leftName} and ${rightName} must be different secrets.`);
+      }
+    }
+  }
+};
+
 export const validateRuntimeEnvironment = () => {
   const errors = [];
   const warnings = [];
@@ -207,14 +221,25 @@ export const validateRuntimeEnvironment = () => {
     requireValue(errors, "GOOGLE_CLIENT_ID", { minLength: 10 });
     requireValue(errors, "GEMINI_API_KEY", { minLength: 16 });
     requireValue(errors, "RAZORPAY_KEY_ID", { minLength: 8 });
-    requireValue(errors, "RAZORPAY_KEY_SECRET", { minLength: 16 });
-    requireValue(errors, "RAZORPAY_WEBHOOK_SECRET", { minLength: 16 });
+    const razorpayKeySecret = requireValue(errors, "RAZORPAY_KEY_SECRET", { minLength: 16 });
+    const razorpayWebhookSecret = requireValue(errors, "RAZORPAY_WEBHOOK_SECRET", { minLength: 16 });
     requireValue(errors, "GOOGLE_FORMS_CLIENT_ID", { minLength: 10 });
     requireValue(errors, "GOOGLE_FORMS_CLIENT_SECRET", { minLength: 12 });
     requireValue(errors, "GOOGLE_FORMS_REDIRECT_URI", { minLength: 12 });
-    requireValue(errors, "GOOGLE_TOKEN_ENCRYPTION_KEY", { minLength: 32 });
-    requireValue(errors, "GOOGLE_OAUTH_STATE_SECRET", { minLength: 32 });
+    const googleTokenEncryptionKey = requireValue(errors, "GOOGLE_TOKEN_ENCRYPTION_KEY", { minLength: 32 });
+    const googleOauthStateSecret = requireValue(errors, "GOOGLE_OAUTH_STATE_SECRET", { minLength: 32 });
     requireValue(errors, "ADMIN_SEED_EMAIL", { email: true });
+
+    requireDistinctSecrets(errors, [
+      ["JWT_SECRET", jwtSecret],
+      ["OTP_SECRET", otpSecret],
+      ["GOOGLE_OAUTH_STATE_SECRET", googleOauthStateSecret],
+      ["GOOGLE_TOKEN_ENCRYPTION_KEY", googleTokenEncryptionKey],
+    ]);
+    requireDistinctSecrets(errors, [
+      ["RAZORPAY_KEY_SECRET", razorpayKeySecret],
+      ["RAZORPAY_WEBHOOK_SECRET", razorpayWebhookSecret],
+    ]);
 
     if (!normalize(process.env.REDIS_URL)) {
       if (getBooleanEnv("REDIS_REQUIRED", false)) {

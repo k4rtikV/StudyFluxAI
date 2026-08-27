@@ -591,6 +591,12 @@ export const failTutorQuestion = async ({
         },
       );
 
+      // Only the request that successfully transitions its own message from
+      // processing -> failed owns the single-flight locks and any refund. A
+      // delayed/stale failure callback must not clear locks held by a newer
+      // Tutor question for the same conversation/day.
+      if (!failedMessage) return;
+
       await TutorConversation.findOneAndUpdate(
         {
           _id: conversationId,
@@ -606,51 +612,33 @@ export const failTutorQuestion = async ({
         },
       );
 
-      if (failedMessage) {
-        const usageInc = {
-          failedQuestions: 1,
-        };
+      const usageInc = {
+        failedQuestions: 1,
+      };
 
-        if (reservation.isFree) {
-          usageInc.freeQuestionsUsed = -1;
-        } else {
-          usageInc.paidQuestions = -1;
-        }
-
-        await TutorDailyUsage.findOneAndUpdate(
-          {
-            user: userId,
-            dayKey: reservation.dayKey,
-          },
-          {
-            $set: {
-              isGenerating: false,
-            },
-            $inc: usageInc,
-          },
-          {
-            session: mongoSession,
-          },
-        );
+      if (reservation.isFree) {
+        usageInc.freeQuestionsUsed = -1;
       } else {
-        await TutorDailyUsage.findOneAndUpdate(
-          {
-            user: userId,
-            dayKey: reservation.dayKey,
-          },
-          {
-            $set: {
-              isGenerating: false,
-            },
-          },
-          {
-            session: mongoSession,
-          },
-        );
+        usageInc.paidQuestions = -1;
       }
 
+      await TutorDailyUsage.findOneAndUpdate(
+        {
+          user: userId,
+          dayKey: reservation.dayKey,
+        },
+        {
+          $set: {
+            isGenerating: false,
+          },
+          $inc: usageInc,
+        },
+        {
+          session: mongoSession,
+        },
+      );
+
       if (
-        failedMessage &&
         !reservation.isFree &&
         reservation.cost > 0
       ) {

@@ -37,6 +37,7 @@ import {
 import { OTP_RESEND_COOLDOWN_SECONDS } from "../utils/otp.js";
 import { isValidTimeZone, normalizeTimeZone } from "../utils/timezone.js";
 import { disconnectUserSockets } from "../realtime/socket.js";
+import { safeErrorDetails } from "../utils/safeError.js";
 
 const DEFAULT_PENDING_REGISTRATION_MINUTES = 30;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync("StudyFluxAI timing equalizer only", 12);
@@ -119,10 +120,27 @@ const cleanupPendingRegistration = async (email) => {
   ]);
 };
 
+const legacyLocalOnlyFilter = (email) => ({
+  email,
+  isEmailVerified: false,
+  role: "student",
+  $or: [
+    { googleId: null },
+    { googleId: { $exists: false } },
+  ],
+  authProviders: { $nin: ["google"] },
+});
+
 const deleteLegacyUnverifiedLocalUser = async (email) => {
-  const legacy = await User.findOne({ email, isEmailVerified: false, role: "student" });
+  const legacy = await User.findOne(legacyLocalOnlyFilter(email));
   if (!legacy) return false;
-  await User.deleteOne({ _id: legacy._id, isEmailVerified: false });
+
+  const deletion = await User.deleteOne({
+    _id: legacy._id,
+    ...legacyLocalOnlyFilter(email),
+  });
+  if (deletion.deletedCount !== 1) return false;
+
   await VerificationCode.deleteMany({ email, purpose: "email_verification" });
   return true;
 };
@@ -169,7 +187,14 @@ export const register = async (req, res, next) => {
     // Pre-Phase-2 builds created permanent unverified Users. They are intentionally
     // discarded so an old planted password can never become valid through a later claim.
     if (existingUser && !existingUser.isEmailVerified) {
-      await deleteLegacyUnverifiedLocalUser(normalizedEmail);
+      const deletedLegacyLocal = await deleteLegacyUnverifiedLocalUser(normalizedEmail);
+      if (!deletedLegacyLocal) {
+        return res.status(409).json({
+          success: false,
+          code: "ACCOUNT_ALREADY_CLAIMED",
+          message: "This email is already associated with an authentication identity. Please sign in or contact support.",
+        });
+      }
     }
 
     const now = new Date();
@@ -230,7 +255,7 @@ export const register = async (req, res, next) => {
       await sendVerificationEmail({ email: normalizedEmail, fullName: normalizedName, otp });
     } catch (emailError) {
       await VerificationCode.deleteOne({ _id: verificationCode._id });
-      console.error("Verification email delivery failed:", emailError.message);
+      console.error("Verification email delivery failed:", safeErrorDetails(emailError));
       return res.status(503).json({
         success: false,
         code: "VERIFICATION_EMAIL_FAILED",
@@ -304,7 +329,7 @@ export const googleAuth = async (req, res, next) => {
     try {
       googleProfile = await verifyGoogleCredential(credential);
     } catch (error) {
-      console.error("Google credential verification failed:", error.message);
+      console.error("Google credential verification failed:", safeErrorDetails(error));
       return res.status(401).json({ success: false, code: "INVALID_GOOGLE_CREDENTIAL", message: "Google sign-in could not be verified. Please try again." });
     }
 
@@ -314,7 +339,7 @@ export const googleAuth = async (req, res, next) => {
       return res.status(403).json({ success: false, code: "ADMIN_PASSWORD_REQUIRED", message: "Admin accounts must sign in with their StudyFluxAI admin password." });
     }
 
-    let user = await User.findOne({ googleId }).select("+googleId +authVersion");
+    let user = await User.findOne({ googleId }).select("+googleId +password +authVersion");
 
     if (user) {
       if (user.role === "admin") {
@@ -327,12 +352,24 @@ export const googleAuth = async (req, res, next) => {
         return res.status(409).json({ success: false, code: "GOOGLE_EMAIL_CHANGED", message: "The email on this Google identity no longer matches the linked StudyFluxAI account. Contact support before continuing." });
       }
 
-      if (!user.authProviders.includes("google")) user.authProviders.push("google");
-      user.isEmailVerified = true;
+      const wasUnverified = user.isEmailVerified !== true;
+      if (wasUnverified) {
+        // A legacy/inconsistent Google-linked row must never retain a local
+        // password that was created before email ownership was established.
+        user.password = undefined;
+        user.authProviders = ["google"];
+        user.isEmailVerified = true;
+        user.authVersion = Number(user.authVersion || 0) + 1;
+        user.authMethodsUpdatedAt = new Date();
+      } else if (!user.authProviders.includes("google")) {
+        user.authProviders.push("google");
+      }
+
       applyReportedTimeZone(user, req.body.timezone);
       user.lastLoginAt = new Date();
       if (!user.avatar && avatar) user.avatar = avatar;
       await user.save();
+      if (wasUnverified) disconnectUserSockets(user._id);
     } else {
       user = await User.findOne({ email }).select("+googleId +password +authVersion");
 
@@ -513,7 +550,7 @@ export const resendVerificationCode = async (req, res, next) => {
       await sendVerificationEmail({ email, fullName: pending.fullName, otp });
     } catch (emailError) {
       await VerificationCode.deleteOne({ _id: verificationCode._id });
-      console.error("Verification email resend failed:", emailError.message);
+      console.error("Verification email resend failed:", safeErrorDetails(emailError));
       return res.status(503).json({ success: false, code: "VERIFICATION_EMAIL_FAILED", message: "We couldn't send a new verification code. Please try again." });
     }
 
@@ -554,7 +591,7 @@ export const forgotPassword = async (req, res, next) => {
       await invalidateOtherVerificationCodes({ email, purpose: "password_reset", exceptId: verificationCode._id });
     } catch (emailError) {
       await VerificationCode.deleteOne({ _id: verificationCode._id });
-      console.error("Password reset email delivery failed:", emailError.message);
+      console.error("Password reset email delivery failed:", safeErrorDetails(emailError));
     }
 
     return res.status(200).json(genericResponse);
@@ -598,7 +635,7 @@ export const resetPassword = async (req, res, next) => {
       fullName: user.fullName,
       title: "Your password was reset",
       message: "Your StudyFluxAI password was changed using an emailed reset code. All previously issued sign-in sessions were revoked.",
-    }).catch((error) => console.error("Password-reset security email failed:", error.message));
+    }).catch((error) => console.error("Password-reset security email failed:", safeErrorDetails(error)));
 
     return res.status(200).json({ success: true, message: "Password reset successfully. Sign in again with your new password." });
   } catch (error) {
@@ -641,7 +678,7 @@ export const changePassword = async (req, res, next) => {
       fullName: user.fullName,
       title: "Your password was changed",
       message: "Your StudyFluxAI password was changed from Settings & preferences. Other previously issued sign-in sessions were revoked.",
-    }).catch((error) => console.error("Password-change security email failed:", error.message));
+    }).catch((error) => console.error("Password-change security email failed:", safeErrorDetails(error)));
 
     return res.status(200).json({ success: true, message: "Password changed. Other sessions were revoked.", data: { user: serializeAuthUser(user) } });
   } catch (error) {
@@ -708,7 +745,7 @@ export const linkGoogle = async (req, res, next) => {
         fullName: user.fullName,
         title: "Google sign-in was linked",
         message: "Google sign-in was added to your StudyFluxAI account after password reauthentication. Other previously issued sessions were revoked.",
-      }).catch((error) => console.error("Google-link security email failed:", error.message));
+      }).catch((error) => console.error("Google-link security email failed:", safeErrorDetails(error)));
     }
 
     return res.status(200).json({ success: true, message: changed ? "Google sign-in linked securely." : "Google sign-in is already linked.", data: { user: serializeAuthUser(user) } });

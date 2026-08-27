@@ -10,6 +10,12 @@ const consumeFallback = ({ key, now }) => {
     for (const [bucketKey, bucket] of fallbackBuckets.entries()) {
       if (bucket.resetAt <= now) fallbackBuckets.delete(bucketKey);
     }
+
+    while (fallbackBuckets.size > 2500) {
+      const oldestKey = fallbackBuckets.keys().next().value;
+      if (!oldestKey) break;
+      fallbackBuckets.delete(oldestKey);
+    }
   }
 
   const existing = fallbackBuckets.get(key);

@@ -114,7 +114,7 @@ Production startup uses `MONGO_AUTO_INDEX=false` in the provided blueprint. Ensu
 npm --prefix server run db:indexes
 ```
 
-This uses Mongoose `createIndexes()` and does not intentionally drop existing indexes.
+This pre-deploy step also performs the repository's small, explicit `StudyExport` compatibility migration: it backfills legacy export fields and removes the obsolete unique `(studySession, exportType)` index before creating the current schema indexes. Review this script whenever its migration logic changes; do not treat it as a no-op index-only step.
 
 ## Health endpoints
 
@@ -122,6 +122,10 @@ This uses Mongoose `createIndexes()` and does not intentionally drop existing in
 - `/api/health/ready` — Mongo is reachable and Redis is available when `REDIS_REQUIRED=true`
 
 The readiness endpoint returns `503` when a required dependency is unavailable so a hosting platform does not route traffic to an unhealthy instance.
+
+## Continuous verification
+
+A minimal GitHub Actions workflow at `.github/workflows/ci.yml` uses the pinned Node version and runs clean installs, server production/security tests, client lint, and the production client build on pushes to `main` and pull requests. It intentionally does not run the database index script because CI must not mutate a shared database.
 
 ## Security deployment checks
 

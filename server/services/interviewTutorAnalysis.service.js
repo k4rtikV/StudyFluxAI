@@ -172,7 +172,7 @@ const runInterviewTutorAnalysis = async ({
       console.error("CRITICAL: Interview Tutor analysis rollback/refund failed:", safeErrorDetails(rollbackError));
     }
 
-    console.error("Smart Interview Tutor deep-dive generation failed:", generationError?.message || generationError);
+    console.error("Smart Interview Tutor deep-dive generation failed:", safeErrorDetails(generationError));
   }
 };
 

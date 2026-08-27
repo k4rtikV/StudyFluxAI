@@ -86,6 +86,7 @@ export const createGoogleFormsOauthState = ({
     },
     getStateSecret(),
     {
+      algorithm: "HS256",
       subject: String(userId),
       expiresIn: "10m",
       issuer: "studyfluxai",
@@ -98,6 +99,7 @@ export const verifyGoogleFormsOauthState = (state) => {
     String(state || ""),
     getStateSecret(),
     {
+      algorithms: ["HS256"],
       issuer: "studyfluxai",
       audience: "studyfluxai-google-forms",
     },

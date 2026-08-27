@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
@@ -13,6 +14,7 @@ import {
   hasPdfSignature,
 } from "../utils/fileSignatures.js";
 import { getSafeRequestTarget } from "../utils/requestLog.js";
+import { redactSensitiveText } from "../utils/safeError.js";
 
 const SNAPSHOT = { ...process.env };
 
@@ -177,6 +179,128 @@ test("browser guard allows configured same-origin unsafe requests", () => {
   assert.equal(res.statusCode, 200);
 });
 
+
+
+test("production validation rejects reused cross-purpose security secrets", () => {
+  process.env.NODE_ENV = "production";
+  process.env.JWT_SECRET = "jwt-secret-example-abcdefghijklmnopqrstuvwxyz-123456";
+  process.env.OTP_SECRET = "otp-secret-example-abcdefghijklmnopqrstuvwxyz-654321";
+  process.env.GOOGLE_OAUTH_STATE_SECRET = process.env.JWT_SECRET;
+  process.env.GOOGLE_TOKEN_ENCRYPTION_KEY = process.env.JWT_SECRET;
+  process.env.RAZORPAY_KEY_SECRET = "razorpay-shared-secret-example-abcdefghijklmnopqrstuvwxyz";
+  process.env.RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_KEY_SECRET;
+
+  const { errors } = validateRuntimeEnvironment();
+  assert.ok(errors.some((message) => message.includes("JWT_SECRET and GOOGLE_OAUTH_STATE_SECRET")));
+  assert.ok(errors.some((message) => message.includes("JWT_SECRET and GOOGLE_TOKEN_ENCRYPTION_KEY")));
+  assert.ok(errors.some((message) => message.includes("RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET")));
+});
+
+test("Tutor stale failures cannot release a newer question's single-flight locks", () => {
+  const source = fs.readFileSync(new URL("../services/tutorUsage.service.js", import.meta.url), "utf8");
+  const start = source.indexOf("export const failTutorQuestion");
+  const section = source.slice(start);
+  const guard = section.indexOf("if (!failedMessage) return;");
+  const conversationUnlock = section.indexOf("await TutorConversation.findOneAndUpdate");
+  const usageUnlock = section.indexOf("await TutorDailyUsage.findOneAndUpdate");
+
+  assert.ok(start >= 0);
+  assert.ok(guard >= 0);
+  assert.ok(guard < conversationUnlock);
+  assert.ok(guard < usageUnlock);
+});
+
+test("Google Forms OAuth callback is bound to the active StudyFluxAI session", () => {
+  const controller = fs.readFileSync(new URL("../controllers/studyExport.controller.js", import.meta.url), "utf8");
+  const oauthService = fs.readFileSync(new URL("../services/googleForms.service.js", import.meta.url), "utf8");
+
+  assert.match(controller, /oauthCallbackMatchesActiveSession/);
+  assert.match(controller, /req\.cookies\?\.studyflux_token/);
+  assert.match(controller, /verifyAuthToken\(token\)/);
+  assert.match(oauthService, /algorithms: \["HS256"\]/);
+});
+
+test("legacy unverified cleanup cannot delete a Google-linked account", () => {
+  const source = fs.readFileSync(new URL("../controllers/auth.controller.js", import.meta.url), "utf8");
+  assert.match(source, /authProviders: \{ \$nin: \["google"\] \}/);
+  assert.match(source, /user\.password = undefined/);
+});
+
+test("expensive export and admin AI routes have authenticated resource rate limits", () => {
+  const studyRoutes = fs.readFileSync(new URL("../routes/studyExportRoutes.js", import.meta.url), "utf8");
+  const formsRoutes = fs.readFileSync(new URL("../routes/googleFormsIntegrationRoutes.js", import.meta.url), "utf8");
+  const interviewRoutes = fs.readFileSync(new URL("../routes/interviewRoutes.js", import.meta.url), "utf8");
+  const adminRoutes = fs.readFileSync(new URL("../routes/adminRoutes.js", import.meta.url), "utf8");
+
+  assert.match(studyRoutes, /bucket: "notes-pdf"/);
+  assert.match(studyRoutes, /bucket: "google-forms-export"/);
+  assert.match(formsRoutes, /bucket: "google-forms-connect"/);
+  assert.match(interviewRoutes, /bucket: "report-pdf"/);
+  assert.match(adminRoutes, /bucket: "admin-ai-draft"/);
+});
+
+
+test("quiz submissions derive progress from the transaction-local StudySession state", () => {
+  const source = fs.readFileSync(new URL("../controllers/studySession.controller.js", import.meta.url), "utf8");
+  const transactionStart = source.indexOf("await mongoSession.withTransaction(async () => {");
+  const transactionSection = source.slice(transactionStart, source.indexOf("await mongoSession.endSession", transactionStart));
+
+  assert.ok(transactionStart >= 0);
+  assert.match(transactionSection, /const currentProgressSession = await StudySession\.findOne/);
+  assert.match(transactionSection, /\.session\(mongoSession\)/);
+  assert.match(transactionSection, /previousAttempts = Number\(currentProgressSession\.quizProgress/);
+});
+
+test("interview report finalization and job completion reject stale workers", () => {
+  const reportSource = fs.readFileSync(new URL("../services/interviewReport.service.js", import.meta.url), "utf8");
+  const jobSource = fs.readFileSync(new URL("../services/interviewJob.service.js", import.meta.url), "utf8");
+
+  assert.match(reportSource, /"finalReport\.generatedAt": null/);
+  assert.match(reportSource, /existingFinalized\?\.finalReport\?\.generatedAt/);
+  assert.match(jobSource, /workerToken: job\.workerToken, status: "processing"/);
+  assert.match(jobSource, /Number\(result\.modifiedCount \|\| 0\) === 1/);
+  assert.match(jobSource, /if \(!completedByThisWorker\) return;/);
+});
+
+
+test("Smart Interview background retries remain bounded across polling and restart recovery", () => {
+  const jobSource = fs.readFileSync(new URL("../services/interviewJob.service.js", import.meta.url), "utf8");
+  const controllerSource = fs.readFileSync(new URL("../controllers/interview.controller.js", import.meta.url), "utf8");
+
+  assert.doesNotMatch(jobSource, /if \(!force && \["failed"\]\.includes\(job\.status\)\)/);
+  assert.match(jobSource, /\$ifNull: \["\$maxAttempts", DEFAULT_MAX_ATTEMPTS\]/);
+  assert.match(jobSource, /INTERVIEW_JOB_ATTEMPTS_EXHAUSTED/);
+  assert.match(controllerSource, /job\.status === "failed"/);
+  assert.match(controllerSource, /INTERVIEW_REPORT_FAILED/);
+  assert.match(controllerSource, /Use Retry report to start a fresh attempt/);
+});
+
+
+test("diagnostic error text redacts common credential and OAuth secret shapes", () => {
+  const redacted = redactSensitiveText(
+    "callback?code=oauth-code&state=signed-state Authorization: Bearer abc.def credential=google-id-token refresh_token=refresh-secret redis=rediss://default:redis-password@cache.example:6379 mongo=mongodb+srv://app-user:mongo-password@cluster.example/db",
+  );
+
+  assert.doesNotMatch(redacted, /oauth-code|signed-state|abc\.def|google-id-token|refresh-secret|redis-password|mongo-password/);
+  assert.match(redacted, /\[REDACTED\]/);
+});
+
+
+test("authentication provider failures use redacted structured diagnostics", () => {
+  const source = fs.readFileSync(new URL("../controllers/auth.controller.js", import.meta.url), "utf8");
+
+  assert.match(source, /Google credential verification failed:", safeErrorDetails\(error\)/);
+  assert.match(source, /Password-reset security email failed:", safeErrorDetails\(error\)/);
+  assert.doesNotMatch(source, /Google credential verification failed:", error\.message/);
+  assert.match(source, /Verification email delivery failed:", safeErrorDetails\(emailError\)/);
+  assert.match(source, /Verification email resend failed:", safeErrorDetails\(emailError\)/);
+  assert.match(source, /Password reset email delivery failed:", safeErrorDetails\(emailError\)/);
+});
+
+test("support rate-limit fallback has a hard cardinality cap", () => {
+  const source = fs.readFileSync(new URL("../middleware/supportRateLimit.js", import.meta.url), "utf8");
+  assert.match(source, /while \(fallbackBuckets\.size > 2500\)/);
+});
 
 test("complete production environment passes readiness validation", () => {
   Object.assign(process.env, {

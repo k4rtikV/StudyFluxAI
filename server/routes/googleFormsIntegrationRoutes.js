@@ -7,6 +7,7 @@ import {
   googleFormsCallback,
 } from "../controllers/studyExport.controller.js";
 import { protect } from "../middleware/auth.js";
+import { resourceRateLimit } from "../middleware/resourceRateLimit.js";
 
 const router = express.Router();
 
@@ -19,6 +20,12 @@ router.get(
 router.get(
   "/connect",
   protect,
+  resourceRateLimit({
+    bucket: "google-forms-connect",
+    limit: 12,
+    windowMs: 15 * 60 * 1000,
+    message: "Too many Google Forms connection attempts. Please wait before trying again.",
+  }),
   connectGoogleForms,
 );
 

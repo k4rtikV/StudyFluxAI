@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
+
+import { safeErrorDetails } from "../utils/safeError.js";
 import mongoose from "mongoose";
 
 import FluxGemPurchase from "../models/FluxGemPurchase.js";
 import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import User from "../models/User.js";
 import {
+  buildRazorpayOrderReceipt,
   createRazorpayOrder,
   fetchRazorpayOrder,
+  fetchRazorpayOrdersByReceipt,
   fetchRazorpayOrderPayments,
   fetchRazorpayPayment,
   getFluxGemPackage,
@@ -113,6 +117,34 @@ const buildLocalOrder = (purchase) => ({
   status: purchase.providerOrderStatus || purchase.status,
 });
 
+const recoverProviderOrderByReceipt = async ({ purchase, packageDetails }) => {
+  const receipt = buildRazorpayOrderReceipt(purchase._id);
+  const response = await fetchRazorpayOrdersByReceipt(receipt);
+  const matches = Array.isArray(response?.items)
+    ? response.items.filter((order) => String(order?.receipt || "") === receipt)
+    : [];
+
+  if (matches.length === 0) return null;
+
+  const order = matches[0];
+  const notes = order?.notes && !Array.isArray(order.notes) ? order.notes : {};
+  const expectedPurchaseId = String(purchase._id);
+
+  if (
+    Number(order.amount) !== Number(packageDetails.amountPaise) ||
+    String(order.currency || "").toUpperCase() !== String(packageDetails.currency || "").toUpperCase() ||
+    String(notes.purchaseId || "") !== expectedPurchaseId
+  ) {
+    throw httpError(
+      "An existing Razorpay receipt does not match this FluxGem purchase.",
+      409,
+      "PURCHASE_PROVIDER_RECEIPT_CONFLICT",
+    );
+  }
+
+  return order;
+};
+
 const reservePurchase = async ({ userId, packageDetails, clientRequestId }) => {
   try {
     const purchase = await FluxGemPurchase.findOneAndUpdate(
@@ -214,6 +246,10 @@ export const createFluxGemPurchase = async ({ userId, packageId, clientRequestId
       };
     }
 
+    const purchaseAgeMs = Date.now() - new Date(purchase.createdAt || 0).getTime();
+    const shouldAttemptProviderRecovery =
+      purchase.status === "failed" || purchaseAgeMs >= ORDER_CREATION_LEASE_MS;
+
     const claim = await claimPurchaseOrderCreation(purchase);
     if (!claim) {
       const ready = await waitForCondition(
@@ -246,11 +282,32 @@ export const createFluxGemPurchase = async ({ userId, packageId, clientRequestId
 
     let order;
     try {
-      order = await createRazorpayOrder({
-        packageDetails,
-        userId,
-        purchaseId: purchase._id,
-      });
+      if (shouldAttemptProviderRecovery) {
+        order = await recoverProviderOrderByReceipt({ purchase, packageDetails });
+      }
+
+      if (!order) {
+        try {
+          order = await createRazorpayOrder({
+            packageDetails,
+            userId,
+            purchaseId: purchase._id,
+          });
+        } catch (creationError) {
+          // The provider may have committed the order even when the response was
+          // lost (timeout/reset/crash window). Reconcile the deterministic
+          // receipt before treating creation as failed or attempting another POST.
+          try {
+            order = await recoverProviderOrderByReceipt({ purchase, packageDetails });
+          } catch (recoveryError) {
+            if (recoveryError?.code === "PURCHASE_PROVIDER_RECEIPT_CONFLICT") {
+              throw recoveryError;
+            }
+            throw creationError;
+          }
+          if (!order) throw creationError;
+        }
+      }
     } catch (error) {
       await FluxGemPurchase.updateOne(
         {
@@ -355,7 +412,7 @@ const triggerPurchaseSideEffects = (purchaseId, paymentId) => {
           gems: Number(purchase.gems || 0),
         },
       }).catch((error) => {
-        console.warn("FluxGem purchase notification delivery failed:", error.message);
+        console.warn("FluxGem purchase notification delivery failed:", safeErrorDetails(error));
       });
 
       if (!user.email || purchase.receiptEmailSentAt) return;
@@ -412,7 +469,7 @@ const triggerPurchaseSideEffects = (purchaseId, paymentId) => {
       }
     })
     .catch((error) => {
-      console.warn("FluxGem purchase post-credit delivery failed:", error.message);
+      console.warn("FluxGem purchase post-credit delivery failed:", safeErrorDetails(error));
     });
 };
 

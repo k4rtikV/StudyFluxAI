@@ -1,6 +1,7 @@
 import { createClient } from "redis";
 
 import { getBooleanEnv, getNumberEnv } from "./env.js";
+import { safeErrorDetails } from "../utils/safeError.js";
 
 let redisClient = null;
 let redisAvailable = false;
@@ -33,7 +34,7 @@ const createRedisClient = () => {
 
   client.on("error", (error) => {
     redisAvailable = false;
-    console.warn("Redis unavailable:", error.message);
+    console.warn("Redis unavailable:", safeErrorDetails(error));
     ensureReconnectTimer();
   });
 
@@ -78,7 +79,7 @@ export const connectRedis = async () => {
     redisAvailable = false;
     console.warn(
       "StudyFluxAI will continue with bounded process-local fallbacks while Redis reconnects:",
-      error.message,
+      safeErrorDetails(error),
     );
     ensureReconnectTimer();
     return null;

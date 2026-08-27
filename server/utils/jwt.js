@@ -18,6 +18,7 @@ export const generateAuthToken = (user) => {
     },
     getJwtSecret(),
     {
+      algorithm: "HS256",
       subject: user._id.toString(),
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",
       issuer: "studyfluxai",
@@ -28,6 +29,7 @@ export const generateAuthToken = (user) => {
 
 export const verifyAuthToken = (token) => {
   return jwt.verify(token, getJwtSecret(), {
+    algorithms: ["HS256"],
     issuer: "studyfluxai",
     audience: "studyfluxai-web",
   });

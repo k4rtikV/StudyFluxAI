@@ -56,25 +56,6 @@ const enqueue = async ({
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
-  if (!force && ["failed"].includes(job.status)) {
-    job = await InterviewJob.findOneAndUpdate(
-      { _id: job._id, status: "failed" },
-      {
-        $set: {
-          status: "queued",
-          runAfter: now,
-          leaseUntil: null,
-          workerToken: "",
-          completedAt: null,
-          lastErrorCode: "",
-          lastErrorMessage: "",
-          attempts: 0,
-        },
-      },
-      { returnDocument: "after" },
-    ) || job;
-  }
-
   scheduleSoon();
   return job;
 };
@@ -111,6 +92,14 @@ const claimJob = async () => {
       $and: [
         { runAfter: { $lte: now } },
         {
+          $expr: {
+            $lt: [
+              { $ifNull: ["$attempts", 0] },
+              { $ifNull: ["$maxAttempts", DEFAULT_MAX_ATTEMPTS] },
+            ],
+          },
+        },
+        {
           $or: [
             { status: "queued" },
             { status: "processing", leaseUntil: { $lte: now } },
@@ -133,7 +122,7 @@ const claimJob = async () => {
 };
 
 const completeJob = async (job) => {
-  await InterviewJob.updateOne(
+  const result = await InterviewJob.updateOne(
     { _id: job._id, workerToken: job.workerToken, status: "processing" },
     {
       $set: {
@@ -146,6 +135,8 @@ const completeJob = async (job) => {
       },
     },
   );
+
+  return Number(result.modifiedCount || 0) === 1;
 };
 
 const failOrRetryJob = async (job, error) => {
@@ -206,7 +197,8 @@ const processClaimedJob = async (job) => {
 
   try {
     await runJob(job);
-    await completeJob(job);
+    const completedByThisWorker = await completeJob(job);
+    if (!completedByThisWorker) return;
 
     const isReport = job.type === "report";
     createUserNotification({
@@ -224,7 +216,7 @@ const processClaimedJob = async (job) => {
       dedupeKey: `interview-job:${String(job._id)}:completed`,
       emailRequested: false,
       metadata: { interviewId: String(job.interview), jobType: job.type },
-    }).catch((error) => console.warn("Interview completion notification failed:", error.message));
+    }).catch((error) => console.warn("Interview completion notification failed:", safeErrorDetails(error)));
   } catch (error) {
     console.error(`Interview background job ${job.type} failed:`, safeErrorDetails(error));
     await failOrRetryJob(job, error);
@@ -258,7 +250,7 @@ const scheduleSoon = () => {
     } catch (error) {
       console.error(
         "Smart Interview job worker poll failed; retrying on the next sweep:",
-        error?.message || error,
+        safeErrorDetails(error),
       );
     } finally {
       if (!stopping) scheduleSoon();
@@ -269,18 +261,55 @@ const scheduleSoon = () => {
 
 export const recoverInterviewJobs = async () => {
   const now = new Date();
-  const result = await InterviewJob.updateMany(
-    { status: "processing", leaseUntil: { $lte: now } },
-    {
-      $set: {
-        status: "queued",
-        runAfter: now,
-        leaseUntil: null,
-        workerToken: "",
+  const retryBudgetAvailable = {
+    $lt: [
+      { $ifNull: ["$attempts", 0] },
+      { $ifNull: ["$maxAttempts", DEFAULT_MAX_ATTEMPTS] },
+    ],
+  };
+  const retryBudgetExhausted = {
+    $gte: [
+      { $ifNull: ["$attempts", 0] },
+      { $ifNull: ["$maxAttempts", DEFAULT_MAX_ATTEMPTS] },
+    ],
+  };
+
+  const [requeued, failed] = await Promise.all([
+    InterviewJob.updateMany(
+      {
+        status: "processing",
+        leaseUntil: { $lte: now },
+        $expr: retryBudgetAvailable,
       },
-    },
-  );
-  return Number(result.modifiedCount || 0);
+      {
+        $set: {
+          status: "queued",
+          runAfter: now,
+          leaseUntil: null,
+          workerToken: "",
+        },
+      },
+    ),
+    InterviewJob.updateMany(
+      {
+        status: "processing",
+        leaseUntil: { $lte: now },
+        $expr: retryBudgetExhausted,
+      },
+      {
+        $set: {
+          status: "failed",
+          runAfter: now,
+          leaseUntil: null,
+          workerToken: "",
+          lastErrorCode: "INTERVIEW_JOB_ATTEMPTS_EXHAUSTED",
+          lastErrorMessage: "The interrupted background job exhausted its retry budget.",
+        },
+      },
+    ),
+  ]);
+
+  return Number(requeued.modifiedCount || 0) + Number(failed.modifiedCount || 0);
 };
 
 export const startInterviewJobWorker = async () => {

@@ -1,4 +1,5 @@
 import SupportRequest from "../models/SupportRequest.js";
+import { safeErrorDetails } from "../utils/safeError.js";
 import SupportRateSlot from "../models/SupportRateSlot.js";
 import { sendSupportConfirmationEmail, sendSupportRequestEmail } from "./email.service.js";
 import { getPlatformSettings } from "./platformSettings.service.js";
@@ -126,7 +127,7 @@ export const submitSupportRequest = async ({ user, payload }) => {
     dedupeKey: `support:${String(request._id)}:submitted`,
     emailRequested: false,
     metadata: { supportRequestId: String(request._id) },
-  }).catch((error) => console.warn("Support notification failed:", error.message));
+  }).catch((error) => console.warn("Support notification failed:", safeErrorDetails(error)));
 
   const wantsConfirmation = user.settings?.emailPreferences?.support !== false;
   if (wantsConfirmation) {
@@ -135,7 +136,7 @@ export const submitSupportRequest = async ({ user, payload }) => {
       fullName: user.fullName,
       subject,
       requestId: String(request._id),
-    }).catch((error) => console.warn("Support confirmation email failed:", error.message));
+    }).catch((error) => console.warn("Support confirmation email failed:", safeErrorDetails(error)));
   }
 
   return {

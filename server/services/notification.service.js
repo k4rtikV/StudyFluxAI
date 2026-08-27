@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { safeErrorDetails } from "../utils/safeError.js";
+
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import { sendNotificationEmail } from "./email.service.js";
@@ -124,7 +126,7 @@ const sendPendingEmails = async (notifications) => {
               $unset: { emailLeaseId: "", emailLeaseExpiresAt: "" },
             },
           );
-          console.warn("Notification email delivery failed:", error.message);
+          console.warn("Notification email delivery failed:", safeErrorDetails(error));
         }
       }),
     );
@@ -315,7 +317,7 @@ export const notifyFluxGemRewards = async ({ userId, granted = [] }) => {
       emailRequested: true,
       metadata: { ...reward.metadata, amount: reward.amount },
     }).catch((error) => {
-      console.warn("Reward notification delivery failed:", error.message);
+      console.warn("Reward notification delivery failed:", safeErrorDetails(error));
     });
     return;
   }
@@ -334,6 +336,6 @@ export const notifyFluxGemRewards = async ({ userId, granted = [] }) => {
     emailRequested: true,
     metadata: { amount: total, rewardKeys: normalized.map((reward) => reward.rewardKey) },
   }).catch((error) => {
-    console.warn("Reward notification delivery failed:", error.message);
+    console.warn("Reward notification delivery failed:", safeErrorDetails(error));
   });
 };

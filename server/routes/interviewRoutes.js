@@ -36,7 +36,11 @@ router.get("/:interviewId", getSmartInterview);
 router.post("/:interviewId/initialize", interviewRateLimit({ bucket: "initialize", limit: 6 }), initializeSmartInterviewSession);
 router.get("/:interviewId/report", getSmartInterviewReport);
 router.post("/:interviewId/report/retry", interviewRateLimit({ bucket: "report-retry", limit: 5 }), retrySmartInterviewReport);
-router.get("/:interviewId/report/pdf", downloadSmartInterviewReportPdf);
+router.get(
+  "/:interviewId/report/pdf",
+  interviewRateLimit({ bucket: "report-pdf", limit: 20, windowMs: 15 * 60 * 1000 }),
+  downloadSmartInterviewReportPdf,
+);
 router.get("/:interviewId/tutor-analysis", getSmartInterviewTutorAnalysisStatus);
 router.post("/:interviewId/tutor-analysis", interviewRateLimit({ bucket: "tutor-analysis", limit: 4 }), exportSmartInterviewQuestionsToTutor);
 router.get("/:interviewId/question-audio", interviewRateLimit({ bucket: "question-audio", limit: 16 }), streamSmartInterviewQuestionAudio);

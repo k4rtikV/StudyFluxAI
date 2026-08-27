@@ -102,12 +102,27 @@ const razorpayRequest = async (path, options = {}) => {
 export const getFluxGemPackage = (packageId) =>
   FLUXGEM_PACKAGES[String(packageId || "").trim()] || null;
 
+export const buildRazorpayOrderReceipt = (purchaseId) => {
+  const normalized = String(purchaseId || "").trim();
+  if (!normalized) {
+    const error = new Error("A purchase identifier is required to create a Razorpay order.");
+    error.statusCode = 500;
+    error.code = "PURCHASE_ID_REQUIRED";
+    throw error;
+  }
+
+  // Razorpay receipts are unique and limited to 40 characters. A deterministic
+  // receipt lets a retry recover an order that the provider accepted before a
+  // process crash/network timeout prevented us from persisting its order id.
+  return `sfa_${normalized}`.slice(0, 40);
+};
+
 export const createRazorpayOrder = async ({
   packageDetails,
   userId,
-  purchaseId = "",
+  purchaseId,
 }) => {
-  const receipt = `sfa_${String(userId).slice(-8)}_${Date.now()}`.slice(0, 40);
+  const receipt = buildRazorpayOrderReceipt(purchaseId);
 
   return razorpayRequest("/orders", {
     method: "POST",
@@ -125,6 +140,9 @@ export const createRazorpayOrder = async ({
     },
   });
 };
+
+export const fetchRazorpayOrdersByReceipt = async (receipt) =>
+  razorpayRequest(`/orders?receipt=${encodeURIComponent(String(receipt || ""))}&count=10`);
 
 export const fetchRazorpayPayment = async (paymentId) =>
   razorpayRequest(`/payments/${encodeURIComponent(paymentId)}`);

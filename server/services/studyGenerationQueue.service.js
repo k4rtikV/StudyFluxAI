@@ -106,7 +106,7 @@ const processJob = async (job) => {
         } catch (error) {
           console.warn(
             `Study session ${studySessionId} stage update failed:`,
-            error.message,
+            safeErrorDetails(error),
           );
         }
       },
@@ -168,7 +168,7 @@ const processJob = async (job) => {
       dedupeKey: `study-session:${String(studySessionId)}:completed`,
       emailRequested: false,
       metadata: { studySessionId: String(studySessionId), status: "completed" },
-    }).catch((error) => console.warn("Study generation notification failed:", error.message));
+    }).catch((error) => console.warn("Study generation notification failed:", safeErrorDetails(error)));
   } catch (generationError) {
     try {
       const refundResult = await refundFailedStudyGeneration({
@@ -218,7 +218,7 @@ const processJob = async (job) => {
         dedupeKey: `study-session:${String(studySessionId)}:failed`,
         emailRequested: false,
         metadata: { studySessionId: String(studySessionId), status: "failed", refunded: Boolean(refundResult.refunded) },
-      }).catch((error) => console.warn("Study generation failure notification failed:", error.message));
+      }).catch((error) => console.warn("Study generation failure notification failed:", safeErrorDetails(error)));
     } catch (refundError) {
       console.error(
         "CRITICAL: FluxGem refund failed after background AI generation error:",

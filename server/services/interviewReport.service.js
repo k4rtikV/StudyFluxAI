@@ -190,11 +190,39 @@ export const ensureSmartInterviewReport = async ({ userId, interviewId }) =>
         "This is AI-assisted mock-interview practice feedback, not a hiring decision, diagnosis, or prediction of job performance.",
     };
 
-    interview.finalReport = finalReport;
-    interview.phase = "report_ready";
-    interview.lastActivityAt = generatedAt;
-    await interview.save();
-    return interview;
+    const finalized = await InterviewSession.findOneAndUpdate(
+      {
+        _id: interviewId,
+        user: userId,
+        status: "completed",
+        $or: [
+          { "finalReport.generatedAt": null },
+          { "finalReport.generatedAt": { $exists: false } },
+        ],
+      },
+      {
+        $set: {
+          finalReport,
+          phase: "report_ready",
+          lastActivityAt: generatedAt,
+        },
+      },
+      { returnDocument: "after" },
+    );
+
+    if (finalized) return finalized;
+
+    // Another valid worker may have won the finalization race while this one
+    // was synthesizing. Return the authoritative persisted report instead of
+    // overwriting it with a stale duplicate result.
+    const existingFinalized = await InterviewSession.findOne({
+      _id: interviewId,
+      user: userId,
+      status: "completed",
+    });
+    if (existingFinalized?.finalReport?.generatedAt) return existingFinalized;
+
+    throw new Error("The Smart Interview report could not be finalized safely.");
   });
 
 export const queueSmartInterviewReport = ({ userId, interviewId, force = false }) =>
