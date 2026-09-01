@@ -32,6 +32,7 @@ import {
   levelUsesProgram,
   levelUsesStream,
 } from "../../data/learningCatalog";
+import { getStandaloneGenerationValidationError } from "../../utils/generationValidation";
 import useAuth from "../../hooks/useAuth";
 import { getLearningProfile } from "../../services/learningProfileService";
 import { generateStudySession } from "../../services/studySessionService";
@@ -332,139 +333,29 @@ function StandaloneGeneratorWorkspace({ generationType }) {
   };
 
   const validate = () => {
-    if (sourceMode === "topic" && topic.trim().length < 3) {
-      toast.error("Enter a topic with at least 3 characters.");
-      return false;
-    }
+    const validationError = getStandaloneGenerationValidationError({
+      sourceMode,
+      topic,
+      sourceFile,
+      educationLevel,
+      boardFlow,
+      institutionState,
+      institutionChoice,
+      customInstitutionName: academicContext.customInstitutionName,
+      usesProgram,
+      programChoice,
+      programOptions,
+      customProgram: academicContext.customProgram,
+      usesStream,
+      streamChoice,
+      streamOptions,
+      customStream: academicContext.customStream,
+      hasEnoughFluxGems,
+      generationCost: GENERATION_COST,
+    });
 
-    if (sourceMode === "source" && !sourceFile) {
-      toast.error("Upload a source before continuing.");
-      return false;
-    }
-
-    if (!educationLevel) {
-      toast.error(
-        "Choose the education level for this generation.",
-      );
-      return false;
-    }
-
-    if (
-      !boardFlow &&
-      !INDIA_STATES.includes(
-        institutionState,
-      )
-    ) {
-      toast.error(
-        "Choose the state / union territory for this generation.",
-      );
-      return false;
-    }
-
-    if (!institutionChoice) {
-      toast.error(
-        boardFlow
-          ? "Choose the school board used for this generation."
-          : "Choose the institution used for this generation.",
-      );
-      return false;
-    }
-
-    if (
-      boardFlow &&
-      institutionChoice !== OTHER_VALUE &&
-      !BOARD_OPTIONS.includes(
-        institutionChoice,
-      )
-    ) {
-      toast.error(
-        "Choose a valid school board for this generation.",
-      );
-      return false;
-    }
-
-    if (
-      institutionChoice === OTHER_VALUE &&
-      academicContext.customInstitutionName
-        .trim().length < 2
-    ) {
-      toast.error(
-        boardFlow
-          ? "Enter the school board name."
-          : "Enter the institution name.",
-      );
-      return false;
-    }
-
-    if (usesProgram) {
-      if (!programChoice) {
-        toast.error(
-          "Choose the program / degree for this generation.",
-        );
-        return false;
-      }
-
-      if (
-        programChoice !== OTHER_VALUE &&
-        !programOptions.includes(
-          programChoice,
-        )
-      ) {
-        toast.error(
-          "Choose a valid program / degree.",
-        );
-        return false;
-      }
-
-      if (
-        programChoice === OTHER_VALUE &&
-        academicContext.customProgram
-          .trim().length < 2
-      ) {
-        toast.error(
-          "Enter the program / degree.",
-        );
-        return false;
-      }
-    }
-
-    if (
-      usesStream &&
-      (!usesProgram || programChoice)
-    ) {
-      if (!streamChoice) {
-        toast.error(
-          "Choose the stream / specialization for this generation.",
-        );
-        return false;
-      }
-
-      if (
-        streamChoice !== OTHER_VALUE &&
-        !streamOptions.includes(
-          streamChoice,
-        )
-      ) {
-        toast.error(
-          "Choose a valid stream / specialization.",
-        );
-        return false;
-      }
-
-      if (
-        streamChoice === OTHER_VALUE &&
-        academicContext.customStream
-          .trim().length < 2
-      ) {
-        toast.error(
-          "Enter the stream / specialization.",
-        );
-        return false;
-      }
-    }
-
-    if (!hasEnoughFluxGems) {
-      toast.error(`You need ${GENERATION_COST} FluxGems for this generation.`);
+    if (validationError) {
+      toast.error(validationError);
       return false;
     }
 

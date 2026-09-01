@@ -31,6 +31,7 @@ import {
   levelUsesProgram,
   levelUsesStream,
 } from "../data/learningCatalog";
+import { addProgramAndStreamIssues } from "../utils/learningProfileRefinement";
 import useAuth from "../hooks/useAuth";
 import {
   logoutUser,
@@ -130,101 +131,7 @@ const schema = z
       });
     }
 
-    if (
-      levelUsesProgram(
-        data.educationLevel,
-      )
-    ) {
-      const programOptions =
-        getProgramOptions(
-          data.educationLevel,
-        );
-
-      if (!data.programChoice) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["programChoice"],
-          message:
-            "Select your program or degree.",
-        });
-      } else if (
-        data.programChoice ===
-        OTHER_VALUE
-      ) {
-        if (
-          data.customProgram
-            .trim().length < 2
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["customProgram"],
-            message:
-              "Enter your program or degree.",
-          });
-        }
-      } else if (
-        !programOptions.includes(
-          data.programChoice,
-        )
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["programChoice"],
-          message:
-            "Choose a valid program.",
-        });
-      }
-    }
-
-    if (
-      levelUsesStream(
-        data.educationLevel,
-      )
-    ) {
-      const streamOptions =
-        getStreamOptions(
-          data.educationLevel,
-          data.programChoice ===
-            OTHER_VALUE
-            ? ""
-            : data.programChoice,
-        );
-
-      if (!data.streamChoice) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["streamChoice"],
-          message:
-            "Select your stream or specialization.",
-        });
-      } else if (
-        data.streamChoice ===
-        OTHER_VALUE
-      ) {
-        if (
-          data.customStream
-            .trim().length < 2
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["customStream"],
-            message:
-              "Enter your stream or specialization.",
-          });
-        }
-      } else if (
-        !streamOptions.includes(
-          data.streamChoice,
-        )
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["streamChoice"],
-          message:
-            "Choose a valid stream or specialization.",
-        });
-      }
-    }
+    addProgramAndStreamIssues(data, ctx);
   });
 
 const institutionLabel = (

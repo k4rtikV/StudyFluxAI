@@ -126,6 +126,53 @@ const parseAcademicContext = (body) => {
   };
 };
 
+const validateGenerationType = ({ generationType, errors }) => {
+  if (!ALLOWED_GENERATION_TYPES.has(generationType)) {
+    errors.generationType = "Choose a valid generation type.";
+  }
+};
+
+const validateStudySource = ({ sourceMode, topic, file, errors }) => {
+  if (!["topic", "source"].includes(sourceMode)) {
+    errors.sourceMode = "Choose a valid study source.";
+  }
+
+  if (sourceMode === "topic") {
+    if (topic.length < 3) {
+      errors.topic = "Enter a topic with at least 3 characters.";
+    } else if (topic.length > 180) {
+      errors.topic = "Keep the topic under 180 characters.";
+    }
+  }
+
+  if (sourceMode === "source" && !file) {
+    errors.sourceFile = "Upload a PDF, TXT or Markdown source.";
+  }
+};
+
+const validateGenerationOptions = ({
+  generationType,
+  detailLevel,
+  difficulty,
+  quizSize,
+  errors,
+}) => {
+  const includesNotes = ["combined", "notes"].includes(generationType);
+  const includesQuiz = ["combined", "quiz"].includes(generationType);
+
+  if (includesNotes && !ALLOWED_DETAIL_LEVELS.has(detailLevel)) {
+    errors.detailLevel = "Choose a valid notes detail level.";
+  }
+
+  if (includesQuiz && !ALLOWED_DIFFICULTIES.has(difficulty)) {
+    errors.difficulty = "Choose a valid quiz difficulty.";
+  }
+
+  if (includesQuiz && !ALLOWED_QUIZ_SIZES.has(quizSize)) {
+    errors.quizSize = "Quiz length must be 5, 10 or 15 questions.";
+  }
+};
+
 export const validateStudyGenerationInput = ({
   body,
   file,
@@ -148,46 +195,15 @@ export const validateStudyGenerationInput = ({
     ...academicContext.errors,
   };
 
-  if (!ALLOWED_GENERATION_TYPES.has(generationType)) {
-    errors.generationType = "Choose a valid generation type.";
-  }
-
-  if (!["topic", "source"].includes(sourceMode)) {
-    errors.sourceMode = "Choose a valid study source.";
-  }
-
-  if (sourceMode === "topic") {
-    if (topic.length < 3) {
-      errors.topic = "Enter a topic with at least 3 characters.";
-    } else if (topic.length > 180) {
-      errors.topic = "Keep the topic under 180 characters.";
-    }
-  }
-
-  if (sourceMode === "source" && !file) {
-    errors.sourceFile = "Upload a PDF, TXT or Markdown source.";
-  }
-
-  if (
-    ["combined", "notes"].includes(generationType) &&
-    !ALLOWED_DETAIL_LEVELS.has(detailLevel)
-  ) {
-    errors.detailLevel = "Choose a valid notes detail level.";
-  }
-
-  if (
-    ["combined", "quiz"].includes(generationType) &&
-    !ALLOWED_DIFFICULTIES.has(difficulty)
-  ) {
-    errors.difficulty = "Choose a valid quiz difficulty.";
-  }
-
-  if (
-    ["combined", "quiz"].includes(generationType) &&
-    !ALLOWED_QUIZ_SIZES.has(quizSize)
-  ) {
-    errors.quizSize = "Quiz length must be 5, 10 or 15 questions.";
-  }
+  validateGenerationType({ generationType, errors });
+  validateStudySource({ sourceMode, topic, file, errors });
+  validateGenerationOptions({
+    generationType,
+    detailLevel,
+    difficulty,
+    quizSize,
+    errors,
+  });
 
   return {
     valid: Object.keys(errors).length === 0,

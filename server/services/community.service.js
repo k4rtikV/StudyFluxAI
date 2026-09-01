@@ -10,7 +10,10 @@ import User from "../models/User.js";
 import XPTransaction from "../models/XPTransaction.js";
 import { emitPollResults } from "../realtime/socket.js";
 import { queueLeaderboardRefresh } from "./leaderboard.service.js";
-import { broadcastCommunityPublication } from "./notification.service.js";
+import {
+  broadcastCommunityPublication,
+  createUserNotification,
+} from "./notification.service.js";
 import { getProgressOverview } from "./progression.service.js";
 import { getLevelTransition } from "../utils/progressionRules.js";
 

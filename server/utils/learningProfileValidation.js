@@ -120,6 +120,113 @@ const validateProgramOrStreamChoice = ({
   };
 };
 
+const emptyInstitutionResult = () => ({
+  institutionState: "",
+  institutionId: "",
+  institutionCategory: "",
+  institutionSector: "",
+  institutionKey: "",
+  institutionName: "",
+});
+
+const resolveBoardInstitution = ({ payload, errors }) => {
+  const result = emptyInstitutionResult();
+  const choice = normalize(payload.institutionChoice);
+
+  if (!choice) {
+    errors.institutionChoice = "Select your school board.";
+    return result;
+  }
+
+  if (choice === OTHER_VALUE) {
+    result.institutionKey = OTHER_VALUE;
+    result.institutionCategory = "other";
+    result.institutionSector = "other";
+    result.institutionName = customValue({
+      value: payload.customInstitutionName,
+      errorField: "customInstitutionName",
+      label: "school board",
+      errors,
+    });
+    return result;
+  }
+
+  if (!BOARD_OPTIONS.includes(choice)) {
+    errors.institutionChoice = "Choose a valid school board.";
+    return result;
+  }
+
+  result.institutionKey = choice;
+  result.institutionName = choice;
+  result.institutionCategory = "other";
+  return result;
+};
+
+const resolveCatalogInstitution = ({
+  payload,
+  educationLevel,
+  errors,
+}) => {
+  const result = emptyInstitutionResult();
+  result.institutionState = normalize(payload.institutionState);
+
+  if (!INDIA_STATES.includes(result.institutionState)) {
+    errors.institutionState = "Select a valid state or union territory.";
+  }
+
+  const choice = normalize(payload.institutionChoice);
+
+  if (!choice) {
+    errors.institutionChoice = "Select your institution.";
+    return result;
+  }
+
+  if (choice === OTHER_VALUE) {
+    result.institutionKey = OTHER_VALUE;
+    result.institutionCategory = "other";
+    result.institutionSector = "other";
+    result.institutionName = customValue({
+      value: payload.customInstitutionName,
+      errorField: "customInstitutionName",
+      label: "institution name",
+      errors,
+    });
+    return result;
+  }
+
+  const institution = findInstitutionById(choice);
+
+  if (!institution) {
+    errors.institutionChoice = "Choose a valid institution from the catalog.";
+    return result;
+  }
+
+  if (institution.state !== result.institutionState) {
+    errors.institutionChoice =
+      "The selected institution does not belong to the selected state.";
+    return result;
+  }
+
+  if (educationLevel === "diploma" && institution.category !== "diploma") {
+    errors.institutionChoice =
+      "Choose a diploma institution for the selected education level.";
+    return result;
+  }
+
+  if (educationLevel !== "diploma" && institution.category === "diploma") {
+    errors.institutionChoice =
+      "Choose a college, university or institute for higher education.";
+    return result;
+  }
+
+  result.institutionId = institution.id;
+  result.institutionKey = institution.id;
+  result.institutionName = institution.name;
+  result.institutionCategory = institution.category;
+  result.institutionSector = institution.sector || "";
+  return result;
+};
+
 export const validateLearningProfile = (
   payload,
 ) => {
@@ -157,123 +264,23 @@ export const validateLearningProfile = (
       "Institution type does not match the selected education level.";
   }
 
-  let institutionState = "";
-  let institutionId = "";
-  let institutionCategory = "";
-  let institutionSector = "";
-  let institutionKey = "";
-  let institutionName = "";
-
-  if (
+  const institution =
     expectedInstitutionType === "board"
-  ) {
-    const choice = normalize(
-      payload.institutionChoice,
-    );
+      ? resolveBoardInstitution({ payload, errors })
+      : resolveCatalogInstitution({
+          payload,
+          educationLevel,
+          errors,
+        });
 
-    if (!choice) {
-      errors.institutionChoice =
-        "Select your school board.";
-    } else if (
-      choice === OTHER_VALUE
-    ) {
-      institutionKey = OTHER_VALUE;
-      institutionCategory = "other";
-      institutionSector = "other";
-      institutionName = customValue({
-        value:
-          payload.customInstitutionName,
-        errorField:
-          "customInstitutionName",
-        label: "school board",
-        errors,
-      });
-    } else if (
-      !BOARD_OPTIONS.includes(choice)
-    ) {
-      errors.institutionChoice =
-        "Choose a valid school board.";
-    } else {
-      institutionKey = choice;
-      institutionName = choice;
-      institutionCategory = "other";
-    }
-  } else {
-    institutionState = normalize(
-      payload.institutionState,
-    );
-
-    if (
-      !INDIA_STATES.includes(
-        institutionState,
-      )
-    ) {
-      errors.institutionState =
-        "Select a valid state or union territory.";
-    }
-
-    const choice = normalize(
-      payload.institutionChoice,
-    );
-
-    if (!choice) {
-      errors.institutionChoice =
-        "Select your institution.";
-    } else if (
-      choice === OTHER_VALUE
-    ) {
-      institutionKey = OTHER_VALUE;
-      institutionCategory = "other";
-      institutionSector = "other";
-      institutionName = customValue({
-        value:
-          payload.customInstitutionName,
-        errorField:
-          "customInstitutionName",
-        label: "institution name",
-        errors,
-      });
-    } else {
-      const institution =
-        findInstitutionById(choice);
-
-      if (!institution) {
-        errors.institutionChoice =
-          "Choose a valid institution from the catalog.";
-      } else if (
-        institution.state !==
-        institutionState
-      ) {
-        errors.institutionChoice =
-          "The selected institution does not belong to the selected state.";
-      } else if (
-        educationLevel === "diploma" &&
-        institution.category !==
-          "diploma"
-      ) {
-        errors.institutionChoice =
-          "Choose a diploma institution for the selected education level.";
-      } else if (
-        educationLevel !== "diploma" &&
-        institution.category ===
-          "diploma"
-      ) {
-        errors.institutionChoice =
-          "Choose a college, university or institute for higher education.";
-      } else {
-        institutionId =
-          institution.id;
-        institutionKey =
-          institution.id;
-        institutionName =
-          institution.name;
-        institutionCategory =
-          institution.category;
-        institutionSector =
-          institution.sector || "";
-      }
-    }
-  }
+  const {
+    institutionState,
+    institutionId,
+    institutionCategory,
+    institutionSector,
+    institutionKey,
+    institutionName,
+  } = institution;
 
   const usesProgram =
     levelUsesProgram(
