@@ -6,6 +6,7 @@ import FluxGemTransaction from "../models/FluxGemTransaction.js";
 import StudySession from "../models/StudySession.js";
 import TutorMessage from "../models/TutorMessage.js";
 import User from "../models/User.js";
+import { emitStudySessionChanged } from "../realtime/socket.js";
 
 const DEFAULT_PRIMARY_MODEL = "gemini-3.6-flash";
 const DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash-lite";
@@ -410,19 +411,199 @@ export const getTutorQuizProgressionSource = ({ extractedQuiz, contextStudySessi
   };
 };
 
+const getTutorQuizPlaceholderTitle = (conversation) => {
+  const conversationTitle = String(
+    conversation?.title || conversation?.contextTitle || "",
+  ).trim();
+
+  if (!conversationTitle || conversationTitle === "New tutor chat") {
+    return "Tutor quiz";
+  }
+
+  return `Tutor quiz · ${conversationTitle}`.slice(0, 180);
+};
+
+export const prepareTutorQuizConversion = async ({
+  userId,
+  conversation,
+  assistantMessage,
+  contextStudySession = null,
+}) => {
+  const existingFilter = {
+    user: userId,
+    "tutorProvenance.assistantMessage": assistantMessage._id,
+  };
+  let existing = await StudySession.findOne(existingFilter);
+  const generatingAgeMs = existing?.status === "generating"
+    ? Date.now() - new Date(existing.updatedAt || existing.createdAt || 0).getTime()
+    : 0;
+  const staleGeneratingMs = Math.max(
+    (CONVERSION_TIMEOUT_MS * 2) + 30000,
+    150000,
+  );
+  const generatingIsFresh =
+    existing?.status === "generating" &&
+    Number.isFinite(generatingAgeMs) &&
+    generatingAgeMs < staleGeneratingMs;
+
+  if (existing?.status === "completed" || generatingIsFresh) {
+    return {
+      studySession: existing.toObject(),
+      created: false,
+      alreadyCompleted: existing.status === "completed",
+    };
+  }
+
+  const now = new Date();
+  const baseValues = {
+    user: userId,
+    generationType: "quiz",
+    sourceMode: "tutor",
+    origin: "ai_tutor",
+    topic: getTutorQuizPlaceholderTitle(conversation),
+    academicContext: conversation.academicContext || {},
+    detailLevel: "balanced",
+    difficulty: "profile",
+    quizSize: 0,
+    cost: TUTOR_QUIZ_CONVERSION_COST,
+    status: "generating",
+    generationStage: "primary",
+    chargedAt: null,
+    refundedAt: null,
+    modelUsed: "",
+    fallbackUsed: false,
+    output: null,
+    failureCode: "",
+    failureMessage: "",
+    completedAt: null,
+    tutorProvenance: {
+      conversation: conversation._id,
+      assistantMessage: assistantMessage._id,
+      sourceStudySession: contextStudySession?._id || null,
+      sourceKind: "",
+      convertedAt: null,
+    },
+    generationMetrics: {
+      queuedAt: now,
+      startedAt: now,
+      primaryStartedAt: now,
+      fallbackStartedAt: null,
+      primaryDurationMs: 0,
+      fallbackDurationMs: 0,
+      totalDurationMs: 0,
+      finishedAt: null,
+    },
+  };
+
+  if (existing?.status === "failed" || existing?.status === "generating") {
+    existing = await StudySession.findOneAndUpdate(
+      {
+        _id: existing._id,
+        user: userId,
+        status: existing.status,
+      },
+      { $set: baseValues },
+      { returnDocument: "after" },
+    );
+
+    if (existing) {
+      emitStudySessionChanged(existing._id, {
+        status: "generating",
+        generationStage: "primary",
+      });
+
+      return {
+        studySession: existing.toObject(),
+        created: true,
+        alreadyCompleted: false,
+      };
+    }
+  }
+
+  try {
+    const created = await StudySession.create(baseValues);
+    emitStudySessionChanged(created._id, {
+      status: "generating",
+      generationStage: "primary",
+    });
+
+    return {
+      studySession: created.toObject(),
+      created: true,
+      alreadyCompleted: false,
+    };
+  } catch (error) {
+    if (error?.code !== 11000) {
+      throw error;
+    }
+
+    const concurrent = await StudySession.findOne(existingFilter).lean();
+    if (!concurrent) {
+      throw error;
+    }
+
+    return {
+      studySession: concurrent,
+      created: false,
+      alreadyCompleted: concurrent.status === "completed",
+    };
+  }
+};
+
+export const failTutorQuizConversion = async ({
+  userId,
+  studySessionId,
+  error,
+}) => {
+  if (!studySessionId) return null;
+
+  const finishedAt = new Date();
+  const failed = await StudySession.findOneAndUpdate(
+    {
+      _id: studySessionId,
+      user: userId,
+      status: "generating",
+    },
+    {
+      $set: {
+        status: "failed",
+        generationStage: "failed",
+        failureCode: String(
+          error?.code || "TUTOR_QUIZ_CONVERSION_FAILED",
+        ).slice(0, 120),
+        failureMessage: String(
+          error?.message || "The Tutor quiz could not be converted.",
+        ).slice(0, 500),
+        "generationMetrics.finishedAt": finishedAt,
+      },
+    },
+    { returnDocument: "after" },
+  );
+
+  if (failed) {
+    emitStudySessionChanged(failed._id, {
+      status: "failed",
+      generationStage: "failed",
+    });
+  }
+
+  return failed;
+};
+
 export const persistTutorQuizConversion = async ({
   userId,
   conversation,
   assistantMessage,
   extracted,
   contextStudySession = null,
+  studySessionId = null,
 }) => {
   const existing = await StudySession.findOne({
     user: userId,
     "tutorProvenance.assistantMessage": assistantMessage._id,
   }).lean();
 
-  if (existing) {
+  if (existing?.status === "completed") {
     const currentUser = await User.findById(userId).select("fluxGems").lean();
     return {
       studySession: existing,
@@ -460,46 +641,98 @@ export const persistTutorQuizConversion = async ({
       const now = new Date();
       const questionCount = extracted.output.quiz.questions.length;
 
-      [createdStudySession] = await StudySession.create(
-        [
+      const completedValues = {
+        generationType: "quiz",
+        sourceMode: "tutor",
+        origin: "ai_tutor",
+        topic: extracted.output.sessionTitle,
+        academicContext: conversation.academicContext || {},
+        detailLevel: "balanced",
+        difficulty: "profile",
+        quizSize: questionCount,
+        cost,
+        status: "completed",
+        generationStage: "completed",
+        chargedAt: now,
+        modelUsed: extracted.modelUsed || "",
+        fallbackUsed: Boolean(extracted.fallbackUsed),
+        output: extracted.output,
+        quizProgressionSource: progressionSource || null,
+        failureCode: "",
+        failureMessage: "",
+        completedAt: now,
+        "generationMetrics.primaryDurationMs": extracted.fallbackUsed ? 0 : extracted.durationMs,
+        "generationMetrics.fallbackDurationMs": extracted.fallbackUsed ? extracted.durationMs : 0,
+        "generationMetrics.totalDurationMs": extracted.durationMs,
+        "generationMetrics.finishedAt": now,
+        "tutorProvenance.conversation": conversation._id,
+        "tutorProvenance.assistantMessage": assistantMessage._id,
+        "tutorProvenance.sourceStudySession": contextStudySession?._id || null,
+        "tutorProvenance.sourceKind": sourceKind,
+        "tutorProvenance.convertedAt": now,
+      };
+
+      if (studySessionId) {
+        createdStudySession = await StudySession.findOneAndUpdate(
           {
+            _id: studySessionId,
             user: userId,
-            generationType: "quiz",
-            sourceMode: "tutor",
-            origin: "ai_tutor",
-            topic: extracted.output.sessionTitle,
-            academicContext: conversation.academicContext || {},
-            detailLevel: "balanced",
-            difficulty: "profile",
-            quizSize: questionCount,
-            cost,
-            status: "completed",
-            generationStage: "completed",
-            generationMetrics: {
-              queuedAt: now,
-              startedAt: now,
-              primaryDurationMs: extracted.fallbackUsed ? 0 : extracted.durationMs,
-              fallbackDurationMs: extracted.fallbackUsed ? extracted.durationMs : 0,
-              totalDurationMs: extracted.durationMs,
-              finishedAt: now,
-            },
-            chargedAt: now,
-            modelUsed: extracted.modelUsed || "",
-            fallbackUsed: Boolean(extracted.fallbackUsed),
-            output: extracted.output,
-            quizProgressionSource: progressionSource || null,
-            tutorProvenance: {
-              conversation: conversation._id,
-              assistantMessage: assistantMessage._id,
-              sourceStudySession: contextStudySession?._id || null,
-              sourceKind,
-              convertedAt: now,
-            },
-            completedAt: now,
+            status: "generating",
+            "tutorProvenance.assistantMessage": assistantMessage._id,
           },
-        ],
-        { session: mongoSession },
-      );
+          { $set: completedValues },
+          { returnDocument: "after", session: mongoSession },
+        );
+
+        if (!createdStudySession) {
+          throw new TutorQuizConversionError(
+            "The Tutor quiz conversion state changed before it could be saved.",
+            "TUTOR_QUIZ_CONVERSION_STATE_CHANGED",
+            409,
+          );
+        }
+      } else {
+        [createdStudySession] = await StudySession.create(
+          [
+            {
+              user: userId,
+              generationType: "quiz",
+              sourceMode: "tutor",
+              origin: "ai_tutor",
+              topic: extracted.output.sessionTitle,
+              academicContext: conversation.academicContext || {},
+              detailLevel: "balanced",
+              difficulty: "profile",
+              quizSize: questionCount,
+              cost,
+              status: "completed",
+              generationStage: "completed",
+              generationMetrics: {
+                queuedAt: now,
+                startedAt: now,
+                primaryDurationMs: extracted.fallbackUsed ? 0 : extracted.durationMs,
+                fallbackDurationMs: extracted.fallbackUsed ? extracted.durationMs : 0,
+                totalDurationMs: extracted.durationMs,
+                finishedAt: now,
+              },
+              chargedAt: now,
+              modelUsed: extracted.modelUsed || "",
+              fallbackUsed: Boolean(extracted.fallbackUsed),
+              output: extracted.output,
+              quizProgressionSource: progressionSource || null,
+              tutorProvenance: {
+                conversation: conversation._id,
+                assistantMessage: assistantMessage._id,
+                sourceStudySession: contextStudySession?._id || null,
+                sourceKind,
+                convertedAt: now,
+              },
+              completedAt: now,
+            },
+          ],
+          { session: mongoSession },
+        );
+      }
 
       await FluxGemTransaction.create(
         [
@@ -538,6 +771,12 @@ export const persistTutorQuizConversion = async ({
         },
         { session: mongoSession },
       );
+    });
+
+    emitStudySessionChanged(createdStudySession._id, {
+      status: "completed",
+      generationStage: "completed",
+      fallbackUsed: Boolean(extracted.fallbackUsed),
     });
 
     return {

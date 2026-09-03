@@ -10,8 +10,10 @@ import TutorMessage from "../models/TutorMessage.js";
 import { generateTutorReply } from "../services/tutorGemini.service.js";
 import {
   extractTutorQuiz,
+  failTutorQuizConversion,
   looksLikeTutorQuiz,
   persistTutorQuizConversion,
+  prepareTutorQuizConversion,
   TUTOR_QUIZ_CONVERSION_COST,
   TutorQuizConversionError,
   TutorQuizConversionInsufficientGemsError,
@@ -295,7 +297,10 @@ export const getTutorConversation = async (req, res, next) => {
     const messages = await TutorMessage.find({
       user: req.user._id,
       conversation: conversation._id,
-      status: "completed",
+      $or: [
+        { status: "completed" },
+        { role: "user", status: "processing" },
+      ],
     })
       .sort({ sequence: 1 })
       .lean();
@@ -378,6 +383,8 @@ export const archiveTutorConversation = async (req, res, next) => {
 };
 
 export const convertTutorQuizToStudyLibrary = async (req, res, next) => {
+  let pendingStudySessionId = null;
+
   try {
     const conversation = await findOwnedConversation(
       req.user._id,
@@ -469,6 +476,57 @@ export const convertTutorQuizToStudyLibrary = async (req, res, next) => {
         .lean();
     }
 
+    const prepared = await prepareTutorQuizConversion({
+      userId: req.user._id,
+      conversation,
+      assistantMessage,
+      contextStudySession,
+    });
+
+    pendingStudySessionId = prepared.studySession?._id || null;
+
+    if (prepared.alreadyCompleted) {
+      return res.status(200).json({
+        success: true,
+        message: "This Tutor quiz is already saved in Study Library.",
+        data: {
+          studySession: {
+            id: prepared.studySession._id,
+            title:
+              prepared.studySession.output?.sessionTitle ||
+              prepared.studySession.topic ||
+              "Tutor quiz",
+            generationType: "quiz",
+            origin: prepared.studySession.origin || "ai_tutor",
+            status: "completed",
+          },
+          balance: Number(req.user.fluxGems || 0),
+          charged: 0,
+          alreadyConverted: true,
+        },
+      });
+    }
+
+    if (!prepared.created) {
+      return res.status(202).json({
+        success: true,
+        message: "This Tutor quiz is already being saved in Study Library.",
+        data: {
+          studySession: {
+            id: prepared.studySession._id,
+            title: prepared.studySession.topic || "Tutor quiz",
+            generationType: "quiz",
+            origin: prepared.studySession.origin || "ai_tutor",
+            status: "generating",
+          },
+          balance: Number(req.user.fluxGems || 0),
+          charged: 0,
+          alreadyConverted: false,
+          generating: true,
+        },
+      });
+    }
+
     // Extraction/validation happens before the wallet transaction. The 25 FG
     // charge is therefore committed only if a valid Study Library quiz can be
     // persisted successfully.
@@ -483,6 +541,7 @@ export const convertTutorQuizToStudyLibrary = async (req, res, next) => {
       assistantMessage,
       extracted,
       contextStudySession,
+      studySessionId: pendingStudySessionId,
     });
 
     return res.status(persisted.alreadyConverted ? 200 : 201).json({
@@ -511,6 +570,21 @@ export const convertTutorQuizToStudyLibrary = async (req, res, next) => {
       },
     });
   } catch (error) {
+    if (pendingStudySessionId) {
+      try {
+        await failTutorQuizConversion({
+          userId: req.user._id,
+          studySessionId: pendingStudySessionId,
+          error,
+        });
+      } catch (statusError) {
+        console.warn(
+          "Tutor quiz conversion failure status could not be persisted:",
+          safeErrorDetails(statusError),
+        );
+      }
+    }
+
     if (error instanceof TutorQuizConversionInsufficientGemsError) {
       return res.status(402).json({
         success: false,

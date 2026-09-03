@@ -279,7 +279,7 @@ export const recoverStaleStudyGenerations = async () => {
     status: "generating",
     updatedAt: { $lte: cutoff },
   })
-    .select("_id user cost")
+    .select("_id user cost origin chargedAt")
     .lean();
 
   let recovered = 0;
@@ -290,6 +290,39 @@ export const recoverStaleStudyGenerations = async () => {
     }
 
     try {
+      if (session.origin === "ai_tutor" && !session.chargedAt) {
+        const failedTutorConversion = await StudySession.findOneAndUpdate(
+          {
+            _id: session._id,
+            user: session.user,
+            status: "generating",
+            origin: "ai_tutor",
+            chargedAt: null,
+          },
+          {
+            $set: {
+              status: "failed",
+              generationStage: "failed",
+              "generationMetrics.finishedAt": new Date(),
+              failureCode: "TUTOR_QUIZ_CONVERSION_STALE_RECOVERY",
+              failureMessage:
+                "The Tutor quiz conversion stopped before it completed. You can retry it from AI Tutor.",
+            },
+          },
+          { returnDocument: "after" },
+        );
+
+        if (failedTutorConversion) {
+          recovered += 1;
+          emitStatus(session._id, {
+            status: "failed",
+            generationStage: "failed",
+            refunded: false,
+          });
+        }
+        continue;
+      }
+
       const result = await refundFailedStudyGeneration({
         userId: session.user,
         studySessionId: session._id,
@@ -316,7 +349,7 @@ export const recoverStaleStudyGenerations = async () => {
   }
 
   if (recovered > 0) {
-    console.warn(`Recovered and refunded ${recovered} stale study generation(s).`);
+    console.warn(`Recovered ${recovered} stale study generation(s).`);
   }
 
   return recovered;

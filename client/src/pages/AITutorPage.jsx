@@ -398,16 +398,16 @@ function AITutorPage() {
   }, []);
 
   useEffect(() => {
-    if (!activeConversationId || !activeConversation?.sourceInterviewId || !activeConversation?.isGenerating) {
+    if (!activeConversationId || !activeConversation?.isGenerating) {
       return undefined;
     }
 
     let active = true;
     let timer = null;
 
-    const pollInterviewDeepDive = async () => {
+    const pollGeneratingConversation = async () => {
       if (document.visibilityState === "hidden") {
-        timer = window.setTimeout(pollInterviewDeepDive, 6000);
+        timer = window.setTimeout(pollGeneratingConversation, 6000);
         return;
       }
 
@@ -421,7 +421,7 @@ function AITutorPage() {
         setGenerationFailure(data.generationFailure || null);
 
         if (data.conversation?.isGenerating) {
-          timer = window.setTimeout(pollInterviewDeepDive, 2000);
+          timer = window.setTimeout(pollGeneratingConversation, 2000);
           return;
         }
 
@@ -429,27 +429,27 @@ function AITutorPage() {
           const refreshed = await listTutorConversations();
           if (active) setConversations(refreshed?.data?.conversations || []);
         } catch {
-          // The completed deep dive is already visible in the active chat.
+          // The completed Tutor response is already visible in the active chat.
         }
       } catch {
-        if (active) timer = window.setTimeout(pollInterviewDeepDive, 2500);
+        if (active) timer = window.setTimeout(pollGeneratingConversation, 2500);
       }
     };
 
     const handleVisibility = () => {
       if (document.visibilityState !== "visible" || !active) return;
       if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(pollInterviewDeepDive, 150);
+      timer = window.setTimeout(pollGeneratingConversation, 150);
     };
 
     document.addEventListener("visibilitychange", handleVisibility);
-    timer = window.setTimeout(pollInterviewDeepDive, 1200);
+    timer = window.setTimeout(pollGeneratingConversation, 1200);
     return () => {
       active = false;
       document.removeEventListener("visibilitychange", handleVisibility);
       if (timer) window.clearTimeout(timer);
     };
-  }, [activeConversationId, activeConversation?.isGenerating, activeConversation?.sourceInterviewId]);
+  }, [activeConversationId, activeConversation?.isGenerating]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -559,6 +559,17 @@ function AITutorPage() {
 
       updateBalance(data.balance);
 
+      if (data.generating) {
+        toast(
+          "This Tutor quiz is already being saved in Study Library. Its Generating status is visible there.",
+          {
+            id: toastId,
+            duration: 4500,
+          },
+        );
+        return;
+      }
+
       if (studySessionId) {
         setMessages((current) =>
           current.map((message) =>
@@ -614,7 +625,7 @@ function AITutorPage() {
   const handleSend = async (overrideText = "") => {
     const question = String(overrideText || input).trim();
 
-    if (!question || sending) {
+    if (!question || sending || activeConversation?.isGenerating) {
       return;
     }
 
@@ -1067,7 +1078,7 @@ function AITutorPage() {
                   );
                 })}
 
-                {sending && (
+                {(sending || (activeConversation?.isGenerating && !activeConversation?.sourceInterviewId)) && (
                   <div className="flex gap-3">
                     <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-cyan-500 to-violet-600 text-white shadow-sm">
                       <BrainCircuit size={17} />
@@ -1115,7 +1126,7 @@ function AITutorPage() {
                   value={input}
                   maxLength={2000}
                   rows={3}
-                  disabled={sending}
+                  disabled={sending || activeConversation?.isGenerating}
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
@@ -1142,7 +1153,7 @@ function AITutorPage() {
                   <button
                     type="button"
                     onClick={() => handleSend()}
-                    disabled={!input.trim() || sending}
+                    disabled={!input.trim() || sending || activeConversation?.isGenerating}
                     className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 sm:self-auto"
                     aria-label="Send Tutor question"
                   >

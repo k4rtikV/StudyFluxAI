@@ -299,6 +299,11 @@ export const reserveTutorQuestion = async ({
         {
           $set: {
             isGenerating: true,
+            // A persisted user question is already the newest conversation
+            // activity, even while the assistant reply is still generating.
+            // Keeping this timestamp current makes sidebar ordering reflect
+            // the latest chat immediately instead of only after completion.
+            lastMessageAt: now,
             ...(Number(usage.successfulQuestions || 0) === 0
               ? {}
               : {}),

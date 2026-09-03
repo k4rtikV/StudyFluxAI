@@ -138,8 +138,6 @@ function StudyLibraryPage() {
       .filter((session) => session.status === "generating")
       .map((session) => String(session.id));
 
-    if (pendingIds.length === 0) return undefined;
-
     const refresh = () => {
       if (document.visibilityState === "hidden") return;
       loadSessions(false);

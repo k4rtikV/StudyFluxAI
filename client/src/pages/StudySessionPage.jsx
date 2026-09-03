@@ -245,6 +245,9 @@ function QuizView({
       setSubmitted(true);
       onProgressUpdate?.(response?.data?.quizProgress || null);
       emitProgressionChanged();
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
 
       if (progression?.levelUp?.leveledUp) {
         toast.success(
@@ -379,12 +382,27 @@ function QuizView({
                         </span>
                         <span className="flex-1">{option}</span>
 
-                        {showCorrect && (
-                          <Check size={17} className="mt-1 shrink-0" />
+                        {submitted && selected && isCorrect && (
+                          <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                            <span className="rounded-full border border-emerald-300 bg-white/80 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-emerald-700">
+                              Your answer
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-emerald-800">
+                              <Check size={12} /> Correct answer
+                            </span>
+                          </span>
                         )}
 
                         {showWrong && (
-                          <X size={17} className="mt-1 shrink-0" />
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-rose-800">
+                            <X size={12} /> Your answer · Wrong
+                          </span>
+                        )}
+
+                        {showCorrect && !selected && (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-emerald-800">
+                            <Check size={12} /> Correct answer
+                          </span>
                         )}
                       </button>
                     );
@@ -1086,28 +1104,32 @@ function StudySessionPage() {
       )}
 
       {hasNotes && hasQuiz && (
-        <div className="mt-6 flex w-full max-w-md rounded-2xl border border-slate-200 bg-slate-100/80 p-1">
+        <div className="mt-6 flex w-full max-w-md rounded-2xl border border-violet-200/80 bg-gradient-to-r from-indigo-50 via-violet-50 to-emerald-50 p-1.5 shadow-sm">
           <button
             type="button"
             onClick={() => setActiveTab("notes")}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-extrabold transition ${
+            aria-pressed={activeTab === "notes"}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-extrabold transition-all ${
               activeTab === "notes"
-                ? "bg-white text-indigo-700 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
+                ? "border-indigo-500 bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-200/70"
+                : "border-transparent bg-white/70 text-indigo-700 hover:border-indigo-200 hover:bg-indigo-50"
             }`}
           >
+            <FileText size={16} />
             Notes
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("quiz")}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-extrabold transition ${
+            aria-pressed={activeTab === "quiz"}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-extrabold transition-all ${
               activeTab === "quiz"
-                ? "bg-white text-violet-700 shadow-sm"
-                : "text-slate-500 hover:text-slate-800"
+                ? "border-emerald-500 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-md shadow-emerald-200/70"
+                : "border-transparent bg-white/70 text-emerald-700 hover:border-emerald-200 hover:bg-emerald-50"
             }`}
           >
+            <BookOpenCheck size={16} />
             Quiz
           </button>
         </div>
