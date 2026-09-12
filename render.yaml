@@ -7,7 +7,6 @@ services:
     buildCommand: npm --prefix server ci --omit=dev && npm --prefix client ci --include=dev && npm --prefix client run build
     startCommand: npm --prefix server start
     healthCheckPath: /api/health/ready
-    maxShutdownDelaySeconds: 60
     envVars:
       - key: NODE_ENV
         value: production
