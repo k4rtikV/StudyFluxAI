@@ -2,9 +2,9 @@ services:
   - type: web
     name: studyfluxai
     runtime: node
-    plan: starter
+    region: singapore
+    plan: free
     buildCommand: npm --prefix server ci --omit=dev && npm --prefix client ci --include=dev && npm --prefix client run build
-    preDeployCommand: npm --prefix server run db:indexes
     startCommand: npm --prefix server start
     healthCheckPath: /api/health/ready
     maxShutdownDelaySeconds: 60
