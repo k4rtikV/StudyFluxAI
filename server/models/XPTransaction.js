@@ -113,18 +113,7 @@ xpTransactionSchema.index(
     unique: true,
     partialFilterExpression: {
       studySession: { $type: "objectId" },
-      interviewSession: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "InterviewSession",
-      default: null,
-      index: true,
-    },
-    interviewDayKey: {
-      type: Number,
-      default: null,
-      index: true,
-    },
-    quizMilestone: { $type: "string" },
+      quizMilestone: { $type: "string" },
     },
   },
 );
