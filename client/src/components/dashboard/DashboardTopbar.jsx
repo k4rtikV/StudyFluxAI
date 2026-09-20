@@ -158,6 +158,7 @@ function DashboardTopbar({ onOpenSidebar }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [gemMenuOpen, setGemMenuOpen] = useState(false);
   const [plannerMenuOpen, setPlannerMenuOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -170,11 +171,16 @@ function DashboardTopbar({ onOpenSidebar }) {
   const plannerRef = useRef(null);
   const searchRef = useRef(null);
 
-  const goTo = (path) => {
+  const closeTopbarPanels = useCallback(() => {
     setProfileOpen(false);
     setGemMenuOpen(false);
     setPlannerMenuOpen(false);
+    setNotificationOpen(false);
     setSearchOpen(false);
+  }, []);
+
+  const goTo = (path) => {
+    closeTopbarPanels();
     navigate(path);
   };
 
@@ -197,6 +203,61 @@ function DashboardTopbar({ onOpenSidebar }) {
       return haystack.includes(query);
     }).slice(0, 8);
   }, [searchValue]);
+
+  const handleNotificationOpenChange = useCallback((nextOpen) => {
+    setNotificationOpen(nextOpen);
+    if (nextOpen) {
+      setSearchOpen(false);
+      setGemMenuOpen(false);
+      setPlannerMenuOpen(false);
+      setProfileOpen(false);
+    }
+  }, []);
+
+  const topbarOverlayOpen =
+    searchOpen || profileOpen || gemMenuOpen || plannerMenuOpen || notificationOpen;
+
+  useEffect(() => {
+    if (!topbarOverlayOpen) return undefined;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousHtmlOverscroll = html.style.overscrollBehavior;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyOverscroll = body.style.overscrollBehavior;
+    const previousBodyPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = Math.max(window.innerWidth - html.clientWidth, 0);
+    const computedBodyPaddingRight = Number.parseFloat(
+      window.getComputedStyle(body).paddingRight,
+    ) || 0;
+
+    html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${computedBodyPaddingRight + scrollbarWidth}px`;
+    }
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      html.style.overscrollBehavior = previousHtmlOverscroll;
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehavior = previousBodyOverscroll;
+      body.style.paddingRight = previousBodyPaddingRight;
+    };
+  }, [topbarOverlayOpen]);
+
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") closeTopbarPanels();
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [closeTopbarPanels]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -315,8 +376,8 @@ function DashboardTopbar({ onOpenSidebar }) {
   }, [loadPlannerSummary]);
 
   useEffect(() => {
-    setPlannerMenuOpen(false);
-  }, [location.pathname]);
+    closeTopbarPanels();
+  }, [closeTopbarPanels, location.pathname]);
 
   const handleSearchSubmit = (event) => {
     event.preventDefault();
@@ -388,7 +449,13 @@ function DashboardTopbar({ onOpenSidebar }) {
               type="search"
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
-              onFocus={() => setSearchOpen(true)}
+              onFocus={() => {
+                setSearchOpen(true);
+                setNotificationOpen(false);
+                setGemMenuOpen(false);
+                setPlannerMenuOpen(false);
+                setProfileOpen(false);
+              }}
               placeholder="Search StudyFluxAI"
               className="h-11 w-full rounded-2xl border border-white/86 bg-white/93 py-2.5 pl-11 pr-4 text-sm text-slate-700 shadow-[0_10px_26px_rgba(15,23,42,0.06)] outline-none transition placeholder:text-slate-400 hover:bg-white/96 focus:border-white focus:bg-white focus:ring-2 focus:ring-cyan-100/70"
             />
@@ -413,7 +480,7 @@ function DashboardTopbar({ onOpenSidebar }) {
                 </span>
               </div>
 
-              <div className="sf-scrollbar max-h-[calc(100dvh-210px)] overflow-y-auto p-2 md:max-h-[340px]">
+              <div className="sf-scrollbar max-h-[calc(100dvh-210px)] touch-pan-y overscroll-contain overflow-y-auto p-2 md:max-h-[min(340px,calc(100dvh-130px))]">
                 {filteredSearchItems.length ? (
                   filteredSearchItems.map((item) => {
                     const Icon = item.icon;
@@ -463,13 +530,41 @@ function DashboardTopbar({ onOpenSidebar }) {
         </div>
 
         <div className="col-span-2 row-start-2 flex w-full min-w-0 items-center justify-end gap-2 md:col-auto md:row-auto md:ml-auto md:w-auto md:shrink-0 md:justify-start md:gap-2 xl:gap-3">
-          <NotificationPanel onNavigate={goTo} />
+          <div
+            className="mr-auto flex h-11 min-w-0 flex-1 items-center gap-1.5 overflow-hidden rounded-xl border border-white/32 bg-white/14 px-2 text-white shadow-[0_6px_18px_rgba(15,23,42,0.05)] backdrop-blur-sm md:hidden"
+            aria-label={progressOverview ? `Level ${level}` : "Loading learning level"}
+            title={progressOverview ? `Level ${level}` : "Loading learning level"}
+          >
+            {progressOverview ? (
+              <LevelKite level={level} size={25} showTail={false} className="hidden shrink-0 min-[300px]:block" />
+            ) : (
+              <span className="h-6 w-6 shrink-0 animate-pulse rounded-lg bg-white/30" aria-hidden="true" />
+            )}
+            <span className="min-w-0 truncate text-[11px] font-black tracking-[0.01em] drop-shadow-sm">
+              {progressOverview ? (
+                <>
+                  <span className="min-[360px]:hidden">L{level}</span>
+                  <span className="hidden min-[360px]:inline">Level {level}</span>
+                </>
+              ) : (
+                "Level…"
+              )}
+            </span>
+          </div>
+
+          <NotificationPanel
+            onNavigate={goTo}
+            open={notificationOpen}
+            onOpenChange={handleNotificationOpenChange}
+          />
 
           <div
             ref={gemMenuRef}
             className="relative shrink-0"
             onMouseEnter={() => {
               setGemMenuOpen(true);
+              setNotificationOpen(false);
+              setSearchOpen(false);
               setProfileOpen(false);
               setPlannerMenuOpen(false);
             }}
@@ -484,6 +579,8 @@ function DashboardTopbar({ onOpenSidebar }) {
               type="button"
               onClick={() => {
                 setGemMenuOpen((current) => !current);
+                setNotificationOpen(false);
+                setSearchOpen(false);
                 setProfileOpen(false);
                 setPlannerMenuOpen(false);
               }}
@@ -507,7 +604,7 @@ function DashboardTopbar({ onOpenSidebar }) {
             </button>
 
             {gemMenuOpen && (
-              <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-40 max-h-[calc(100dvh-124px)] overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-none md:w-64 md:overflow-visible">
+              <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-40 max-h-[calc(100dvh-124px)] touch-pan-y overscroll-contain overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-[calc(100dvh-100px)] md:w-64">
                 <div className="rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                   <div className="rounded-[21.5px] bg-white p-2">
                 <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-cyan-50/70 to-violet-50 p-3">
@@ -545,12 +642,16 @@ function DashboardTopbar({ onOpenSidebar }) {
             className="relative shrink-0"
             onMouseEnter={() => {
               setPlannerMenuOpen(true);
+              setNotificationOpen(false);
+              setSearchOpen(false);
               setGemMenuOpen(false);
               setProfileOpen(false);
             }}
             onMouseLeave={() => setPlannerMenuOpen(false)}
             onFocusCapture={() => {
               setPlannerMenuOpen(true);
+              setNotificationOpen(false);
+              setSearchOpen(false);
               setGemMenuOpen(false);
               setProfileOpen(false);
             }}
@@ -592,7 +693,7 @@ function DashboardTopbar({ onOpenSidebar }) {
             </button>
 
             {plannerMenuOpen && (
-            <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-50 max-h-[calc(100dvh-124px)] overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-none md:w-[300px] md:overflow-visible">
+            <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-50 max-h-[calc(100dvh-124px)] touch-pan-y overscroll-contain overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-[calc(100dvh-100px)] md:w-[300px]">
               <div className="rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                 <div className="overflow-hidden rounded-[21.5px] bg-white/97 backdrop-blur-2xl">
                 <div className="p-3">
@@ -645,6 +746,8 @@ function DashboardTopbar({ onOpenSidebar }) {
             className="relative shrink-0"
             onMouseEnter={() => {
               setProfileOpen(true);
+              setNotificationOpen(false);
+              setSearchOpen(false);
               setGemMenuOpen(false);
               setPlannerMenuOpen(false);
             }}
@@ -659,6 +762,8 @@ function DashboardTopbar({ onOpenSidebar }) {
               type="button"
               onClick={() => {
                 setProfileOpen((current) => !current);
+                setNotificationOpen(false);
+                setSearchOpen(false);
                 setGemMenuOpen(false);
                 setPlannerMenuOpen(false);
               }}
@@ -696,7 +801,7 @@ function DashboardTopbar({ onOpenSidebar }) {
             </button>
 
             {profileOpen && (
-              <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-40 max-h-[calc(100dvh-124px)] overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-none md:w-[min(22rem,calc(100vw-2rem))] md:overflow-visible">
+              <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-40 max-h-[calc(100dvh-124px)] touch-pan-y overscroll-contain overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-[calc(100dvh-100px)] md:w-[min(22rem,calc(100vw-2rem))]">
                 <div className="rounded-[25px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                   <div className="rounded-[23.5px] bg-white p-2">
                 <div className="px-3 py-2.5">

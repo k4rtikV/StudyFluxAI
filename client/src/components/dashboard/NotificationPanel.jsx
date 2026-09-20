@@ -43,9 +43,8 @@ const relativeTime = (value) => {
   return `${days}d ago`;
 };
 
-function NotificationPanel({ onNavigate }) {
+function NotificationPanel({ onNavigate, open, onOpenChange }) {
   const rootRef = useRef(null);
-  const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -92,10 +91,10 @@ function NotificationPanel({ onNavigate }) {
 
   useEffect(() => {
     const close = (event) => {
-      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+      if (rootRef.current && !rootRef.current.contains(event.target)) onOpenChange(false);
     };
     const closeOnEscape = (event) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") onOpenChange(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", closeOnEscape);
@@ -103,7 +102,7 @@ function NotificationPanel({ onNavigate }) {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, []);
+  }, [onOpenChange]);
 
   const openNotification = async (item) => {
     if (!item.readAt) {
@@ -112,7 +111,7 @@ function NotificationPanel({ onNavigate }) {
       markNotificationRead(item.id).catch(() => load({ quiet: true }));
     }
     if (item.actionUrl) {
-      setOpen(false);
+      onOpenChange(false);
       onNavigate(item.actionUrl);
     }
   };
@@ -131,7 +130,7 @@ function NotificationPanel({ onNavigate }) {
     <div ref={rootRef} className="relative shrink-0">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => onOpenChange(!open)}
         className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/84 bg-white/92 text-slate-600 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white md:h-[52px] md:w-[52px] md:rounded-2xl"
         aria-label="Notifications"
         aria-expanded={open}
@@ -155,7 +154,7 @@ function NotificationPanel({ onNavigate }) {
               {unreadCount > 0 && <button type="button" onClick={markAll} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[11px] font-black text-violet-600 transition hover:bg-violet-50"><CheckCheck size={14} /> Mark all read</button>}
             </div>
 
-            <div className="sf-scrollbar max-h-[calc(100dvh-245px)] overflow-y-auto p-2 md:max-h-[480px]">
+            <div className="sf-scrollbar max-h-[calc(100dvh-245px)] touch-pan-y overscroll-contain overflow-y-auto p-2 md:max-h-[min(480px,calc(100dvh-185px))]">
               {loading && !items.length ? (
                 <div className="py-10 text-center text-sm font-semibold text-slate-400">Loading notifications...</div>
               ) : error && !items.length ? (
@@ -191,7 +190,7 @@ function NotificationPanel({ onNavigate }) {
               )}
             </div>
 
-            <button type="button" onClick={() => { setOpen(false); onNavigate("/settings"); }} className="flex w-full items-center justify-between border-t border-slate-100 bg-slate-50/65 px-4 py-3 text-xs font-black text-slate-600 transition hover:text-violet-600"><span>Notification & email preferences</span><ChevronRight size={14} /></button>
+            <button type="button" onClick={() => { onOpenChange(false); onNavigate("/settings"); }} className="flex w-full items-center justify-between border-t border-slate-100 bg-slate-50/65 px-4 py-3 text-xs font-black text-slate-600 transition hover:text-violet-600"><span>Notification & email preferences</span><ChevronRight size={14} /></button>
           </div>
         </div>
       )}
