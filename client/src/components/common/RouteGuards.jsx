@@ -5,7 +5,7 @@ import useAuth from "../../hooks/useAuth";
 
 function AuthLoadingScreen() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-page px-6">
+    <main className="flex min-h-dvh items-center justify-center bg-page px-6">
       <div className="text-center">
         <img
           src="/sfai-logo.png"

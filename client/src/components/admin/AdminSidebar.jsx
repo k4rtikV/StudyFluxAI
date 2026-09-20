@@ -85,13 +85,13 @@ function AdminSidebar({ open, onClose }) {
         <button
           type="button"
           aria-label="Close admin navigation"
-          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm min-[1440px]:hidden"
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[286px] flex-col border-r border-white/8 bg-[linear-gradient(180deg,#071225_0%,#081827_48%,#06251f_100%)] px-4 py-4 text-white shadow-[20px_0_60px_rgba(15,23,42,0.18)] transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(286px,calc(100vw-20px))] flex-col border-r border-white/8 bg-[linear-gradient(180deg,#071225_0%,#081827_48%,#06251f_100%)] px-4 py-4 text-white shadow-[20px_0_60px_rgba(15,23,42,0.18)] transition-transform duration-300 min-[1440px]:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -107,7 +107,7 @@ function AdminSidebar({ open, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/6 text-slate-300 lg:hidden"
+            className="grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-white/6 text-slate-300 min-[1440px]:hidden"
             aria-label="Close navigation"
           >
             <X size={18} />

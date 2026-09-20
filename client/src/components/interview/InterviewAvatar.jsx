@@ -17,14 +17,14 @@ function InterviewAvatar({ state = "ready", level = 0, name = "Astra" }) {
 
   return (
     <div className="relative mx-auto flex w-full max-w-[310px] flex-col items-center">
-      <div className="pointer-events-none absolute left-1/2 top-10 h-48 w-48 -translate-x-1/2 rounded-full bg-violet-400/15 blur-3xl" />
-      <div className="pointer-events-none absolute left-[43%] top-20 h-32 w-32 rounded-full bg-cyan-300/18 blur-3xl" />
+      <div className="pointer-events-none absolute left-1/2 top-8 h-40 w-40 -translate-x-1/2 rounded-full bg-violet-400/15 blur-3xl sm:top-10 sm:h-48 sm:w-48" />
+      <div className="pointer-events-none absolute left-[43%] top-16 h-28 w-28 rounded-full bg-cyan-300/18 blur-3xl sm:top-20 sm:h-32 sm:w-32" />
       <div
-        className={`relative grid h-44 w-44 place-items-center rounded-[44px] border border-white/85 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(238,242,255,0.82),rgba(236,254,255,0.76))] shadow-[0_28px_80px_rgba(76,29,149,0.18)] transition duration-200 ${state === "speaking" || state === "voice_preparing" || state === "listening" ? "ring-4 ring-cyan-200/45" : "ring-1 ring-violet-200/70"}`}
+        className={`relative grid h-36 w-36 place-items-center rounded-[36px] sm:h-44 sm:w-44 sm:rounded-[44px] border border-white/85 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(238,242,255,0.82),rgba(236,254,255,0.76))] shadow-[0_28px_80px_rgba(76,29,149,0.18)] transition duration-200 ${state === "speaking" || state === "voice_preparing" || state === "listening" ? "ring-4 ring-cyan-200/45" : "ring-1 ring-violet-200/70"}`}
         style={{ transform: `scale(${pulseScale})` }}
       >
-        <div className="absolute inset-4 rounded-[34px] bg-[conic-gradient(from_210deg,rgba(124,58,237,0.25),rgba(34,211,238,0.26),rgba(16,185,129,0.20),rgba(124,58,237,0.25))] blur-[1px]" />
-        <div className="relative grid h-32 w-32 place-items-center rounded-[34px] border border-white/80 bg-slate-950 shadow-inner">
+        <div className="absolute inset-3 rounded-[28px] sm:inset-4 sm:rounded-[34px] bg-[conic-gradient(from_210deg,rgba(124,58,237,0.25),rgba(34,211,238,0.26),rgba(16,185,129,0.20),rgba(124,58,237,0.25))] blur-[1px]" />
+        <div className="relative grid h-28 w-28 place-items-center rounded-[28px] sm:h-32 sm:w-32 sm:rounded-[34px] border border-white/80 bg-slate-950 shadow-inner">
           <div className="absolute inset-x-5 top-8 h-9 rounded-full bg-[linear-gradient(90deg,#7c3aed,#22d3ee,#10b981)] opacity-90 blur-[10px]" />
           <div className="relative flex items-center gap-4">
             <span className={`h-3.5 w-7 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.9)] ${state === "processing" ? "animate-pulse" : ""}`} />

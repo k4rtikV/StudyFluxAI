@@ -267,7 +267,7 @@ function SmartInterviewPage() {
             </p>
           </div>
 
-          <div className="grid min-w-[280px] grid-cols-2 gap-3 rounded-3xl border border-white/80 bg-white/72 p-4 shadow-sm backdrop-blur-xl">
+          <div className="grid w-full min-w-0 grid-cols-2 gap-3 rounded-3xl border border-white/80 bg-white/72 p-3 shadow-sm backdrop-blur-xl sm:w-auto sm:min-w-[280px] sm:p-4">
             <div>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Interview cost</p>
               <div className="mt-2 flex items-center gap-2 text-xl font-black text-slate-900">
@@ -476,13 +476,13 @@ function SmartInterviewPage() {
       </section>
 
       {confirmOpen && (
-        <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !starting) setConfirmOpen(false); }}>
-          <div className="w-full max-w-md rounded-[28px] border border-white/70 bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[120] grid place-items-center overflow-y-auto bg-slate-950/45 p-3 backdrop-blur-sm sm:p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !starting) setConfirmOpen(false); }}>
+          <div className="sf-scrollbar max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-[24px] border border-white/70 bg-white p-5 shadow-2xl sm:rounded-[28px] sm:p-6">
             <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600">Final confirmation</p><h3 className="mt-2 text-2xl font-black text-slate-900">Start this mock interview?</h3></div><button type="button" disabled={starting} onClick={() => setConfirmOpen(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"><X size={17} /></button></div>
             <div className="mt-5 rounded-2xl border border-violet-200 bg-violet-50/60 p-4"><p className="font-extrabold text-slate-900">{form.targetRole.trim()}</p><p className="mt-1 text-sm text-slate-600">{selectedType?.label} · {EXPERIENCE_OPTIONS.find(([value]) => value === form.experienceLevel)?.[1]}</p><p className="mt-2 text-xs font-bold text-violet-700">Learner profile: {form.useLearnerProfile ? "included in interview scope" : "excluded from interview scope"}</p></div>
             <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs font-bold text-emerald-800">Microphone and connection checks passed. Your short microphone test remains local and is not uploaded.</div>
             <div className="mt-4 flex items-center justify-between"><span className="text-sm font-bold text-slate-600">Charged once on start</span><span className="inline-flex items-center gap-2 text-lg font-black text-violet-700"><Gem size={18} /> {cost} FluxGems</span></div>
-            <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" disabled={starting} onClick={() => setConfirmOpen(false)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50">Cancel</button><button type="button" disabled={starting} onClick={confirmStart} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-sm font-extrabold text-white disabled:opacity-60">{starting ? <><LoaderCircle size={16} className="animate-spin" /> Starting...</> : <>Confirm & start <ArrowRight size={16} /></>}</button></div>
+            <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3"><button type="button" disabled={starting} onClick={() => setConfirmOpen(false)} className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-50">Cancel</button><button type="button" disabled={starting} onClick={confirmStart} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 px-4 py-3 text-sm font-extrabold text-white disabled:opacity-60">{starting ? <><LoaderCircle size={16} className="animate-spin" /> Starting...</> : <>Confirm & start <ArrowRight size={16} /></>}</button></div>
           </div>
         </div>
       )}

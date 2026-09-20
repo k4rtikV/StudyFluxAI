@@ -91,7 +91,7 @@ function AdminOverviewPage() {
             </p>
           </div>
 
-          <div className="grid min-w-[250px] grid-cols-2 gap-3">
+          <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:w-auto sm:min-w-[250px]">
             <div className="rounded-2xl border border-white/10 bg-white/7 p-4">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">
                 Live content

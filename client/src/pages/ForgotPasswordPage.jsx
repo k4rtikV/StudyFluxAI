@@ -45,8 +45,8 @@ function ForgotPasswordPage() {
   };
 
   return (
-    <main className="min-h-screen bg-page px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
+    <main className="min-h-dvh bg-page px-4 py-8 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl items-center justify-center">
         <section className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm lg:grid-cols-[0.9fr_1.1fr]">
           <div className="hidden bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 p-10 text-white lg:flex lg:flex-col lg:justify-between">
             <img src="/studyfluxai-logo-light.png" alt="StudyFluxAI" className="w-64 drop-shadow-[0_8px_24px_rgba(15,23,42,0.18)]" />

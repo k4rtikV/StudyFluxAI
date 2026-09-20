@@ -465,7 +465,7 @@ function SmartInterviewSessionPage() {
     <>
       <button type="button" onClick={() => navigate("/interview")} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-600 shadow-sm hover:text-violet-700"><ArrowLeft size={15} /> Interview home</button>
 
-      <section className="mt-4 overflow-hidden rounded-[32px] border border-violet-200/75 bg-[linear-gradient(125deg,#ffffff_0%,#f5f3ff_56%,#ecfeff_100%)] p-6 shadow-[0_22px_70px_rgba(79,70,229,0.10)] sm:p-8">
+      <section className="mt-4 overflow-hidden rounded-[28px] border border-violet-200/75 bg-[linear-gradient(125deg,#ffffff_0%,#f5f3ff_56%,#ecfeff_100%)] p-4 shadow-[0_22px_70px_rgba(79,70,229,0.10)] sm:rounded-[32px] sm:p-6 lg:p-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600"><Sparkles size={15} /> Voice Smart Interview</p>
@@ -479,14 +479,14 @@ function SmartInterviewSessionPage() {
         </div>
       </section>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)]">
+      <div className="mt-6 grid min-w-0 gap-5 min-[1700px]:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.55fr)] min-[1700px]:gap-6">
         <section className="overflow-hidden rounded-[30px] border border-cyan-200/70 bg-white/92 shadow-sm">
-          <div className="grid gap-6 p-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:p-8">
-            <div className="rounded-[28px] border border-violet-100 bg-[linear-gradient(145deg,rgba(245,243,255,0.72),rgba(236,254,255,0.62))] p-5">
+          <div className="grid min-w-0 gap-5 p-4 sm:p-6 min-[1100px]:grid-cols-[270px_minmax(0,1fr)] min-[1100px]:gap-6 lg:p-8">
+            <div className="min-w-0 rounded-[24px] border border-violet-100 bg-[linear-gradient(145deg,rgba(245,243,255,0.72),rgba(236,254,255,0.62))] p-4 sm:rounded-[28px] sm:p-5">
               <InterviewAvatar state={engineState === "ready" ? "ready" : engineState} level={level} name={interview.interviewer?.name || "Astra"} />
             </div>
 
-            <div className="flex min-h-[340px] flex-col sm:min-h-[390px] xl:min-h-[430px]">
+            <div className="flex min-h-[320px] min-w-0 flex-col sm:min-h-[390px] xl:min-h-[430px]">
               {interview.status === "completed" ? (
                 <div className="my-auto rounded-[26px] border border-emerald-200 bg-emerald-50/65 p-7 text-center">
                   <CheckCircle2 size={34} className="mx-auto text-emerald-600" />
@@ -527,9 +527,9 @@ function SmartInterviewSessionPage() {
                     </div>
                   </div>
 
-                  <h2 className="mt-5 text-2xl font-black leading-9 tracking-tight text-slate-950">{currentQuestion.text}</h2>
+                  <h2 className="mt-5 text-xl font-black leading-8 tracking-tight text-slate-950 sm:text-2xl sm:leading-9">{currentQuestion.text}</h2>
 
-                  <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 text-center text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
+                  <div className="mt-5 grid grid-cols-1 gap-1.5 rounded-2xl border border-slate-200 bg-white p-2 text-center text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 sm:grid-cols-3 sm:gap-2">
                     <div className={`rounded-xl px-2 py-2 ${["voice_preparing", "speaking"].includes(engineState) ? "bg-cyan-50 text-cyan-700" : ""}`}>1 · Astra asks</div>
                     <div className={`rounded-xl px-2 py-2 ${engineState === "listening" ? "bg-emerald-50 text-emerald-700" : ""}`}>2 · You answer</div>
                     <div className={`rounded-xl px-2 py-2 ${engineState === "processing" ? "bg-violet-50 text-violet-700" : ""}`}>3 · Astra evaluates</div>
@@ -620,7 +620,7 @@ function SmartInterviewSessionPage() {
           </div>
         </section>
 
-        <aside className="space-y-4">
+        <aside className="grid min-w-0 gap-4 md:grid-cols-2 min-[1700px]:grid-cols-1">
           <section className="rounded-[26px] border border-slate-200 bg-white/90 p-5">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-400">Voice rules</p>
             <div className="mt-4 space-y-3 text-xs leading-5 text-slate-600">

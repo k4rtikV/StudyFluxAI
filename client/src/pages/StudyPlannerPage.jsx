@@ -306,8 +306,8 @@ function StudyPlanModal({ open, plan, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/35 p-3 backdrop-blur-sm sm:p-5">
-      <div className="sf-scrollbar max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-[30px] border border-white/80 bg-[#fbfcff] shadow-[0_32px_90px_rgba(15,23,42,0.24)]">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/35 p-3 backdrop-blur-sm sm:p-5">
+      <div className="sf-scrollbar max-h-[94dvh] w-full max-w-4xl overflow-y-auto rounded-[30px] border border-white/80 bg-[#fbfcff] shadow-[0_32px_90px_rgba(15,23,42,0.24)]">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200/80 bg-white/92 px-5 py-4 backdrop-blur-xl sm:px-7">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600">

@@ -231,7 +231,7 @@ function ConversationList({
                     onClick={() => onArchive(conversation.id)}
                     title="Remove conversation"
                     aria-label="Remove conversation"
-                    className="mr-2 grid h-8 w-8 shrink-0 place-items-center rounded-xl text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100"
+                    className="mr-2 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-slate-400 opacity-100 transition hover:bg-rose-50 hover:text-rose-600 xl:opacity-0 xl:text-slate-300 xl:group-hover:opacity-100 focus:opacity-100"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -264,6 +264,17 @@ function AITutorPage() {
   const [loadingConversation, setLoadingConversation] = useState(false);
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    if (!historyOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [historyOpen]);
   const [conversionTarget, setConversionTarget] = useState(null);
   const [convertingMessageId, setConvertingMessageId] = useState("");
   const [generationFailure, setGenerationFailure] = useState(null);
@@ -796,21 +807,33 @@ function AITutorPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
           {usage && <UsagePill usage={usage} />}
 
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 shadow-sm xl:hidden"
-          >
-            <History size={16} />
-            History
-          </button>
+          <div className="grid w-full grid-cols-2 gap-2 sm:w-auto xl:hidden">
+            <button
+              type="button"
+              onClick={startNewChat}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm font-extrabold text-violet-700 shadow-sm transition hover:border-violet-300 hover:bg-violet-50"
+            >
+              <MessageSquarePlus size={16} />
+              New chat
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-extrabold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50/60 hover:text-cyan-700"
+              aria-haspopup="dialog"
+            >
+              <History size={16} />
+              History
+            </button>
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-5 lg:h-[calc(100vh-198px)] xl:grid-cols-[310px_minmax(0,1fr)]">
+      <section className="grid gap-5 lg:h-[calc(100dvh-198px)] xl:grid-cols-[310px_minmax(0,1fr)]">
         <aside className="hidden min-h-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-white/72 shadow-[0_14px_36px_rgba(15,23,42,0.06)] backdrop-blur-xl xl:flex xl:flex-col">
           <ConversationList
             conversations={conversations}
@@ -822,7 +845,7 @@ function AITutorPage() {
           />
         </aside>
 
-        <div className="flex min-h-[650px] min-w-0 flex-col overflow-hidden rounded-3xl border border-cyan-200/80 bg-white/70 shadow-[0_18px_48px_rgba(14,165,233,0.08)] backdrop-blur-xl lg:min-h-0 lg:h-full">
+        <div className="flex min-h-[560px] min-w-0 flex-col overflow-hidden sm:min-h-[650px] rounded-3xl border border-cyan-200/80 bg-white/70 shadow-[0_18px_48px_rgba(14,165,233,0.08)] backdrop-blur-xl lg:min-h-0 lg:h-full">
           <div className="border-b border-slate-100 bg-gradient-to-r from-cyan-50/80 via-white/80 to-violet-50/70 p-4 sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
@@ -879,7 +902,7 @@ function AITutorPage() {
 
             {!activeConversationId && (
               <div className="mt-4 rounded-2xl border border-white/90 bg-white/70 p-3.5 backdrop-blur">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="flex flex-col gap-3 min-[1700px]:flex-row min-[1700px]:items-center">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-400">
                       Optional Study Library context
@@ -895,7 +918,7 @@ function AITutorPage() {
                     onChange={(event) =>
                       setSelectedStudySessionId(event.target.value)
                     }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100/70 lg:max-w-md"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100/70 min-[1700px]:max-w-md"
                   >
                     <option value="">No saved session — general Tutor</option>
 
@@ -1154,7 +1177,7 @@ function AITutorPage() {
                     type="button"
                     onClick={() => handleSend()}
                     disabled={!input.trim() || sending || activeConversation?.isGenerating}
-                    className="grid h-10 w-10 shrink-0 self-end place-items-center rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 sm:self-auto"
+                    className="grid h-11 w-11 shrink-0 self-end place-items-center rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white shadow-md transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 sm:self-auto"
                     aria-label="Send Tutor question"
                   >
                     {sending ? (
@@ -1184,7 +1207,7 @@ function AITutorPage() {
             className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-[1px] xl:hidden"
           />
 
-          <aside className="fixed inset-y-0 right-0 z-50 flex w-[min(92vw,360px)] flex-col border-l border-slate-200 bg-white shadow-2xl xl:hidden">
+          <aside role="dialog" aria-modal="true" aria-label="Tutor conversations" className="fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(92vw,360px)] flex-col border-r border-slate-200 bg-white shadow-2xl xl:hidden">
             <div className="flex h-[68px] items-center justify-between border-b border-slate-100 px-4">
               <div className="flex items-center gap-2">
                 <History size={18} className="text-cyan-600" />
@@ -1194,7 +1217,7 @@ function AITutorPage() {
               <button
                 type="button"
                 onClick={() => setHistoryOpen(false)}
-                className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100"
+                className="grid h-11 w-11 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100"
               >
                 <X size={18} />
               </button>
@@ -1215,8 +1238,8 @@ function AITutorPage() {
         </>
       )}
       {conversionTarget && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl border border-violet-200 bg-white p-5 shadow-2xl sm:p-6">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/35 px-3 py-4 backdrop-blur-sm sm:px-4">
+          <div className="sf-scrollbar max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border border-violet-200 bg-white p-5 shadow-2xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-violet-600">
@@ -1231,7 +1254,7 @@ function AITutorPage() {
                 type="button"
                 onClick={() => setConversionTarget(null)}
                 disabled={Boolean(convertingMessageId)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
                 aria-label="Close Tutor quiz conversion"
               >
                 <X size={18} />

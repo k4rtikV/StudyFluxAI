@@ -132,7 +132,7 @@ function NotificationPanel({ onNavigate }) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/84 bg-white/92 text-slate-600 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
+        className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/84 bg-white/92 text-slate-600 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white md:h-[52px] md:w-[52px] md:rounded-2xl"
         aria-label="Notifications"
         aria-expanded={open}
       >
@@ -145,7 +145,7 @@ function NotificationPanel({ onNavigate }) {
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Notifications" className="absolute right-0 top-[calc(100%+10px)] z-50 w-[min(92vw,390px)] rounded-[24px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_28px_70px_rgba(15,23,42,0.22)]">
+        <div role="dialog" aria-label="Notifications" className="fixed left-3 right-3 top-[118px] z-50 rounded-[24px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_28px_70px_rgba(15,23,42,0.22)] md:absolute md:left-auto md:right-0 md:top-[calc(100%+10px)] md:w-[min(92vw,390px)]">
           <div className="overflow-hidden rounded-[22.5px] bg-white/98 backdrop-blur-2xl">
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-violet-50/80 via-white to-cyan-50/70 px-4 py-3.5">
               <div>
@@ -155,7 +155,7 @@ function NotificationPanel({ onNavigate }) {
               {unreadCount > 0 && <button type="button" onClick={markAll} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[11px] font-black text-violet-600 transition hover:bg-violet-50"><CheckCheck size={14} /> Mark all read</button>}
             </div>
 
-            <div className="sf-scrollbar max-h-[480px] overflow-y-auto p-2">
+            <div className="sf-scrollbar max-h-[calc(100dvh-245px)] overflow-y-auto p-2 md:max-h-[480px]">
               {loading && !items.length ? (
                 <div className="py-10 text-center text-sm font-semibold text-slate-400">Loading notifications...</div>
               ) : error && !items.length ? (

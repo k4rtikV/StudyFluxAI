@@ -284,7 +284,7 @@ function WorkspacePreview() {
 
 function LandingPage() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f7f8fc] text-slate-900">
+    <main className="min-h-dvh overflow-hidden bg-[#f7f8fc] text-slate-900">
       <div className="relative">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[720px] bg-[radial-gradient(circle_at_12%_15%,rgba(139,92,246,0.16),transparent_28%),radial-gradient(circle_at_86%_18%,rgba(34,211,238,0.14),transparent_30%),radial-gradient(circle_at_62%_62%,rgba(16,185,129,0.10),transparent_28%)]" />
         <div className="pointer-events-none absolute left-1/2 top-0 h-px w-[88%] -translate-x-1/2 bg-[linear-gradient(90deg,transparent,rgba(99,102,241,0.24),rgba(34,211,238,0.24),transparent)]" />
@@ -329,7 +329,7 @@ function LandingPage() {
 
         <section
           id="top"
-          className="relative z-10 mx-auto grid min-h-[calc(100vh-82px)] max-w-7xl items-center gap-12 px-5 pb-20 pt-10 sm:px-7 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:pb-24 lg:pt-14"
+          className="relative z-10 mx-auto grid min-h-[calc(100dvh-82px)] max-w-7xl items-center gap-12 px-5 pb-20 pt-10 sm:px-7 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:pb-24 lg:pt-14"
         >
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-200/70 bg-white/75 px-3 py-1.5 text-xs font-extrabold text-violet-700 shadow-sm backdrop-blur-xl">

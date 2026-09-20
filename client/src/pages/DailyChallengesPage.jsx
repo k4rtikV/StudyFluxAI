@@ -457,8 +457,8 @@ function DailyChallengesPage() {
       )}
 
       {pendingVote && (
-        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/45 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="poll-vote-title">
-          <div className="w-full max-w-md rounded-[28px] border border-white/80 bg-white p-6 shadow-[0_28px_90px_rgba(15,23,42,0.28)] sm:p-7">
+        <div className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-slate-950/45 px-3 py-4 backdrop-blur-sm sm:px-4" role="dialog" aria-modal="true" aria-labelledby="poll-vote-title">
+          <div className="sf-scrollbar max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[24px] border border-white/80 bg-white p-5 shadow-[0_28px_90px_rgba(15,23,42,0.28)] sm:rounded-[28px] sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600">Confirm your vote</p>

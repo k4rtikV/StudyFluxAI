@@ -406,7 +406,7 @@ function OnboardingPage() {
     };
 
   return (
-    <main className="min-h-screen bg-page px-4 py-6 sm:px-6 sm:py-10">
+    <main className="min-h-dvh bg-page px-4 py-6 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-4">
           <img

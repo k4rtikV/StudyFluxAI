@@ -76,18 +76,18 @@ function AdminTopbar({ onOpenSidebar }) {
   }, []);
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 border-b border-slate-200/80 bg-white/88 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-2xl lg:left-[286px]">
-      <div className="flex min-h-[78px] items-center gap-3 px-4 sm:px-6 xl:px-8">
+    <header className="fixed left-0 right-0 top-0 z-30 border-b border-slate-200/80 bg-white/88 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-2xl min-[1440px]:left-[286px]">
+      <div className="grid min-h-[78px] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2 px-3 sm:px-4 md:flex md:gap-3 md:px-6 xl:px-8">
         <button
           type="button"
           onClick={onOpenSidebar}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm lg:hidden"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm min-[1440px]:hidden"
           aria-label="Open admin navigation"
         >
           <Menu size={19} />
         </button>
 
-        <div ref={searchRef} className="relative min-w-0 flex-1 lg:max-w-[520px]">
+        <div ref={searchRef} className="relative min-w-0 md:flex-1 md:max-w-[520px]">
           <Search
             size={17}
             className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-slate-400"
@@ -101,7 +101,7 @@ function AdminTopbar({ onOpenSidebar }) {
           />
 
           {open && (
-            <div className="absolute left-0 right-0 top-[calc(100%+10px)] overflow-hidden rounded-[22px] border border-slate-200 bg-white/98 shadow-[0_24px_60px_rgba(15,23,42,0.16)] backdrop-blur-xl">
+            <div className="fixed left-3 right-3 top-[86px] overflow-hidden rounded-[22px] border border-slate-200 bg-white/98 shadow-[0_24px_60px_rgba(15,23,42,0.16)] backdrop-blur-xl md:absolute md:left-0 md:right-0 md:top-[calc(100%+10px)]">
               <div className="border-b border-slate-100 px-4 py-3">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-emerald-600">
                   Admin navigation
@@ -149,8 +149,8 @@ function AdminTopbar({ onOpenSidebar }) {
           )}
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-emerald-700 sm:flex">
+        <div className="ml-auto flex min-w-0 items-center justify-end gap-2 md:gap-3">
+          <div className="hidden items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-emerald-700 md:flex">
             <ShieldCheck size={16} />
             <span className="text-xs font-extrabold uppercase tracking-[0.1em]">
               Admin session
@@ -160,9 +160,10 @@ function AdminTopbar({ onOpenSidebar }) {
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="flex min-h-[48px] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm transition hover:border-emerald-200"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm transition hover:border-emerald-200 md:min-h-[48px] md:w-auto md:gap-3 md:rounded-2xl md:px-2.5 md:py-1.5"
+            aria-label="Open admin profile"
           >
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-slate-900 to-emerald-900 text-sm font-black text-white">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-slate-900 to-emerald-900 text-sm font-black text-white md:h-9 md:w-9 md:rounded-xl">
               {(user?.fullName || "A").slice(0, 1).toUpperCase()}
             </div>
             <div className="hidden text-left leading-tight xl:block">

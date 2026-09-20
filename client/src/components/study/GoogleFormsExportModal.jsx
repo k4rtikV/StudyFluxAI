@@ -35,8 +35,8 @@ function GoogleFormsExportModal({ open, loading = false, onClose, onExport }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/38 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-violet-200/80 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.28)]">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/38 px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-6">
+      <div className="sf-scrollbar max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-[24px] border border-violet-200/80 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.28)] sm:rounded-[28px]">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-violet-600">

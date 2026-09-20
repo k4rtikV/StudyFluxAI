@@ -71,7 +71,7 @@ function NavButton({ item, active, onSelect }) {
 
   return (
     <div
-      className="relative w-full lg:w-[270px]"
+      className="relative w-full min-[1440px]:w-[270px]"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -80,9 +80,9 @@ function NavButton({ item, active, onSelect }) {
         onClick={() => onSelect(item)}
         onFocus={() => setHovered(true)}
         onBlur={() => setHovered(false)}
-        className={`group relative z-10 flex w-full items-center gap-3 border px-3 py-2 text-left text-sm font-semibold transition-[background-color,border-color,color,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.992] lg:origin-left ${
+        className={`group relative z-10 flex w-full items-center gap-3 border px-3 py-2 text-left text-sm font-semibold transition-[background-color,border-color,color,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.992] min-[1440px]:origin-left ${
           emphasized
-            ? "rounded-2xl border-white/65 bg-[linear-gradient(100deg,rgba(255,255,255,0.99)_0%,rgba(255,255,255,0.985)_100%)] text-slate-800 lg:rounded-r-none lg:border-r-0"
+            ? "rounded-2xl border-white/65 bg-[linear-gradient(100deg,rgba(255,255,255,0.99)_0%,rgba(255,255,255,0.985)_100%)] text-slate-800 min-[1440px]:rounded-r-none min-[1440px]:border-r-0"
             : "rounded-2xl border-white/10 bg-emerald-950/12 text-white/88 hover:border-white/22 hover:bg-white/10"
         }`}
       >
@@ -130,7 +130,7 @@ function NavButton({ item, active, onSelect }) {
 
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 left-full hidden w-8 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.94)_50%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:block ${
+        className={`pointer-events-none absolute inset-y-0 left-full hidden w-8 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.94)_50%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] min-[1440px]:block ${
           emphasized ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
         }`}
       />
@@ -191,7 +191,7 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
 
   return (
     <div
-      className={`relative grid w-full overflow-visible transition-[grid-template-rows] duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:w-[270px] ${
+      className={`relative grid w-full overflow-visible transition-[grid-template-rows] duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)] min-[1440px]:w-[270px] ${
         expanded
           ? "grid-rows-[54px_54px_58px]"
           : "grid-rows-[54px_0px_0px]"
@@ -205,14 +205,14 @@ function GenerateNavGroup({ active, pathname, onSelect }) {
         aria-hidden="true"
         className={`pointer-events-none absolute inset-0 rounded-2xl border transition-[background-color,border-color] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
           emphasized
-            ? "border-white/65 bg-[linear-gradient(100deg,rgba(255,255,255,0.99)_0%,rgba(255,255,255,0.985)_100%)] lg:rounded-r-none lg:border-r-0"
+            ? "border-white/65 bg-[linear-gradient(100deg,rgba(255,255,255,0.99)_0%,rgba(255,255,255,0.985)_100%)] min-[1440px]:rounded-r-none min-[1440px]:border-r-0"
             : "border-white/10 bg-emerald-950/12"
         }`}
       />
 
       <span
         aria-hidden="true"
-        className={`pointer-events-none absolute inset-y-0 left-full hidden w-8 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.94)_50%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:block ${
+        className={`pointer-events-none absolute inset-y-0 left-full hidden w-8 origin-left rounded-r-2xl border-y border-r border-white/65 bg-[linear-gradient(90deg,rgba(255,255,255,0.985)_0%,rgba(247,248,252,0.94)_50%,rgba(247,248,252,0)_100%)] transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] min-[1440px]:block ${
           emphasized ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
         }`}
       />
@@ -425,12 +425,12 @@ function DashboardSidebar({ open, onClose }) {
           type="button"
           aria-label="Close navigation"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px] min-[1440px]:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[286px] flex-col bg-[linear-gradient(180deg,#0d6b72_0%,#0f766e_42%,#0b5f56_100%)] backdrop-blur-2xl transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(286px,calc(100vw-20px))] flex-col bg-[linear-gradient(180deg,#0d6b72_0%,#0f766e_42%,#0b5f56_100%)] backdrop-blur-2xl transition-transform duration-300 min-[1440px]:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -449,14 +449,14 @@ function DashboardSidebar({ open, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-xl text-emerald-100/75 transition hover:bg-white/8 hover:text-white lg:hidden"
+            className="grid h-11 w-11 place-items-center rounded-xl text-emerald-100/75 transition hover:bg-white/8 hover:text-white min-[1440px]:hidden"
             aria-label="Close sidebar"
           >
             <X size={19} />
           </button>
         </div>
 
-        <div className="sf-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 lg:w-[calc(100%+64px)] lg:pr-20">
+        <div className="sf-scrollbar relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 min-[1440px]:w-[calc(100%+64px)] min-[1440px]:pr-20">
           <nav className="space-y-1.5">
             {PRIMARY_NAV.map((item) =>
               item.path === "/generate" ? (
@@ -545,7 +545,7 @@ function DashboardSidebar({ open, onClose }) {
             {/* Unified active surface + workspace spill */}
             <span
               aria-hidden="true"
-              className={`pointer-events-none absolute inset-y-0 left-0 w-full origin-left rounded-3xl bg-white transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:w-[calc(100%+64px)] lg:bg-[linear-gradient(90deg,rgba(255,255,255,0.998)_0%,rgba(255,255,255,0.998)_80%,rgba(250,251,253,0.965)_88%,rgba(247,248,252,0)_100%)] ${
+              className={`pointer-events-none absolute inset-y-0 left-0 w-full origin-left rounded-3xl bg-white transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] min-[1440px]:w-[calc(100%+64px)] min-[1440px]:bg-[linear-gradient(90deg,rgba(255,255,255,0.998)_0%,rgba(255,255,255,0.998)_80%,rgba(250,251,253,0.965)_88%,rgba(247,248,252,0)_100%)] ${
                 fluxGemEmphasized
                   ? "translate-x-0 scale-x-100 opacity-100"
                   : "-translate-x-1 scale-x-[0.94] opacity-0"

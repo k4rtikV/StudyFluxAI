@@ -360,15 +360,15 @@ function DashboardTopbar({ onOpenSidebar }) {
   const isMaxLevel = Boolean(progression.isMaxLevel);
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/14 bg-[linear-gradient(90deg,#0d6b72_0%,#0e7490_22%,#1695b3_38%,#3b82d0_57%,#4f63c7_76%,#6d28b8_100%)] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:left-[286px]">
+    <header className="fixed left-0 right-0 top-0 z-30 border-b border-white/14 bg-[linear-gradient(90deg,#0d6b72_0%,#0e7490_22%,#1695b3_38%,#3b82d0_57%,#4f63c7_76%,#6d28b8_100%)] shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl min-[1440px]:left-[286px]">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_2%_0%,rgba(255,255,255,0.12),transparent_19%),linear-gradient(90deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0.015)_35%,rgba(255,255,255,0.07)_100%)]" />
       <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-white/18" />
 
-      <div className="relative flex min-h-[82px] items-center gap-3 px-4 py-3 sm:px-6 xl:px-8">
+      <div className="relative grid min-h-[112px] grid-cols-[44px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 px-3 py-2 sm:px-4 md:flex md:min-h-[82px] md:gap-3 md:px-6 md:py-3 xl:px-8">
         <button
           type="button"
           onClick={onOpenSidebar}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-emerald-100/60 bg-white/86 text-slate-600 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white lg:hidden"
+          className="col-start-1 row-start-1 grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-emerald-100/60 bg-white/86 text-slate-600 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white md:col-auto md:row-auto min-[1440px]:hidden"
           aria-label="Open navigation"
         >
           <Menu size={20} />
@@ -376,7 +376,7 @@ function DashboardTopbar({ onOpenSidebar }) {
 
         <div
           ref={searchRef}
-          className="relative min-w-0 flex-1 lg:max-w-[300px] xl:max-w-[430px] 2xl:max-w-[540px]"
+          className="relative col-start-2 row-start-1 min-w-0 md:col-auto md:row-auto md:flex-1 md:max-w-[300px] xl:max-w-[430px] 2xl:max-w-[540px]"
         >
           <form onSubmit={handleSearchSubmit} className="relative">
             <Search
@@ -395,7 +395,7 @@ function DashboardTopbar({ onOpenSidebar }) {
           </form>
 
           {searchOpen && (
-            <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-50 rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.16)]">
+            <div className="fixed left-3 right-3 top-[118px] z-50 rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.16)] md:absolute md:left-0 md:right-0 md:top-[calc(100%+10px)]">
               <div className="overflow-hidden rounded-[21.5px] bg-white/96 ring-1 ring-white/70 backdrop-blur-2xl">
               <div className="flex items-center justify-between gap-3 border-b border-slate-100/90 bg-gradient-to-r from-emerald-50/70 via-cyan-50/45 to-violet-50/60 px-4 py-3">
                 <div>
@@ -413,7 +413,7 @@ function DashboardTopbar({ onOpenSidebar }) {
                 </span>
               </div>
 
-              <div className="sf-scrollbar max-h-[340px] overflow-y-auto p-2">
+              <div className="sf-scrollbar max-h-[calc(100dvh-210px)] overflow-y-auto p-2 md:max-h-[340px]">
                 {filteredSearchItems.length ? (
                   filteredSearchItems.map((item) => {
                     const Icon = item.icon;
@@ -462,7 +462,7 @@ function DashboardTopbar({ onOpenSidebar }) {
           )}
         </div>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+        <div className="col-span-2 row-start-2 flex w-full min-w-0 items-center justify-between gap-2 md:col-auto md:row-auto md:ml-auto md:w-auto md:shrink-0 md:justify-start md:gap-2 xl:gap-3">
           <NotificationPanel onNavigate={goTo} />
 
           <div
@@ -492,11 +492,12 @@ function DashboardTopbar({ onOpenSidebar }) {
                 setProfileOpen(false);
                 setPlannerMenuOpen(false);
               }}
-              className="flex min-h-[52px] items-center gap-2 rounded-2xl border border-white/84 bg-white/92 px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/84 bg-white/92 p-1 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white md:min-h-[52px] md:w-auto md:gap-2 md:rounded-2xl md:px-2.5 md:py-1.5"
               aria-label="Open FluxGems wallet menu"
               aria-expanded={gemMenuOpen}
             >
-              <FluxGemMark size={32} />
+              <FluxGemMark size={28} className="md:hidden" />
+              <FluxGemMark size={32} className="hidden md:grid" />
 
               <div className="hidden text-left leading-tight xl:block">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600">
@@ -511,7 +512,7 @@ function DashboardTopbar({ onOpenSidebar }) {
             </button>
 
             {gemMenuOpen && (
-              <div className="absolute right-0 top-full z-40 w-64 pt-2.5">
+              <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-40 max-h-[calc(100dvh-124px)] overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-none md:w-64 md:overflow-visible">
                 <div className="rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                   <div className="rounded-[21.5px] bg-white p-2">
                 <div className="rounded-xl bg-gradient-to-br from-emerald-50 via-cyan-50/70 to-violet-50 p-3">
@@ -568,14 +569,14 @@ function DashboardTopbar({ onOpenSidebar }) {
               type="button"
               onClick={() => goTo("/planner")}
               aria-expanded={plannerMenuOpen}
-              className={`relative flex min-h-[52px] items-center gap-2 rounded-2xl border px-2.5 py-1.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition ${
+              className={`relative flex h-11 w-11 items-center justify-center rounded-xl border p-1 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition md:min-h-[52px] md:w-auto md:gap-2 md:rounded-2xl md:px-2.5 md:py-1.5 ${
                 location.pathname === "/planner"
                   ? "border-violet-100 bg-white text-violet-700"
                   : "border-white/84 bg-white/92 text-slate-600 hover:bg-white"
               }`}
               aria-label="Open Study Planner"
             >
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-violet-100 via-cyan-100 to-emerald-100 text-violet-700 ring-1 ring-white">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-violet-100 via-cyan-100 to-emerald-100 text-violet-700 ring-1 ring-white md:h-8 md:w-8 md:rounded-xl">
                 <CalendarCheck2 size={17} />
               </span>
 
@@ -596,7 +597,7 @@ function DashboardTopbar({ onOpenSidebar }) {
             </button>
 
             {plannerMenuOpen && (
-            <div className="absolute right-0 top-full z-50 w-[300px] pt-2.5">
+            <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-50 max-h-[calc(100dvh-124px)] overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-none md:w-[300px] md:overflow-visible">
               <div className="rounded-[23px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                 <div className="overflow-hidden rounded-[21.5px] bg-white/97 backdrop-blur-2xl">
                 <div className="p-3">
@@ -671,12 +672,13 @@ function DashboardTopbar({ onOpenSidebar }) {
                 setGemMenuOpen(false);
                 setPlannerMenuOpen(false);
               }}
-              className="flex min-h-[52px] max-w-[240px] items-center gap-2 rounded-2xl border border-white/84 bg-white/92 p-1.5 pr-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/84 bg-white/92 p-1 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white md:min-h-[52px] md:w-auto md:max-w-[240px] md:gap-2 md:rounded-2xl md:p-1.5 md:pr-2.5"
+              aria-label="Open profile and progress menu"
               aria-expanded={profileOpen}
             >
               <UserAvatar
                 user={user}
-                className="h-9 w-9 rounded-lg"
+                className="h-8 w-8 rounded-lg md:h-9 md:w-9"
                 initialsClassName="text-sm"
               />
 
@@ -704,7 +706,7 @@ function DashboardTopbar({ onOpenSidebar }) {
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 top-full z-40 w-[min(22rem,calc(100vw-2rem))] pt-2.5">
+              <div className="sf-scrollbar fixed left-3 right-3 top-[118px] z-40 max-h-[calc(100dvh-124px)] overflow-y-auto pt-2.5 md:absolute md:left-auto md:right-0 md:top-full md:max-h-none md:w-[min(22rem,calc(100vw-2rem))] md:overflow-visible">
                 <div className="rounded-[25px] bg-gradient-to-r from-violet-500 via-cyan-400 to-emerald-400 p-[1.5px] shadow-[0_24px_56px_rgba(15,23,42,0.18)]">
                   <div className="rounded-[23.5px] bg-white p-2">
                 <div className="px-3 py-2.5">

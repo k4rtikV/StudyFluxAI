@@ -83,8 +83,8 @@ function ResetPasswordPage() {
   const inputClass = (hasError) => `w-full rounded-xl border bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 ${hasError ? "border-rose-400 focus:ring-4 focus:ring-rose-100" : "border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-100"}`;
 
   return (
-    <main className="min-h-screen bg-page px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
+    <main className="min-h-dvh bg-page px-4 py-8 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl items-center justify-center">
         <section className="w-full max-w-xl rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-10">
           <Link to="/login" className="mb-7 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition hover:text-slate-900"><ArrowLeft size={17} /> Back to sign in</Link>
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-amber-600"><KeyRound size={27} /></div>

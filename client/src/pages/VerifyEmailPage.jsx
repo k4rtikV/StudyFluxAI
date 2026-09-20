@@ -427,8 +427,8 @@ function VerifyEmailPage() {
   }
 
   return (
-    <main className="min-h-screen bg-page px-4 py-8 sm:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
+    <main className="min-h-dvh bg-page px-4 py-8 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl items-center justify-center">
         <section className="w-full max-w-lg rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-10">
           <Link
             to="/register"

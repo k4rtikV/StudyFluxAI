@@ -338,7 +338,7 @@ function UserSettingsPage() {
               value={form.timezone || ""}
               onChange={(event) => setForm((current) => ({ ...current, timezone: event.target.value }))}
               placeholder="e.g. Asia/Kolkata"
-              className="h-11 min-w-[260px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+              className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100 sm:min-w-[260px]"
             />
             <button
               type="button"
