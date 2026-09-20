@@ -462,7 +462,7 @@ function DashboardTopbar({ onOpenSidebar }) {
           )}
         </div>
 
-        <div className="col-span-2 row-start-2 flex w-full min-w-0 items-center justify-between gap-2 md:col-auto md:row-auto md:ml-auto md:w-auto md:shrink-0 md:justify-start md:gap-2 xl:gap-3">
+        <div className="col-span-2 row-start-2 flex w-full min-w-0 items-center justify-end gap-2 md:col-auto md:row-auto md:ml-auto md:w-auto md:shrink-0 md:justify-start md:gap-2 xl:gap-3">
           <NotificationPanel onNavigate={goTo} />
 
           <div
@@ -474,11 +474,6 @@ function DashboardTopbar({ onOpenSidebar }) {
               setPlannerMenuOpen(false);
             }}
             onMouseLeave={() => setGemMenuOpen(false)}
-            onFocusCapture={() => {
-              setGemMenuOpen(true);
-              setProfileOpen(false);
-              setPlannerMenuOpen(false);
-            }}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
                 setGemMenuOpen(false);
@@ -488,12 +483,12 @@ function DashboardTopbar({ onOpenSidebar }) {
             <button
               type="button"
               onClick={() => {
-                setGemMenuOpen(true);
+                setGemMenuOpen((current) => !current);
                 setProfileOpen(false);
                 setPlannerMenuOpen(false);
               }}
               className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/84 bg-white/92 p-1 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white md:min-h-[52px] md:w-auto md:gap-2 md:rounded-2xl md:px-2.5 md:py-1.5"
-              aria-label="Open FluxGems wallet menu"
+              aria-label={gemMenuOpen ? "Close FluxGems wallet menu" : "Open FluxGems wallet menu"}
               aria-expanded={gemMenuOpen}
             >
               <FluxGemMark size={28} className="md:hidden" />
@@ -654,11 +649,6 @@ function DashboardTopbar({ onOpenSidebar }) {
               setPlannerMenuOpen(false);
             }}
             onMouseLeave={() => setProfileOpen(false)}
-            onFocusCapture={() => {
-              setProfileOpen(true);
-              setGemMenuOpen(false);
-              setPlannerMenuOpen(false);
-            }}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
                 setProfileOpen(false);
@@ -668,12 +658,12 @@ function DashboardTopbar({ onOpenSidebar }) {
             <button
               type="button"
               onClick={() => {
-                setProfileOpen(true);
+                setProfileOpen((current) => !current);
                 setGemMenuOpen(false);
                 setPlannerMenuOpen(false);
               }}
               className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/84 bg-white/92 p-1 shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:bg-white md:min-h-[52px] md:w-auto md:max-w-[240px] md:gap-2 md:rounded-2xl md:p-1.5 md:pr-2.5"
-              aria-label="Open profile and progress menu"
+              aria-label={profileOpen ? "Close profile and progress menu" : "Open profile and progress menu"}
               aria-expanded={profileOpen}
             >
               <UserAvatar

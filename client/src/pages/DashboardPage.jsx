@@ -114,6 +114,26 @@ function MetricCard({
   );
 }
 
+function MobileMetricCard({ icon: Icon, iconClass, label, value, children }) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-slate-200/80 bg-white/78 px-2.5 py-3 text-center shadow-[0_8px_22px_rgba(15,23,42,0.05)] backdrop-blur-xl">
+      <div className="mx-auto flex h-8 w-8 items-center justify-center">
+        {children || (
+          <span className={`grid h-8 w-8 place-items-center rounded-xl ${iconClass}`}>
+            <Icon size={16} />
+          </span>
+        )}
+      </div>
+      <p className="mt-2 truncate text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-black tracking-tight text-slate-900">
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
 
@@ -228,7 +248,30 @@ function DashboardPage() {
         </button>
       </section>
 
-      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="mt-4 grid grid-cols-3 gap-2 sm:hidden" aria-label="Learning progress summary">
+        <MobileMetricCard
+          icon={Zap}
+          iconClass="bg-amber-50 text-amber-600"
+          label="XP"
+          value={progressError ? "—" : totalXp.toLocaleString()}
+        />
+
+        <MobileMetricCard
+          label="FluxGems"
+          value={Number(user?.fluxGems || 0).toLocaleString()}
+        >
+          <FluxGemMark size={32} />
+        </MobileMetricCard>
+
+        <MobileMetricCard
+          icon={Flame}
+          iconClass="bg-emerald-50 text-emerald-600"
+          label="Streak"
+          value={progressError ? "—" : `${Number(stats.currentStreak || 0)}d`}
+        />
+      </section>
+
+      <section className="mt-6 hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           icon={Zap}
           iconClass="bg-amber-50 text-amber-600"

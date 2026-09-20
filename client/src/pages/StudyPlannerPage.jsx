@@ -735,7 +735,7 @@ function StudyPlannerPage() {
           </button>
         </section>
       ) : (
-        <section className="mt-7 grid gap-5 xl:grid-cols-2">
+        <section className="mt-7 grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-2">
           {displayedPlans.map((plan) => {
             const priority = PRIORITY_META[plan.priority] || PRIORITY_META.medium;
             const status = STATUS_META[plan.status] || STATUS_META.planned;
@@ -745,7 +745,7 @@ function StudyPlannerPage() {
             return (
               <article
                 key={plan.id}
-                className={`group rounded-3xl border p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 sm:p-6 ${
+                className={`group min-w-0 max-w-full overflow-hidden rounded-3xl border p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 sm:p-6 ${
                   overdue
                     ? "border-rose-200/90 bg-gradient-to-br from-white via-white to-rose-50/60 shadow-[0_12px_34px_rgba(225,29,72,0.07)] hover:border-rose-300 hover:shadow-[0_20px_44px_rgba(225,29,72,0.11)]"
                     : "border-violet-200/80 bg-white/74 shadow-[0_12px_34px_rgba(15,23,42,0.06)] hover:border-violet-300 hover:bg-white/90 hover:shadow-[0_20px_44px_rgba(109,40,217,0.11)]"
@@ -768,8 +768,8 @@ function StudyPlannerPage() {
                         </span>
                       )}
                     </div>
-                    <h2 className="mt-4 text-xl font-black leading-7 text-slate-950">{plan.title}</h2>
-                    <p className="mt-1 text-sm font-bold text-violet-600">{plan.topic}</p>
+                    <h2 className="mt-4 break-words text-xl font-black leading-7 text-slate-950">{plan.title}</h2>
+                    <p className="mt-1 break-words text-sm font-bold text-violet-600">{plan.topic}</p>
                     {plan.goal && <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">{plan.goal}</p>}
                   </div>
 
@@ -799,7 +799,7 @@ function StudyPlannerPage() {
                 </div>
 
                 {plan.linkedStudySessions?.length > 0 && (
-                  <div className="mt-4 rounded-2xl border border-cyan-100 bg-gradient-to-r from-cyan-50/70 via-white to-violet-50/60 p-3.5">
+                  <div className="mt-4 min-w-0 max-w-full overflow-hidden rounded-2xl border border-cyan-100 bg-gradient-to-r from-cyan-50/70 via-white to-violet-50/60 p-3.5">
                     <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.1em] text-slate-500"><Link2 size={14} /> Study material</div>
                     <div className="mt-2.5 space-y-2">
                       {plan.linkedStudySessions.slice(0, 4).map((item) => {
@@ -810,7 +810,7 @@ function StudyPlannerPage() {
                             key={item.id}
                             type="button"
                             onClick={() => navigate(`/study/${item.id}`)}
-                            className="group/item flex w-full items-center gap-3 rounded-xl border border-white/90 bg-white/75 px-3 py-2.5 text-left transition hover:bg-white"
+                            className="group/item flex min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-xl border border-white/90 bg-white/75 px-3 py-2.5 text-left transition hover:bg-white"
                           >
                             <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${meta.className}`}><Icon size={15} /></span>
                             <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-700">{getLibraryItemTitle(item)}</span>
@@ -829,28 +829,28 @@ function StudyPlannerPage() {
                   </div>
                 )}
 
-                <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="mt-5 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                   {plan.status === "planned" && (
-                    <button type="button" disabled={busy} onClick={() => changeStatus(plan, "in_progress")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white transition hover:-translate-y-0.5 disabled:opacity-60">
+                    <button type="button" disabled={busy} onClick={() => changeStatus(plan, "in_progress")} className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white transition hover:-translate-y-0.5 disabled:opacity-60 sm:w-auto">
                       {busy ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={15} />} Start plan
                     </button>
                   )}
                   {plan.status === "in_progress" && (
                     <>
-                      <button type="button" disabled={busy} onClick={() => continuePlan(plan)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white transition hover:-translate-y-0.5 disabled:opacity-60">
+                      <button type="button" disabled={busy} onClick={() => continuePlan(plan)} className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-extrabold text-white transition hover:-translate-y-0.5 disabled:opacity-60 sm:w-auto">
                         <Play size={15} /> Continue plan
                       </button>
-                      <button type="button" disabled={busy} onClick={() => changeStatus(plan, "completed")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-extrabold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:opacity-60">
+                      <button type="button" disabled={busy} onClick={() => changeStatus(plan, "completed")} className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-extrabold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:opacity-60 sm:w-auto">
                         {busy ? <LoaderCircle size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Mark complete
                       </button>
                     </>
                   )}
                   {plan.status === "completed" && (
-                    <button type="button" disabled={busy} onClick={() => changeStatus(plan, "planned")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60">
+                    <button type="button" disabled={busy} onClick={() => changeStatus(plan, "planned")} className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60 sm:w-auto">
                       Reopen plan
                     </button>
                   )}
-                  <button type="button" onClick={() => openEdit(plan)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-violet-200 hover:text-violet-700">
+                  <button type="button" onClick={() => openEdit(plan)} className="inline-flex w-full min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-violet-200 hover:text-violet-700 sm:w-auto">
                     <Flag size={15} /> Reschedule / edit
                   </button>
                 </div>
